@@ -36,7 +36,7 @@
 - 不以换语言为目的。核心语言保持 C++。
 - 不追求与上游 OpenToonz 长期合并兼容。Phase 2 之后接受架构级分叉。
 - aarch64 Linux 桌面不在目标内。
-- Android 远期可选，不进入当前计划的承诺范围。
+- Android 只作为可选的 Phase 5 记录技术路线，不承诺排期与人月。
 
 ---
 
@@ -75,7 +75,7 @@
 | `glPushMatrix`/`glPopMatrix` | 167 处，50 个文件 |
 | 显示列表 `glNewList`/`glCallList` | 8 / 8 处 |
 | `QOpenGLShaderProgram` | 41 处，7 个文件 |
-| VAO、`glDrawElements`、裸 FBO 调用 | 0 |
+| VAO、`glDrawElements`、`glGenFramebuffers`/`glBindFramebuffer` | 0；裸 FBO 调用仅 `sceneviewer.cpp` 的 2 处 `glCheckFramebufferStatus` 能力检测 |
 | `glGetDoublev` 矩阵回读 | 37 处，14 个文件 |
 | `GL_SELECT` 拾取 | 1 处入口，46 处 `glPushName` |
 
@@ -96,13 +96,13 @@
 
 GL 耦合最深的三处：
 
-1. **矢量样式系统本身就是渲染器。** `TColorStyle` 子类的 `drawStroke`/`drawRegion` 直接发 GL 立即模式。colorfx 里 57 个样式实现手写 `glBegin`，`strokestyles.cpp` 一个文件 220 处 GL 调用。区域填充走 GLU 细分器（`common/tvrender/ttessellator.cpp`），回调直接接 `glBegin`/`glVertex3dv`，三角形从不被捕获。
-2. **矢量层的最终渲染没有 CPU 路径。** `TLevelColumnFx::doCompute` 的矢量分支（`toonzlib/tcolumnfx.cpp` 约 1036 到 1084 行）每帧通过 `TOfflineGL` 离屏绘制再 `glReadPixels`。`TOfflineGL` 的后端在 Windows 上是 WGL 加 `PFD_DRAW_TO_BITMAP`，即微软 GDI 软件 OpenGL 1.1；在 Linux 和 macOS 上是 `QOpenGLContext` 加 `QOffscreenSurface` 加 FBO。同一场景在不同平台的像素结果因此已经不一致。
-3. **工具层靠 GL 状态机。** 37 个工具重载 `draw()`，通过 `glGetDoublev` 回读矩阵来计算像素大小，拾取用 `GL_SELECT` 名字栈。`TToolViewer` 直接继承 `QOpenGLWidget`。
+1. **矢量样式系统本身就是渲染器。** `TColorStyle` 子类的 `drawStroke`/`drawRegion` 直接发 GL 立即模式。colorfx 注册了 45 个样式类，其中 57 个 `drawStroke`/`drawRegion` 实现手写 `glBegin`，`strokestyles.cpp` 一个文件 220 处 GL 调用。区域填充走 GLU 细分器（`common/tvrender/ttessellator.cpp`），回调直接接 `glBegin`/`glVertex3dv`，三角形从不被捕获。
+2. **矢量层的最终渲染没有 CPU 路径。** `TLevelColumnFx::doCompute` 的矢量分支（`toonzlib/tcolumnfx.cpp` 约 1036 到 1084 行）每帧通过 `TOfflineGL` 离屏绘制再 `glReadPixels`。`TOfflineGL` 的后端在 Windows 上是 WGL 加 `PFD_DRAW_TO_BITMAP`，即微软 GDI 软件 OpenGL 1.1；在 Linux 和 macOS 上是 `QOpenGLContext` 加 `QOffscreenSurface` 加 FBO。同一场景在不同平台的像素结果因此几乎必然不一致，尚未实测，Phase 0 的分平台基线会量化。
+3. **工具层靠 GL 状态机。** 37 个工具重载 `draw()`，通过 `glGetDoublev` 回读矩阵来计算像素大小，拾取用 `GL_SELECT` 名字栈。`TToolViewer` 继承 `GLWidgetForHighDpi`，后者是 `QOpenGLWidget` 的子类。
 
 需要 GL 上下文的渲染路径：矢量层渲染、`vectorToToonzImage`、图标生成、PlasticDeformerFx、ShaderFx、iwa_FlowPaintBrushFx、粒子特效的默认精灵、tconverter 的 pli 光栅化。因此 tcomposer 批量渲染在多数场景下需要一个 GL 上下文。
 
-`TOfflineGL` 的使用方约 15 处：`toonzlib/tcolumnfx.cpp`、`toonzqt/icongenerator.cpp`、`common/tvrender/tcolorstyles.cpp`（样式图标）、`common/tvectorimage/tvectorimage.cpp`（`TVectorImage::render`）、`toonzlib/toonzimageutils.cpp`、`toonzlib/trasterimageutils.cpp`、`toonzlib/moviegenerator.cpp`、`toonz/exportlevelcommand.cpp`、`toonz/trackerpopup.cpp`、`toonzlib/stylemanager.cpp`、`toonzlib/scriptbinding_rasterizer.cpp`、`stdfx/particlesfx.cpp`、`stdfx/iwa_particlesfx.cpp`、`tconverter/tconverter.cpp`、`toonzpreview/`。
+`TOfflineGL` 的使用方约 22 个文件（不含其自身实现）：`toonzlib/tcolumnfx.cpp`、`toonzlib/toonzscene.cpp`、`toonzlib/txshsimplelevel.cpp`、`toonzlib/imagebuilders.cpp`、`toonzlib/toonzimageutils.cpp`、`toonzlib/trasterimageutils.cpp`、`toonzlib/stylemanager.cpp`、`toonzlib/scriptbinding_rasterizer.cpp`、`toonzqt/icongenerator.cpp`、`toonzqt/imageutils.cpp`、`common/tvrender/tcolorstyles.cpp`（样式图标）、`common/tvrender/tsimplecolorstyles.cpp`（光栅图案样式）、`common/tvectorimage/tvectorimage.cpp`（`TVectorImage::render`）、`toonz/moviegenerator.cpp`、`toonz/exportlevelcommand.cpp`、`toonz/trackerpopup.cpp`、`toonz/meshifypopup.cpp`、`stdfx/particlesfx.cpp`、`stdfx/iwa_particlesfx.cpp`、`tconverter/tconverter.cpp`、`toonzpreview/`，以及未编译的 `toonzfarm/tfarmclient/thumbnail.cpp`。
 
 已有的可复用抽象种子：`TOfflineGL` 的 `Imp`/`ImpGenerator` 可插拔后端；`TTessellator` 接口（目前只有 GLU 实现）；`TVectorRenderData` 是纯数据；`TStrokeProp`/`TRegionProp::draw(rd)` 多态样式绘制接口；`Stage::Visitor` 把场景遍历与绘制分开；`TStencilControl` 的 mask API 不暴露 stencil 细节；`TGLDisplayListsManager` 跟踪上下文共享组。
 
@@ -110,14 +110,14 @@ GL 耦合最深的三处：
 
 构建只支持 Qt5，最低 5.5.0，CI 用 5.15.x。本仓库没有任何 Qt6 适配：0 处 `QT_VERSION_CHECK`，0 处 "Qt6"。
 
-全树 2,250 个源文件中 834 个直接包含 Qt 头。以下 12 个核心头文件把 Qt 类型泄漏给 716 个包含者：`tfilepath.h`（QString）、`tconvert.h`、`tstream.h`、`tsystem.h`（QDateTime、QFileInfo）、`tcolorstyles.h`、`tsimplecolorstyles.h`（QCoreApplication）、`tstroke.h` 和 `tpalette.h`（QMutex）、`tundo.h`（QObject）、`tthread.h`（QThread）、`tipc.h`、`orientation.h`、`qtofflinegl.h`、`trasterfx.h`（QOffscreenSurface）。
+全树 2,250 个源文件中 834 个直接包含 Qt 头。以下 14 个核心头文件把 Qt 类型泄漏给约 730 个包含者：`tfilepath.h`（QString）、`tconvert.h`、`tstream.h`、`tsystem.h`（QDateTime、QFileInfo）、`tcolorstyles.h`、`tsimplecolorstyles.h`（QCoreApplication）、`tstroke.h` 和 `tpalette.h`（QMutex）、`tundo.h`（QObject）、`tthread.h`（QThread）、`tipc.h`、`orientation.h`、`qtofflinegl.h`、`trasterfx.h`（QOffscreenSurface）。
 
 Qt 在核心里不是"用了几个类"，而是模型本身：
 
 - `TXshLevel`、`TXshSoundColumn`、`TUndoManager`、`Preferences`、`MovieRenderer`、`VectorizerCore` 都是 QObject。
-- 13 个 Handle 类（`TXsheetHandle`、`TSceneHandle`、`TFrameHandle` 等）靠 Qt 信号通知变更。
+- 11 个 Handle 类靠 Qt 信号通知变更：toonzlib 的 `TXsheetHandle`、`TSceneHandle`、`TFrameHandle`、`TColumnHandle`、`TXshLevelHandle`、`TFxHandle`、`TObjectHandle`、`TOnionSkinMaskHandle`、`TPaletteHandle`，toonzqt 的 `TSelectionHandle`，tnztools 的 `ToolHandle`。
 - `TThread` 是 QThread 加信号的薄封装，`Runnable` 是 QObject。`TRenderer` 用 `QCoreApplication::processEvents` 自旋，需要 Qt 事件循环。原生实现 `tthread_nt.cpp` 和 `tthread_x.cpp` 没有编译。
-- `TThread::Mutex` 继承 `QMutex` 并用 `QMutex::Recursive` 构造，102 处使用；`QMutex::Recursive` 另有 7 处。两者在 Qt6 都不存在。
+- `TThread::Mutex` 继承 `QMutex` 并用 `QMutex::Recursive` 构造，102 处使用；`QMutex::Recursive` 全树共 7 处，除该构造函数外另有 6 处（tnzext 的 ttexturesstorage 与 plasticdeformerstorage，common 的 tcacheresourcepool、tpassivecachemanager、tsound_qt、tpalette）。两者在 Qt6 都不存在。
 - `common/tcore/tstring.cpp` 的 `to_wstring`/`to_string` 转换走 QString。`TFrameId::m_letter` 是 QString。
 - toonzlib 里直接调用 `QMessageBox::warning`（`txshsimplelevel.cpp`）和 `QApplication::setOverrideCursor`（`studiopalettecmd.cpp`）。
 - image 和 sound 库反向依赖 toonzlib 的 `Preferences`。
@@ -137,8 +137,9 @@ Qt6 移除或废弃的 API 计数（全树）：
 | `enterEvent(QEvent*)` 重载 | 32 处 | 28 个文件 |
 | 字符串式 `SIGNAL(`/`SLOT(` 连接 | 2,297 / 2,128 处 | 全树，其中 23 处连接到 Qt6 已删除的 QString 重载，运行时静默失效 |
 | QMatrix | 4 处 | stage、iwa_floorbumpfx |
+| QFontMetrics::width | 11 处 | stopmotion、penciltestpopup_qt |
 
-已经做过的 5.15 清理：`Qt::SkipEmptyParts` 35 处，`horizontalAdvance` 75 处，`angleDelta` 36 处，旧写法均为 0。
+已经做过的 5.15 清理：`Qt::SkipEmptyParts` 35 处，`horizontalAdvance` 75 处，`angleDelta` 39 处。旧写法中 `QString::SkipEmptyParts` 为 0；`QFontMetrics::width(` 仍有 11 处（stopmotion 9 处，`toonz/penciltestpopup_qt.cpp` 2 处）；`QWheelEvent::delta()` 1 处，仅在 `_SSDEBUG` 下编译。
 
 Qt 外的平台特定代码：`_WIN32` 554 行 235 文件，`MACOSX` 201 行 95 文件，`LINUX` 87 行 50 文件。热点在 `common/tsystem/`（内存、磁盘、动态库加载）、`tsound_nt.cpp`（2,193 行 winmm）、`twain/`（29 个文件扫描仪）、`tofflinegl.cpp`。唯一的 Objective-C++ 文件是 `mousedragfilter/mousedragfilter.mm`。
 
@@ -146,13 +147,13 @@ Qt 外的平台特定代码：`_WIN32` 554 行 235 文件，`MACOSX` 201 行 95 
 
 ### 2.4 领域模型与渲染管线
 
-库依赖图（均为共享库）：tnzcore ← tnzbase ← tnzext ← toonzlib ← {tfarm, tnzstdfx, image, sound, colorfx} ← toonzqt ← tnztools ← OpenToonz。分层在"包含关系"上基本被遵守：toonzlib 不包含 toonzqt 或 tools 的头；common、tnzbase、tnzext 不包含 toonz 的头。但每一个库，包括 tnzcore，都链接 Qt 和 OpenGL。
+库依赖图（均为共享库，按 `target_link_libraries`）：tnzcore ← tnzbase ← tnzext ← toonzlib ← {tfarm, tnzstdfx, image, sound}；colorfx 只依赖 tnzcore 与 tnzbase；toonzqt 依赖 toonzlib 与 sound；tnztools 依赖 toonzqt；OpenToonz 与 tcomposer 才把 tfarm、tnzstdfx、image、colorfx、toonzqt 全部链接进来。分层在"包含关系"上基本被遵守：toonzlib 不包含 toonzqt 或 tools 的头；common、tnzbase、tnzext 不包含 toonz 的头。但每一个库，包括 tnzcore，都链接 Qt；除 tnzbase 和 sound 之外的库都直接链接 OpenGL，这两个也经 tnzcore 传递依赖 GL。
 
 模型类：`ToonzScene` 持有 `TSceneProperties`、`TLevelSet`、xsheet 栈；`TXsheet` 持有列集合、`TStageObjectTree`、`FxDag`、声音轨；`TXshCell` 只是 `{TXshLevelP, TFrameId}`。持久化走 `TPersist` 加 `TOStream`/`TIStream` 的类 XML 文本流，可选 LZ4 压缩，42 处 `PERSIST_IDENTIFIER` 注册，148 处 `FX_PLUGIN_IDENTIFIER`。
 
-文件格式：.tnz 场景为文本流；.tpl 调色板为 XML；.pli 矢量为二进制 tag 格式；.tlv/.tzl 光栅为 LZO 压缩二进制，而 LZO 压缩通过 QProcess 调用外部可执行文件 `lzocompress`/`lzodecompress`（`common/trasterimage/tcodec.cpp` 约 572 到 615 行）。视频格式 mov、mp4、webm、gif、apng 通过 QProcess 调用运行时检测到的外部 ffmpeg。mov/3gp 在 Unix 上还有一条经 `t32bitsrv` 进程和 QLocalSocket 的代理路径。
+文件格式：.tnz 场景为文本流；.tpl 调色板为 XML；.pli 矢量为二进制 tag 格式；.tlv/.tzl 光栅为 LZO 压缩二进制，而 LZO 压缩通过 QProcess 调用外部可执行文件 `lzocompress`/`lzodecompress`（`common/trasterimage/tcodec.cpp` 约 572 到 615 行）。视频格式 mov、mp4、webm、gif、apng 通过 QProcess 调用运行时检测到的外部 ffmpeg。mov/3gp 在 Linux 和 BSD 构建里编译进一条经 `t32bitsrv` 进程和 QLocalSocket 的代理客户端，但 `t32bitsrv` 只在 32 位 Windows MSVC 或 Apple 上构建，Linux 上这条路径没有服务端，实际是死代码；macOS 走 `tiio_movM` 的 QuickTime 实现。
 
-渲染管线：`buildSceneFx` 把 xsheet 编译成 `TFx` 树；`TRenderer` 用 `TThread::Executor` 调度 `RenderTask`；`MovieRenderer` 驱动并通过 `LevelUpdater` 写出。stdfx 共 203 个 .cpp，其中约 74 个 `TStandardRasterFx` 加 24 个 `TStandardZeraryFx` 的老特效、47 个 `ino_*` 和约 70 个 `igs_*` 算法、35 个 `iwa_*` 特效，绝大多数是纯 CPU。需要 GL 的特效见 2.2。`TRenderSettings` 携带一个 `std::shared_ptr<QOffscreenSurface>`，`trenderer.cpp` 约 1425 行有一处硬编码：特效别名含 `plasticDeformerFx` 或 `iwa_FlowPaintBrushFx` 时在 GUI 线程创建离屏表面。
+渲染管线：`buildSceneFx` 把 xsheet 编译成 `TFx` 树；`TRenderer` 用 `TThread::Executor` 调度 `RenderTask`；`MovieRenderer` 驱动并通过 `LevelUpdater` 写出。stdfx 共 203 个 .cpp，其中约 74 个 `TStandardRasterFx` 加 24 个 `TStandardZeraryFx` 的老特效、47 个 `ino_*` 包装与 46 个 `igs_*` 算法 .cpp（CMake 实际编译其中 40 个）、35 个 `iwa_*` 特效，绝大多数是纯 CPU。需要 GL 的特效见 2.2。`TRenderSettings` 携带一个 `std::shared_ptr<QOffscreenSurface>`，`trenderer.cpp` 约 1425 行有一处硬编码：特效别名含 `plasticDeformerFx` 或 `iwa_FlowPaintBrushFx` 时在 GUI 线程创建离屏表面。
 
 业务逻辑泄漏到 GUI 可执行文件：约 25k 行 xsheet、cell、column、level 编辑命令直接写在 `toonz/` 下（`cellselection.cpp` 3.9k 行、`iocommand.cpp` 3.5k 行、`xsheetcmd.cpp`、`columncommand.cpp`、`filmstripcommand.cpp`、`subscenecommand.cpp`、`levelcommand.cpp`、`mergecolumns.cpp`、`matchline*.cpp`、`rasterizecommand.cpp`、`inbetweencommand.cpp` 等），与 QClipboard 和 `TApp::instance()`（2,388 处使用）缠在一起。`CommandManager` 和 `TSelection` 在 toonzqt 里，基于 QAction。Undo 类分布：toonz 141 个、tnztools 78、toonzlib 58、toonzqt 19。
 
@@ -175,7 +176,7 @@ Qt 外的平台特定代码：`_WIN32` 554 行 235 文件，`MACOSX` 201 行 95 
 - Linux 和 macOS workflow 对任何分支的 push 都触发，但排除 `doc/**`、README、`.github/**` 的改动；Windows 只在 master 的 push 和 PR 上触发。
 - 本 fork 有 4 个 workflow 文件但 0 次运行，匿名访问 Actions 页面时侧边栏不列出任何 workflow。这与"fork 继承的 workflow 默认禁用，需要仓库所有者在 Actions 标签页启用"的状态一致。Settings 里的 Actions permissions 是另一个开关，已经是 Allow all。
 - 没有 `.clang-tidy`、sanitizer、覆盖率、`CMakePresets.json`。只有 GCC 得到少量警告标志，Clang 没有任何额外警告，没有 `-Wall`。
-- `tcomposer` 是唯一可驱动 golden 测试的命令行渲染器：`tcomposer <scene.tnz> [-o dst] [-range a b] [-step n] [-nthreads N] [-TOONZROOT dir]`。它创建完整的 `QApplication`，要求 stuff 目录和项目文件（否则返回 -2），矢量层和 GL 特效需要 GL 上下文。退出码：0 全部完成，-1 有帧未完成或异常，-2 项目或场景加载失败。
+- `tcomposer` 是唯一可驱动 golden 测试的命令行渲染器：`tcomposer <scene.tnz> [-o dst] [-range a b] [-step n] [-nthreads N] [-TOONZROOT dir]`。它创建完整的 `QApplication`，要求 stuff 目录（缺失时非 Windows 直接 abort，Windows 以 1 退出）和项目文件（找不到项目或场景、场景加载异常时返回 -2），矢量层和 GL 特效需要 GL 上下文。退出码：0 全部完成，-1 有帧未完成或未捕获异常，-2 项目或场景加载失败，1 参数错误，2 连续内存耗尽。
 - 上游 `doc/development_checklist.md` 规定对现有特效和渲染的改动"不得改变现有场景的渲染结果"。这是 golden 测试的直接依据。
 
 ### 2.6 Apple 平台与 iPad 约束
@@ -187,8 +188,8 @@ Qt 外的平台特定代码：`_WIN32` 554 行 235 文件，`MACOSX` 201 行 95 
 
 ### 2.7 上游状态
 
-- 上游 [opentoonz/opentoonz#6919](https://github.com/opentoonz/opentoonz/pull/6919)：bgyss 的 "Moving from Qt5 -> Qt6" 草案，2026 年 6 月提出，170 个 commit。采用 `OPENTOONZ_QT_MAJOR` 双通道构建，Qt5 仍为默认；QtScript 在 Qt6 通道换成 QJSEngine；Multimedia 已移植；macOS Qt6 打包已有；作者自述"not release-ready"，Windows 打包、WinTab 替代、Linux Wayland 验证、翻译生成仍未完成。
-- 上游 [opentoonz/opentoonz#5754](https://github.com/opentoonz/opentoonz/issues/5754) "Plans for Qt6?" 把 QtScript 列为第一个必须替换的依赖。
+- 上游 [opentoonz/opentoonz#6919](https://github.com/opentoonz/opentoonz/pull/6919)：bgyss 的 "Moving from Qt5 -> Qt6" 草案，2026 年 6 月提出，170 个 commit。采用 `OPENTOONZ_QT_MAJOR` 双通道构建，Qt5 仍为默认；Qt6 通道新增 QJSEngine 路径而 Qt5 通道仍用 QScriptEngine，Qt6 目标彻底移除 Qt5::Script 仍在待办；Multimedia 已移植；macOS Qt6 打包已有；作者自述"not release-ready"，Windows 打包、WinTab 替代、Linux Wayland 验证、翻译生成仍未完成。
+- 上游 [opentoonz/opentoonz#5754](https://github.com/opentoonz/opentoonz/issues/5754) "Plans for Qt6?" 把摆脱 Qt5Script 称为重要的第一步，该 issue 已关闭。
 - 本 fork 与上游 master 同步，无本地 Qt6 改动。
 
 ---
@@ -201,7 +202,7 @@ Qt 外的平台特定代码：`_WIN32` 554 行 235 文件，`MACOSX` 201 行 95 
 
 依据：
 
-- 核心 250k 到 400k 行，含 150 多个特效和四种有二十年历史的文件格式兼容细节。重写期间没有任何用户可见收益，而"全部测试通过"的验收标准要求先给每个特效做 golden。
+- 核心连同特效与 I/O 约 350k 到 400k 行，含 150 多个特效和四种有二十年历史的文件格式兼容细节。重写期间没有任何用户可见收益，而"全部测试通过"的验收标准要求先给每个特效做 golden。
 - C++ 本身就能在 iPadOS 和 Android 上编译。痛点是 Qt 渗入核心，不是语言。
 - 去 Qt 需要触碰的文件和 Rust 重写需要触碰的文件高度重合，但去 Qt 是机械替换，Rust 重写是重新实现并重新验证。
 
@@ -211,17 +212,17 @@ Qt 外的平台特定代码：`_WIN32` 554 行 235 文件，`MACOSX` 201 行 95 
 
 ### D2 桌面 UI 保留 Qt；底层换完后升级到 Qt6 作为解耦验证
 
-决策：桌面 UI 继续使用 Qt。在核心去 Qt、渲染换成画布 IR 之后，把 Qt 升级到 6.x 及以上，作为"UI 层与业务层确实解耦"的验证。不用 egui、iced、gpui 等 Rust UI 框架重写桌面 UI。
+决策：桌面 UI 继续使用 Qt。在核心去 Qt（Phase 2）与离线渲染换成画布 IR（Phase 1）之后、viewer 上画布之前，把 Qt 升级到 6.x 及以上，作为"UI 层与业务层确实解耦"的验证，判据是核心库零改动、Qt6 构建绿色、golden 全部通过。这是 Phase 3 的第一个里程碑。不用 egui、iced、gpui 等 Rust UI 框架重写桌面 UI。
 
 依据（经反方审查后修正，只保留站得住的三条）：
 
-- 没有任何 Rust UI 工具包交付过 100 个以上面板的 DCC 软件。Zed 1.0（gpui，2026 年 4 月）至今没有屏幕阅读器支持，CJK 输入法问题几十个 open。Rerun 是 egui 上最专业的应用，但它是可视化查看器。Graphite 是唯一的 Rust 2D 创作工具，它刻意用 Svelte 网页 UI 嵌 CEF，Rust 原生 UI 列为长期计划。
-- egui 自己的 README 把"最强 GUI 库"和"原生观感"列为 non-goals，明说每个版本都有破坏性变更，"如果你想要升级不 break 的东西，egui 不适合你"。IME 相关 issue 52 个，2026 年 3 月仍有 Linux Fcitx5 预编辑和 macOS 韩文候选框的 open issue。本项目用户群是日本和中国动画人，IME 是一票否决项。
+- 据我们所知，没有 Rust UI 工具包交付过 100 个以上面板的 DCC 软件。Zed 1.0（gpui，2026 年 4 月）发布版仍无屏幕阅读器支持，AccessKit 集成只以实验开关存在于 main 分支，Windows 上完全不可用；CJK 输入法问题几十个 open。Rerun 是我们所知 egui 上最专业的应用，但它是可视化查看器。Graphite 是最成熟的 Rust 2D 创作工具，它刻意用 Svelte 网页 UI 嵌 CEF，Rust 原生 UI 列为长期计划。
+- egui 自己的 README 把"最强 GUI 库"和"原生观感"列为 non-goals，明说每个版本都有破坏性变更，"如果你想要升级不 break 的东西，egui 不适合你"。IME 相关 issue 52 个，2026 年 3 月仍有 Linux Fcitx5 预编辑和 macOS 韩文候选框的 open issue。本项目的主要用户群假定为日本和中国动画人，IME 是一票否决项。
 - 290k 行能用的 UI 就是产品，它的 Qt6 移植上游正在做。
 
 上一版理由中被反方驳倒、已删除的三条：OpenToonz 并没有用 Qt 的 docking，它在 toonzqt 自写了约 3.6k 行 DockLayout；xsheet、viewer、fx 节点图、函数编辑器都是自绘 paintEvent 和 GL，不是 Qt 控件；现有自绘面板对辅助技术的暴露本来就是零。
 
-被否决的替代方案："保留 Qt 壳，自绘面板用 Rust+wgpu 重写后嵌进 Qt 窗口"。这些面板与 Qt 的选择、undo、菜单、剪贴板缠在一起，跨语言做事件和状态同步的成本高于在原 C++ 类里把 GL 调用换成 IR 调用。
+被否决的替代方案："保留 Qt 壳，自绘面板用 Rust+wgpu 重写后嵌进 Qt 窗口"。这些面板与 Qt 的选择、undo、菜单、剪贴板缠在一起，我们判断跨语言做事件和状态同步的成本会高于在原 C++ 类里把 GL 调用换成 IR 调用。
 
 Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
@@ -240,11 +241,11 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
 - C++ 没有跨编译器的稳定 ABI。MSVC 只在 14.x 工具集家族内保证 C++ 二进制兼容；libstdc++ 的 GCC 5 双 ABI 改变了 `std::string` 的符号名；Qt 为 MSVC 和 MinGW 分发不同二进制。
 - 每种语言 FFI 的地板都是 C。Android JNI 入口必须 `extern "C"`，C++ 异常不得跨界，NDK 只允许一个 STL 但允许混用纯 C 库。Kotlin/Native 的 cinterop 只认 C 和 Objective-C。
-- Swift C++ interop 在 6.4 可用但有边界：类模板只能预实例化，C++ 异常到 Swift 帧直接终止进程，Windows 上不支持 `shared_ptr`。cxx 是手写桥；autocxx 已于 2026 年 9 月被 Google 归档。
+- Swift C++ interop 自 5.9 起可用，到当前的 6.4 仍有边界：类模板只能预实例化，C++ 异常到 Swift 帧直接终止进程，Windows 上不支持 `shared_ptr`。cxx 是手写桥；autocxx 已于 2026 年 9 月被 Google 归档。
 - 先例：libgit2、webgpu.h、SQLite、OpenToonz 自己的插件 SDK。
 - 反方指出的正确一点：没有外语言消费者时 C ABI 是死代码。因此先建 Qt UI 每天都在调用的引擎 API，C ABI 后生成。
 
-设计约束：引擎 API 的头文件不含模板、不抛异常、不暴露 Qt 类型、不暴露 `TRasterPT<T>` 之类的模板实例；错误用返回值。`TSmartObject` 的 `addRef`/`release` 语义与 Swift 的 `SWIFT_SHARED_REFERENCE` 匹配，到 iPad 时可以先试 Swift C++ interop 直连，C ABI 作为保底。
+设计约束：引擎 API 的头文件不含模板、不抛异常、不暴露 Qt 类型、不暴露 `TRasterPT<T>` 之类的模板实例；错误用返回值。iPad 壳只经 C ABI 调用核心，Swift 走 C interop；Swift C++ interop 不作为边界方案。`TSmartObject` 的 `addRef`/`release` 与 Swift 的 `SWIFT_SHARED_REFERENCE` 语义匹配这一点只记录为将来可选的优化，不改变边界。
 
 翻盘条件：无。这是边界设计，不是技术选型。
 
@@ -256,8 +257,8 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
   - **路径级**：样式、工具、viewer 发出的是 path（来自现有的 `TStrokeOutline` 和 `TRegion` 几何）、fill/stroke paint、image、clip/mask（替代 `TStencilControl`）、显式 transform、文字、拾取 ID。
   - **网格级**：一个 CPU 阶段把路径级降为三角形（带顶点色和 uv）、光栅 tile、遮罩、MSAA 提示。核心本来就在 CPU 上算描边轮廓和区域，这一步是搬家而不是新写。
 - 离线渲染、golden 测试、图标、格式转换：用 Skia 的 CPU 光栅直接消费路径级 IR，得到解析式反走样和跨平台确定性。
-- 桌面交互 viewer：用 Qt6 的 `QRhi`（通过 `QRhiWidget`）消费网格级 IR。macOS 走 Metal，Windows 走 D3D11，Linux 可退回 OpenGL。
-- iPad：手写一个 Metal 后端消费网格级 IR。网格级后端薄到一两千行，所以可以有多个。
+- 桌面交互 viewer：用 Qt6 的 `QRhi`（通过 `QRhiWidget`，Qt 6.7 引入且在 6.7 为 tech preview，建议 Qt 6.8 LTS 或更高；`QRhi` 是有限兼容 API，需链接 `Qt6::GuiPrivate`）消费网格级 IR。macOS 走 Metal；若 Windows 和 Linux 保留为产品目标（待定，见第 5 节），分别走 D3D11 与 OpenGL 或 Vulkan。
+- iPad：手写一个 Metal 后端消费网格级 IR。预计网格级后端只有一两千行（待 Phase 1 原型验证），所以可以有多个。
 - 不手写 Vulkan 后端，不裸用 wgpu。
 
 依据：
@@ -268,9 +269,9 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 - Skia CPU 光栅跨平台语义一致，适合 golden；上游 Skia 只支持 GN 构建、不发布二进制，获取方式见待定事项。
 - 代价：viewer 的 GPU 后端依赖 Qt6，所以 Phase 3 要先合上游 Qt6 工作。IR 和工具代码本身不依赖 Qt。
 
-被否决的方案：手写 Metal 加 Vulkan 两套路径级后端（重造 Skia）；vello+wgpu（vello_gpu 自述 beta，多个特性 panic；wgpu-native 在 iOS 无官方二进制）；Qt 的 QPainter（无 GPU 路径光栅）。
+被否决的方案：手写 Metal 加 Vulkan 两套路径级后端（重造 Skia）；vello+wgpu（Linebender 2026 年 4 月月报称 vello_gpu 约为 beta 质量，mask layer 等特性仍会 panic；wgpu 每三个月一个破坏性大版本；wgpu-native 自 2026 年起已提供 iOS aarch64 官方二进制，这一点不再是否决理由）；Qt 的 QPainter（无 GPU 路径光栅）。
 
-翻盘条件：原型证明 QRhi 加核心细分在交互帧率下达不到笔刷预览所需的描边反走样质量；或 Chrome 在 2026 到 2027 年于 Windows 和 Linux 默认启用 Graphite。
+翻盘条件：原型证明 QRhi 加核心细分在交互帧率下达不到笔刷预览所需的描边反走样质量；或 Chrome 稳定版在 2026 到 2027 年于 Windows 和 Linux 对用户默认启用 Graphite 渲染（运行时特性，而非 `skia_use_dawn` 构建开关）。
 
 ### D5 平台与 CI 矩阵
 
@@ -278,10 +279,10 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
 - macOS arm64 与 macOS x86_64 保持 parity：两者都是阻塞 CI，都出发布产物。arm64 用 `macos-15` 或 `macos-26` runner，x86_64 用 `macos-15-intel`，后者在 2027 年 8 月退役前保持。
 - x64 Linux 与 x64 Windows 的产品支持状态待定（见第 5 节）。在决定之前，继承的 Linux 和 Windows workflow 继续运行，但不阻塞。
-- aarch64 Linux 不做。消费级 arm Linux 桌面没有市场。
+- aarch64 Linux 不做。所有者判断消费级 arm Linux 桌面没有市场。
 - CI 只用 GitHub 托管的标准 runner。公开仓库上标准 runner 免费且不限时长，含 Linux x64、Windows x64、macOS arm64（M1，3 vCPU，7 GB）与 macOS Intel；只有 larger runner 收费。免费账户并发 20 个 job，其中 macOS 最多 5 个；单 job 6 小时；cache 每仓库 10 GB。不使用自托管 runner（公开仓库上有安全风险），不付费。
 - 不使用 `macos-14`，它在 2026 年 11 月 2 日下线。
-- iOS 模拟器 job 到 iPad 排期时再加。macOS runner 自带 Xcode 27 和 iPad 模拟器运行时，`CMAKE_SYSTEM_NAME=iOS` 加 `xcrun simctl spawn` 可跑 ctest，同样免费。
+- iOS 模拟器 job 到 iPad 排期时再加。macos-26 runner 自带 Xcode 26.x 与 iOS 26.x 模拟器运行时（含 iPad 设备类型），Xcode 27 目前只在 `xcode-27` 公开预览标签上；`CMAKE_SYSTEM_NAME=iOS` 加 `xcrun simctl spawn` 可跑 ctest，同样免费。
 
 前置动作（需要仓库所有者）：在 fork 的 Actions 标签页启用 workflow。验证方法：push 一个非 `doc/**` 的改动，查看是否出现 run。
 
@@ -317,7 +318,7 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
 ### D9 与上游的关系
 
-决策：Phase 0 和 Phase 1 以新增模块为主，持续合并上游 master。Phase 2 开始是架构级分叉，之后不再承诺可合并。分叉时机与改名动作见待定事项。
+决策：Phase 0 以新增模块为主；Phase 1 虽然改写样式与离线渲染路径并改变矢量渲染结果，但仍持续合并上游 master，接受与上游的渲染结果分歧。Phase 2 开始是架构级分叉，之后不再承诺可合并。分叉时机与改名动作见待定事项。
 
 ### D10 iPad 与 Android 后置，但三条约束前置
 
@@ -342,7 +343,7 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 | Phase 2 核心去 Qt 与抽出 | 6 到 9 |
 | Phase 3 viewer 与工具上画布，Qt6 | 6 到 9 |
 | Phase 4 iPadOS MVP | 6 到 12 |
-| Phase 5 Android | 未估 |
+| Phase 5（可选）Android | 未估 |
 
 ### Phase 0 基线
 
@@ -368,9 +369,9 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
 - 定义路径级画布 IR 与网格级 IR。
 - CPU 后端：Skia CPU 光栅消费路径级 IR。GLU 细分器不再需要。
-- 一个 IR 到旧 GL 的桥接后端，用于 A/B 对照。
-- 把约 67 个样式（tnzcore 的简单样式加 colorfx 的 57 个）从"发 GL"改为"发 IR"。
-- 把约 15 个 `TOfflineGL` 使用方切到 CPU 后端。
+- 一个 IR 到旧 GL 的桥接后端，用于 A/B 对照。它放在独立的可选模块里，不被核心库链接，Phase 1 结束后删除或仅作开发工具。
+- 把约 50 个样式类（tnzcore 的简单样式加 colorfx 注册的 45 个）、60 余个 `drawStroke`/`drawRegion` 实现从"发 GL"改为"发 IR"。
+- 把约 22 个 `TOfflineGL` 使用方切到 CPU 后端。
 - PlasticDeformerFx 与 iwa_FlowPaintBrushFx 改为 CPU 变形。粒子默认精灵走 CPU 后端。
 - ShaderFx 暂留 GL，标记"需要 GPU 后端"，Phase 3 迁移。
 
@@ -386,7 +387,7 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 工作项：
 
 - `TThread` 换为 `std::thread` 线程池加注入式主线程 dispatcher；`TRenderer` 去掉 `processEvents` 自旋与 `qGuiApp`；消掉 `QMutex::Recursive` 与 `TThread::Mutex`。
-- `TFilePath`、`tstring`、`tsystem`、`tenv` 去掉 QString、QDir、QSettings、QProcess；12 个泄漏 Qt 的核心头清理；716 个包含者机械扫。
+- `TFilePath`、`tstring`、`tsystem`、`tenv` 去掉 QString、QDir、QSettings、QProcess；14 个泄漏 Qt 的核心头清理；约 730 个包含者机械扫。
 - 模型去 QObject：Handle 的信号改为 observer 回调；`Preferences` 换普通键值存储；`TUndoManager` 去 QObject；`TXshLevel`、`TXshSoundColumn` 去 QObject。
 - 把 GUI 里约 25k 行 xsheet 编辑命令搬进库，配 characterization 测试。
 - 插件宿主的渲染适配器从 toonzqt 搬到核心库。
@@ -397,7 +398,7 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
 完成判据：
 
-- 核心库在"无 Qt"构建选项下编译、链接并通过全部单测与 round-trip 测试。
+- 核心库的默认 CMake 目标不链接 Qt；"无 Qt"构建作为阻塞 CI job 常驻，编译、链接并通过全部单测与 round-trip 测试。
 - 核心与渲染路径无任何 `QProcess` 或等价的子进程调用。
 - 桌面 Qt UI 通过引擎 API 调用核心，golden 全部通过。
 
@@ -405,12 +406,12 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
 工作项：
 
-- 合并上游 Qt6 通道，切换为 Qt6 构建。
+- 里程碑一：合并上游 Qt6 通道，切换为 Qt 6.8 或更高的构建，核心库零改动、golden 全部通过，作为 D2 要求的解耦验证。
 - `SceneViewer::paintGL`、`Stage::Visitor` 的绘制器、`ImagePainter`、`GLRasterPainter` 改为发 IR。LUT 校准作为画布后处理。`GL_SELECT` 改为 ID 命中测试。
 - 37 个工具的 `draw()` 与约 1.8k 处 GL 调用改为 IR，变换显式传入；`TMouseEvent` 去掉 Qt 类型。
 - `QRhiWidget` 后端消费网格级 IR。
 - ShaderFx 迁到新后端或改为 CPU 实现。
-- 16 个 GL 控件类（viewer、flipbook、10 个 swatch、色轮、30-bit 检测器）切到新后端。
+- 15 个 GL 控件类（viewer、flipbook、PlaneViewer 及 9 个 swatch、色轮、30-bit 检测器）切到新后端。
 
 完成判据：
 
@@ -424,7 +425,7 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
 MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面功能对等。
 
-### Phase 5 Android
+### Phase 5（可选）Android
 
 复用 C ABI，JNI 绑定，Compose UI，Vulkan 或 GLES 的网格级后端。仅在 Phase 4 完成且有需求时启动。
 
@@ -437,6 +438,7 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 | x64 Linux 作为产品目标 | 不论是否作为产品，Linux x64 都是最便宜的无头 golden 测试平台，建议至少保留为 CI 测试床 | 所有者决定 |
 | x64 Windows 作为产品目标 | 继承的 workflow 继续跑，不阻塞 | 所有者决定 |
 | Skia 的获取方式 | 优先 vcpkg 的 skia port（metal、vulkan、graphite 特性），不可行时转 D6 的触发条件 1 | Phase 1 开工时试 |
+| Qt6 最低版本 | 6.7 是 QRhiWidget 的下限，倾向 6.8 LTS 或更高 | 合并 #6919 时确认其目标版本 |
 | 脚本引擎 | QtScript 绑定在 Phase 2 变可选；长期通过 C ABI 绑定 QuickJS、Lua 或 Python | Phase 2 末 |
 | 改名为 NextToonz 的时机 | Phase 2 分叉时统一改产品名、二进制名、stuff 路径 | 所有者决定 |
 | ffmpeg 在桌面的形态 | 保留外部进程或改链 libav | Phase 2 |
@@ -450,9 +452,9 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 
 - **Phase 1 的像素变化。** 矢量反走样方式改变后，所有矢量场景的渲染结果都会有小幅变化。这违反上游"不得改变现有场景渲染"的规则，意味着 Phase 1 之后的渲染改动不可上游。
 - **Qt6 依赖上游进度。** Phase 3 的 QRhi 后端需要 Qt6。若上游 #6919 长期不合并，需自行接手该分支。
-- **macOS runner 性能。** M1 标准 runner 为 3 vCPU 7 GB，对 88 万行 C++ 构建偏慢。缓解：ccache、分模块构建、必要时拆 job。
+- **macOS runner 性能。** M1 标准 runner 为 3 vCPU 7 GB，预计对 88 万行 C++ 的全量构建偏慢，Phase 0 启用后实测。缓解：ccache、分模块构建、必要时拆 job。
 - **Skia 构建重量。** 上游只支持 GN 构建。缓解：vcpkg 或预编译二进制，见待定事项。
-- **单人项目的阶段跨度。** Phase 2 是最长的阶段且用户不可见。缓解：每个子项（线程、路径、模型、命令搬迁）独立合并，每次合并后 golden 必须通过。
+- **单人项目的阶段跨度。** Phase 2 与 Phase 3 并列最长，各 6 到 9 人月，且 Phase 2 全程用户不可见。缓解：每个子项（线程、路径、模型、命令搬迁）独立合并，每次合并后 golden 必须通过。
 - **GPU 相关 golden 在 CI 上不可验证。** 托管 runner 的 Metal 可用性未验证。缓解：golden 只走 CPU 路径，GPU 后端用本地截图人工审查。
 
 ---
@@ -467,12 +469,13 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 - egui README（non-goals、API 稳定性声明）：https://github.com/emilk/egui/blob/main/README.md
 - egui IME issue 列表：https://github.com/emilk/egui/issues?q=is%3Aissue%20IME%20sort%3Aupdated-desc
 - Swift C++ interop 状态：https://swift.org/documentation/cxx-interop/status/
+- Linebender 2026 年 4 月月报（vello_gpu 成熟度）：https://linebender.org/blog/tmil-25/
 - autocxx 归档：https://github.com/google/autocxx
 - Kotlin/Native C interop：https://kotlinlang.org/docs/native-c-interop.html
 - Android NDK C++ 支持：https://developer.android.com/ndk/guides/cpp-support
 - Chromium 的 Skia 后端配置：https://raw.githubusercontent.com/chromium/chromium/main/skia/features.gni
 - rust-skia 预编译二进制：https://github.com/rust-skia/rust-skia
-- wgpu-native iOS 状态：https://github.com/gfx-rs/wgpu-native/pull/630
+- wgpu-native 发布页（含 iOS 二进制）：https://github.com/gfx-rs/wgpu-native/releases
 - Qt QRhiWidget：https://doc.qt.io/qt-6/qrhiwidget.html
 
 ---
@@ -504,17 +507,17 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 | toonz/imageviewer.cpp | 50 |
 | common/tvectorrenderer.cpp | 49 |
 
-噪声说明：正则也会匹配名为 `glContext(` 的局部变量；`common/tvectorimage/` 下的 GL 只是调试绘制；`tnzext/plasticdeformer.cpp` 的 GL 只在 `GL_DEBUG` 下编译。
+噪声说明：正则也会匹配名为 `glContext(` 的局部变量；`common/tvectorimage/` 下的 GL 除 `drawutil.cpp` 的 `drawStrokeCenterline`（被 tnztools 与 tnzext 调用）外都是调试绘制；`tnzext/plasticdeformer.cpp` 的 GL 只在 `GL_DEBUG` 下编译。
 
 死代码或未编译的 GL 代码：`common/tvectorrenderer.cpp`（OSMesa/GLX）、`common/tvrender/macofflinegl.cpp`（AGL）、`stdfx/offscreengl.h`（WGL）、`stdfx/pins.cpp` 的 `subCompute` 无调用者、`tofflinegl.cpp` 的 GLX pixmap 实现在 Linux 上编译但默认不用、`QtOfflineGLPBuffer`、`TQOpenGLWidget`。
 
 ### 8.2 GL 控件与离屏机制
 
-GL 控件基类：`include/toonzqt/glwidget_for_highdpi.h` 的 `GLWidgetForHighDpi : QOpenGLWidget, QOpenGLFunctions`。`TToolViewer`（`include/tools/tool.h`）继承它，`SceneViewer` 再继承 `TToolViewer`。其他 GL 控件：`ImageViewer`、`PlaneViewer` 及 10 个 Swatch 子类、`HexagonalColorWheel`、`PreferencesPopup` 的 30-bit 检测视图。
+GL 控件基类：`include/toonzqt/glwidget_for_highdpi.h` 的 `GLWidgetForHighDpi : QOpenGLWidget, QOpenGLFunctions`。`TToolViewer`（`include/tools/tool.h`）继承它，`SceneViewer` 再继承 `TToolViewer`。其他 GL 控件：`ImageViewer`、`PlaneViewer` 及 9 个 Swatch 子类、`HexagonalColorWheel`、`PreferencesPopup` 的 30-bit 检测视图。
 
 `SceneViewer` 的 `paintGL` 顺序：drawBuildVars、scissor、drawBackground、drawCameraStand（drawScene）、drawPreview、drawOverlay（工具）、drawViewerIndicators。启用 LUT 时渲染到 `QOpenGLFramebufferObject` 再由 `LutCalibrator` 做后处理。冻结模式用 `grabFramebuffer` 后 `glDrawPixels` 重绘。
 
-离屏机制并存三套：`TOfflineGL`（WGL DIB 或 Qt 离屏 FBO）；直接的 `QOpenGLContext` 加 `QOffscreenSurface` 加 FBO（`imagebuilders.cpp`、`toonzscene.cpp`、`stylemanager.cpp`、`plasticdeformerfx.cpp`、`iwa_flowpaintbrushfx.cpp`、`ShadingContext`）；`QGLPixelBuffer` 仅作能力检测。
+离屏机制并存三套：`TOfflineGL`（WGL DIB 或 Qt 离屏 FBO）；直接的 `QOpenGLContext` 加 `QOffscreenSurface` 加 FBO（`imagebuilders.cpp`、`toonzscene.cpp`，这两个文件同时也用 `TOfflineGL`、`stylemanager.cpp`、`plasticdeformerfx.cpp`、`iwa_flowpaintbrushfx.cpp`、`ShadingContext`）；`QGLPixelBuffer` 仅作能力检测。
 
 光栅图像上屏：2D viewer 的 `Stage::RasterPainter` 在 CPU 上用 `TRop::quickPut` 合成后 `glDrawPixels`；3D 视图的 `OpenGlPainter` 走 `GLRasterPainter::drawRaster` 的 `glTexSubImage2D`；网格与 plastic 走 `TTexturesStorage` 加 `MeshTexturizer` 加立即模式三角形。没有通用纹理图集。
 
@@ -522,7 +525,7 @@ GL 控件基类：`include/toonzqt/glwidget_for_highdpi.h` 的 `GLWidgetForHighD
 
 | 类 | tnzcore | tnzbase | toonzlib | image | stdfx | tnzext |
 |---|---|---|---|---|---|---|
-| QString | 314/30 | 101/11 | 752/89 | 205/28 | 92/11 | 35/3 |
+| QString | 268/28 | 101/11 | 752/89 | 205/28 | 92/11 | 35/3 |
 | QObject | 18/8 | 2/1 | 210/47 | 22/1 | 3/1 | 0 |
 | QThread | 20/6 | 2/1 | 10/5 | 0 | 22/11 | 0 |
 | QMutexLocker | 75/16 | 39/6 | 15/6 | 14/8 | 15/8 | 31/3 |
@@ -531,8 +534,10 @@ GL 控件基类：`include/toonzqt/glwidget_for_highdpi.h` 的 `GLWidgetForHighD
 | QImage | 12/2 | 0 | 56/10 | 21/3 | 19/6 | 0 |
 | QProcess | 16/4 | 0 | 11/1 | 9/4 | 0 | 0 |
 | QCoreApplication | 37/8 | 5/1 | 8/3 | 13/13 | 5/3 | 0 |
-| QScriptEngine/QScriptValue | 0 | 0 | 57/266 | 0 | 0 | 0 |
-| QOpenGLContext/QOffscreenSurface | 1/1 | 1/3 | 10/15 | 0 | 9/9 | 0 |
+| QScriptEngine 与 QScriptValue | 0 | 0 | 214/12 | 0 | 0 | 0 |
+| QOpenGLContext 与 QOffscreenSurface | 8/3 | 4/1 | 25/6 | 0 | 21/4 | 0 |
+
+统计方法：按各库的源码目录计，tnzcore 取 `tnzcore/CMakeLists.txt` 引用的 `common/` 子目录，不含 `include/` 下的头文件。
 
 `common/` 下完全无 Qt 的子目录：trop、twain、tgeometry、tcolor、timage、traster、tmeshimage、tmetaimage、ttest、tunit、txsheet。stdfx 203 个 .cpp 中 172 个没有直接的 Qt 标识符。
 
@@ -550,7 +555,7 @@ QString 与 std 字符串的转换调用（行数）：toonz 1,184，toonzqt 371
 
 ### 8.5 tcomposer 的输出格式
 
-始终可用：png、tga、tif、sgi/rgb、exr、spritesheet、jpg、bmp。Toonz 原生：pli、svg、tlv/tzl、tzp/tzu、plt、nol、psd、mesh、tzm。仅当外部 ffmpeg 存在：webm、gif、mp4、apng、mov。仅 Windows：avi。
+渲染输出格式，始终可用：png、tga、tif、sgi/rgb、exr、spritesheet、jpg、bmp、nol。仅当外部 ffmpeg 存在：webm、gif、mp4、apng、mov。仅 Windows：avi。另有注册了 writer 但 `isRenderFormat` 为 false、不出现在渲染输出列表里的 Toonz 原生格式：pli、svg、tlv/tzl、tzp/tzu、plt、psd、mesh、tzm，其中 pli、svg、mesh、tzm 的 writer 接收的是矢量、网格或元数据图像，不是光栅帧。
 
 ### 8.6 可复用的第三方测试图像
 
