@@ -15,6 +15,10 @@ Phase 0 的测试在编写过程中发现了下面这些库行为。它们目前
 | 2 | `common/tstream/tstream.cpp` 与 `TFilePath` 的流读写 | 写入时把 `'` 转义为 `\'`，读回 `TFilePath` 时保留了反斜杠并被当成路径分隔符：`it's/a.png` 读回成 `it/'s/a.png`。纯字符串读回正常。Linux 与 FreeBSD 上可见。 | `tests/core/test_tstream.cpp` |
 | 3 | `include/trangeparam.h` | `TRangeParam::getKeyframeCount()` 只有声明没有定义，调用即链接失败。 | `tests/core/test_tparam.cpp` |
 | 4 | `include/tintparam.h`（或其实现） | `TIntParam` 的拷贝构造函数不初始化 min/max 范围和 wheel 标志，属未定义行为。 | `tests/core/test_tparam.cpp`（仅注释，未断言） |
+| 6 | `toonzlib/fxdag.cpp`，`FxDag::getFxById` | id 表按小写 id 建键，查找时却不把参数转小写：`getFxById(L"Blur01")` 返回空，只有 `"blur01"` 能找到。 | `tests/toonzlib/test_scene_io.cpp` |
+| 7 | `toonzlib/txsheet.cpp`，`insertColumn`/`removeColumn` | 插入已填充的列或删除列后不更新帧数，直到调用 `updateFrameCount()`。生成器已在保存前显式调用，否则由零元列构成的场景头部会写成 `framecount="0"`。 | `tests/toonzlib/test_xsheet_ops.cpp` |
+| 8 | `include/toonz/txsheet.h` 文档注释 | `clearCells()` 原地清空、`removeCells()` 上移下方单元格，头文件注释写反了。 | `tests/toonzlib/test_xsheet_ops.cpp` |
+| 9 | `include/tvectorimage.h` | `TVectorImage::areValidRegions()` 只有声明没有定义。 | `tests/toonzlib/test_level_formats.cpp` |
 | 5 | `tnzext/ttexturemesh` 与 `plasticdeformer.cpp` | `TTextureMesh::faceContains` 用严格符号判断，正好落在网格边上的骨骼句柄不属于任何面，`PlasticDeformer::compile()` 会静默丢掉它，网格只做刚体旋转。 | `tests/fixtures/gen_reference_project.cpp`（生成器把关节放在 y=3.3 避开边） |
 
 ## 值得知道但不算 bug 的行为
@@ -28,5 +32,6 @@ Phase 0 的测试在编写过程中发现了下面这些库行为。它们目前
 - **矢量图像**：没有调色板时 `getBBox()` 为空；`addStroke` 对单点笔触返回 -1 且不接管所有权；`removeStroke` 把笔触交还调用方但泄漏其内部包装对象。
 - **区域**：一个闭合笔触一个区域，开放笔触没有区域；区域包围盒包含笔触厚度；两个相交圆产生 3 个区域；内含圆成为外圆的子区域，`getRegion(point)` 返回最内层，外层 `TRegion::contains` 在洞内也为真。
 - **TFilePath 帧号解析**依赖 `TFileType::declare` 注册表，未注册的扩展名不被视为序列帧；单文件关卡格式（pli、tlv）的文件名永远不带帧号。
+- **重新保存已加载的场景不是字节恒等的**：加载时会给输出设置补上 png 格式属性；连接到 xsheet 节点的 fx 列表是 `std::set<TFx*>`，按指针顺序写出，两次连续保存之间都可能变化。
 - **`.tnz` 序列化不是字节确定的**：fx 集合、终端集合和 cast 文件夹按指针顺序写出，同一场景重新生成可能行序不同。比较渲染结果而不是字节。
 - **ParticlesFx 默认精灵忽略绝对 `scale`**，只有相对范围起作用。**GlowFx** 的 `fade` 必须大于 0 辉光颜色才生效。**非动画参数**（`TIntParam`）渲染和保存的是 `getValue()` 而非默认值。

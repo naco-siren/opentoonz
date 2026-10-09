@@ -460,6 +460,10 @@ SceneBuild newScene(const std::string &name) {
 void saveScene(SceneBuild &b, const TFilePath &projectFolder,
                const std::string &name) {
   TFilePath scenePath = projectFolder + "scenes" + (name + ".tnz");
+  // insertColumn()/removeColumn() do not refresh the xsheet frame count, so
+  // without this the <tnz framecount> header of scenes built from zerary
+  // columns is written as 0 (see doc/nexttoonz_known_issues.md).
+  b.xsh->updateFrameCount();
   b.scene->save(scenePath, nullptr, /*saveSceneIcon=*/false);
   std::cout << "  wrote " << ::to_string(scenePath) << std::endl;
 }

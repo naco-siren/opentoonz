@@ -40,6 +40,21 @@ ctest -R TFilePath
 ./bin/nexttoonz_core_tests --gtest_filter='TAffine.*'
 ```
 
+## toonzlib tests
+
+`nexttoonz_toonzlib_tests` links toonzlib, image, stdfx and colorfx and
+initialises them the way tcomposer does (a scratch copy of `stuff/`, image
+and fx registries, shader interfaces, the project manager pointed at the
+reference project). It covers level formats (pli, tlv, png) and the palette
+format with fixture-content and round-trip tests, loading and re-saving
+every reference scene, and xsheet operations. The discovered tests carry
+the prefix `toonzlib.` and the label `toonzlib`:
+
+```
+ctest -L toonzlib
+./bin/nexttoonz_toonzlib_tests --gtest_filter='SceneLoad*'
+```
+
 ## Golden renders
 
 Each scene in `fixtures/reference_project/scenes/` becomes a ctest named

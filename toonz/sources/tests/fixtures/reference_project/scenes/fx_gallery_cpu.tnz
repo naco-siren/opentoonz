@@ -691,7 +691,73 @@
     <fxnodes>
       <internal>
         <fxnode>
-          <STD_radialBlurFx id='10'>
+          <STD_glowFx id='10'>
+            
+            <params>
+              <value>
+                <default>
+                  60 
+                </default>
+                </value>
+              <brightness>
+                <default>
+                  150 
+                </default>
+                </brightness>
+              <color>
+                <red>
+                  <default>
+                    1 
+                  </default>
+                  </red>
+                <green>
+                  <default>
+                    0.666667 
+                  </default>
+                  </green>
+                <blue>
+                  <default>
+                    0.156863 
+                  </default>
+                  </blue>
+                <matte>
+                  <default>
+                    1 
+                  </default>
+                  </matte>
+                </color>
+              <fade>
+                <default>
+                  100 
+                </default>
+                </fade>
+              </params>
+            <ports>
+              <Light>
+                <Toonz_columnFx id='7'/>
+              </Light>
+              <Source>
+                <Toonz_columnFx id='7'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              Glow01 
+            </name>
+            <fxId>
+              Glow01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_glowFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_radialBlurFx id='11'>
             
             <params>
               <point>
@@ -739,7 +805,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoBlurFx id='11'>
+          <STD_inoBlurFx id='12'>
             
             <params>
               <radius>
@@ -753,70 +819,7 @@
               </params>
             <ports>
               <Source>
-                <STD_glowFx id='12'>
-                  
-                  <params>
-                    <value>
-                      <default>
-                        60 
-                      </default>
-                      </value>
-                    <brightness>
-                      <default>
-                        150 
-                      </default>
-                      </brightness>
-                    <color>
-                      <red>
-                        <default>
-                          1 
-                        </default>
-                        </red>
-                      <green>
-                        <default>
-                          0.666667 
-                        </default>
-                        </green>
-                      <blue>
-                        <default>
-                          0.156863 
-                        </default>
-                        </blue>
-                      <matte>
-                        <default>
-                          1 
-                        </default>
-                        </matte>
-                      </color>
-                    <fade>
-                      <default>
-                        100 
-                      </default>
-                      </fade>
-                    </params>
-                  <ports>
-                    <Light>
-                      <Toonz_columnFx id='7'/>
-                    </Light>
-                    <Source>
-                      <Toonz_columnFx id='7'/>
-                    </Source>
-                    </ports>
-                  <numberId>
-                    1 
-                  </numberId>
-                  <name>
-                    Glow01 
-                  </name>
-                  <fxId>
-                    Glow01 
-                  </fxId>
-                  <opened>
-                    0 
-                  </opened>
-                  
-                </STD_glowFx>
-                
+                <STD_glowFx id='10'/>
               </Source>
               <Reference>
                 </Reference>
@@ -837,19 +840,16 @@
           </STD_inoBlurFx>
           
         </fxnode>
-        <fxnode>
-          <STD_glowFx id='12'/>
-        </fxnode>
         </internal>
       <terminal>
         <fxnode>
           <Toonz_zeraryColumnFx id='4'/>
         </fxnode>
         <fxnode>
-          <STD_radialBlurFx id='10'/>
+          <STD_radialBlurFx id='11'/>
         </fxnode>
         <fxnode>
-          <STD_inoBlurFx id='11'/>
+          <STD_inoBlurFx id='12'/>
         </fxnode>
         </terminal>
       <xsheet>
