@@ -19,7 +19,13 @@ Phase 0 的测试在编写过程中发现了下面这些库行为。它们目前
 | 7 | `toonzlib/txsheet.cpp`，`insertColumn`/`removeColumn` | 插入已填充的列或删除列后不更新帧数，直到调用 `updateFrameCount()`。生成器已在保存前显式调用，否则由零元列构成的场景头部会写成 `framecount="0"`。 | `tests/toonzlib/test_xsheet_ops.cpp` |
 | 8 | `include/toonz/txsheet.h` 文档注释 | `clearCells()` 原地清空、`removeCells()` 上移下方单元格，头文件注释写反了。 | `tests/toonzlib/test_xsheet_ops.cpp` |
 | 9 | `include/tvectorimage.h` | `TVectorImage::areValidRegions()` 只有声明没有定义。 | `tests/toonzlib/test_level_formats.cpp` |
+| 10 | `common/tvectorimage/tvectorimage.cpp`，`Imp::removeStroke` | 从 `m_strokes` 移除 `VIStroke*` 包装对象并返回内部笔触，但从不删除包装对象，每次 removeStroke 泄漏一个。LeakSanitizer 可见。 | `tests/core/test_tvectorimage.cpp` |
+| 11 | `common/tvectorimage/tl2lautocloser.cpp`，`Imp::getIntersection` | 对同一笔触求自交（`tcomputeregions.cpp` 的循环从 `j = i` 开始）时同一 map 键写两次，第一个 `StrokesIntersection` 泄漏。 | `tests/toonzlib/test_level_formats.cpp` |
+| 12 | `toonzlib/outputproperties.cpp` | `~TOutputProperties()` 不删除构造函数和 `operator=` 里 new 出来的 `m_boardSettings`，每次加载场景泄漏一到两个。 | `tests/toonzlib/test_scene_io.cpp` |
+| 13 | `stdfx/changecolorfx.cpp` | `ChangeColorFx` 的 `FX_PLUGIN_IDENTIFIER` 被注释掉，`getDeclaration()` 只声明未定义，vtable 和 typeinfo 从不生成；`stdfx/changecolorfx.h` 是过期副本。开启 UBSan 的 vptr 检查时 `libtnzstdfx` 无法链接，asan preset 因此暂时带 `-fno-sanitize=vptr`。应删除这段死代码。 | 清洁剂 CI |
 | 5 | `tnzext/ttexturemesh` 与 `plasticdeformer.cpp` | `TTextureMesh::faceContains` 用严格符号判断，正好落在网格边上的骨骼句柄不属于任何面，`PlasticDeformer::compile()` 会静默丢掉它，网格只做刚体旋转。 | `tests/fixtures/gen_reference_project.cpp`（生成器把关节放在 y=3.3 避开边） |
+
+清洁剂 CI（`workflow_sanitizers.yml`）目前关闭了泄漏检测（`detect_leaks=0`），修掉第 10 到 12 条后可以打开。
 
 ## 值得知道但不算 bug 的行为
 

@@ -1,0 +1,116 @@
+name: Sanitizers
+
+# Builds the NextToonz unit tests with AddressSanitizer and
+# UndefinedBehaviorSanitizer (the `asan` preset in
+# toonz/sources/CMakePresets.json) and runs them through ctest. Only the
+# test binaries and the libraries they link are built; the golden renders
+# need tcomposer and run in workflow_linux.yml instead.
+# See doc/nexttoonz_plan.md, D7.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.head_ref != '' }}
+
+on:
+  push:
+    paths:
+      - '**/*'                   # Include all files in the repository
+      - '!appveyor.yml'          # Ignore changes in AppVeyor
+      - '!README.md'             # Exclude README
+      - '!doc/**'                # Exclude documentation
+      - '!**/.github/**'         # Exclude everything in .github folder
+      - '.github/workflows/workflow_sanitizers.yml'  # Include this workflow file
+  pull_request:
+    paths:
+      - '**/*'
+      - '!appveyor.yml'
+      - '!README.md'
+      - '!doc/**'
+      - '!**/.github/**'
+      - '.github/workflows/workflow_sanitizers.yml'
+  workflow_dispatch:
+
+jobs:
+  asan-ubsan:
+    name: ASan + UBSan (clang)
+    # 24.04 rather than the 22.04 the release job needs: nothing here is
+    # shipped, and its default clang (18) has the newer sanitizers.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: /home/runner/.ccache
+      CCACHE_MAXSIZE: 1G   # a cold build stores ~600 MB of objects before compression
+      # gtest_discover_tests runs every test binary at build time to list its
+      # tests, so these must be set for the build step as well as for ctest.
+      # Leak checking is off for now: the toonzlib tests leak at exit (library
+      # singletons, test fixtures and a few small leaks in toonzlib/tnzcore).
+      # The asan preset also passes -fno-sanitize=vptr: the vptr check makes
+      # every member function reference its class's typeinfo, and the unused
+      # ChangeColorFx in stdfx/changecolorfx.cpp never defines its key
+      # function (getDeclaration), so libtnzstdfx.so fails to link into any
+      # executable. Re-enable vptr once that dead class is removed.
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+      QT_QPA_PLATFORM: offscreen
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install libraries
+      # Same list as workflow_linux.yml, plus clang's sanitizer runtimes
+      # (libclang-rt-18-dev): clang alone cannot link -fsanitize=address.
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake pkg-config ninja-build ccache libboost-all-dev qtbase5-dev qt5-qmake qtscript5-dev qttools5-dev qttools5-dev-tools qtmultimedia5-dev qtwayland5 libqt5svg5-dev libqt5opengl5-dev libqt5multimedia5-plugins libqt5serialport5-dev libsuperlu-dev liblz4-dev libusb-1.0-0-dev liblzo2-dev libpng-dev libjpeg-dev libglew-dev freeglut3-dev libfreetype6-dev libjson-c-dev libmypaint-dev libopencv-dev libturbojpeg-dev libomp-dev libfuse2 libgtest-dev xvfb mesa-utils libgl1-mesa-dri python3-numpy python3-pil \
+          clang libclang-rt-18-dev
+
+    - name: Set up cache
+      run: mkdir -p /home/runner/.ccache
+
+    - uses: actions/cache@v5
+      with:
+        path: /home/runner/.ccache
+        # "asan-" first so the "Linux-" restore prefix of workflow_linux.yml
+        # never picks up these objects (they are useless to a normal build).
+        key: asan-${{ runner.os }}-${{ github.sha }}
+        restore-keys: |
+          asan-${{ runner.os }}-
+
+    - name: Build libtiff
+      # Built as in workflow_linux.yml, without sanitizers: it is a static
+      # third-party archive linked into tnzcore.
+      run: |
+        cd thirdparty/tiff-4.0.3
+        CFLAGS='-fPIC' CXXFLAGS='-fPIC' ./configure --disable-jbig
+        make -j $(nproc)
+
+    - name: Configure
+      working-directory: toonz/sources
+      run: |
+        cmake --preset asan \
+          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+    - name: Build tests
+      working-directory: toonz/build-asan
+      run: |
+        targets=nexttoonz_core_tests
+        if ninja -t targets all | grep -q '^nexttoonz_toonzlib_tests:'; then
+          targets="$targets nexttoonz_toonzlib_tests"
+        fi
+        echo "Building: $targets"
+        ccache -z
+        ninja -k 0 $targets
+        ccache -s
+
+    - name: Test
+      working-directory: toonz/build-asan
+      # Every non-golden test, i.e. the gtest cases of the binaries built
+      # above (labels "core" and "toonzlib").
+      run: ctest -LE golden --no-tests=error --output-on-failure --timeout 900
+
+    - uses: actions/upload-artifact@v6
+      if: failure()
+      with:
+        name: sanitizer-logs-${{ github.sha }}
+        path: toonz/build-asan/Testing/Temporary/
+        if-no-files-found: ignore

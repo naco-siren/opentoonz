@@ -63,7 +63,12 @@ target_link_libraries(nexttoonz_core_tests
 
 nexttoonz_stage_runtime(nexttoonz_core_tests tnzcore tnzbase)
 
+# Registered as "core.<Suite>.<Test>" with the label "core", so that
+# `ctest -L core` or `ctest -R core` selects them (the toonzlib tests use
+# "toonzlib." the same way).
 gtest_discover_tests(nexttoonz_core_tests
+    TEST_PREFIX "core."
+    PROPERTIES LABELS core
     DISCOVERY_TIMEOUT 60
 )
 
