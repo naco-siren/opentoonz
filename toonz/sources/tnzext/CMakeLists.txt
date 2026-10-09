@@ -95,9 +95,9 @@ if(BUILD_ENV_APPLE)
     find_library(ACCE_LIB Accelerate)
 endif()
 
-if(BUILD_ENV_MSVC OR BUILD_ENV_APPLE)
-    # Warning, this looks wrong,
-    # should _only_ use SUPERLU_INCLUDE_DIR, for now do this with Linux.
+if(BUILD_ENV_MSVC)
+    # MSVC links the prebuilt SuperLU 4.1 archive, whose headers live in
+    # the vendored source tree.
     include_directories(
         SYSTEM
         ${SDKROOT}/superlu/SuperLU_4.1/SRC

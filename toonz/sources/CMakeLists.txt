@@ -108,6 +108,10 @@ option(WITH_SYSTEM_SUPERLU "Use the system SuperLU library instead of 'thirdpart
 option(WITH_CANON "Build with Canon DSLR support - Requires Canon SDK" OFF)
 option(WITH_TRANSLATION "Generate translation projects as well" ON)
 option(WITH_WINTAB "(Windows only) Build with customized Qt with WinTab support. https://github.com/shun-iwasawa/qt5/releases/tag/v5.15.2_wintab" OFF)
+option(WITH_TESTS "Build the GoogleTest unit tests and register ctest targets" ON)
+
+# Always export compile_commands.json for clangd, clang-tidy and friends.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # avoid using again
 option_defaults_clear()
@@ -415,9 +419,17 @@ elseif(BUILD_ENV_APPLE)
     set(PNG_LIB ${PNG_LIBRARY})
     find_package(GLEW)
 
-    find_package(SuperLU REQUIRED)
-    set(SUPERLU_INCLUDE_DIR ${SUPERLU_INCLUDE_DIR}/superlu)
-    set(SUPERLU_LIB ${SUPERLU_LIBRARY})
+    if(WITH_SYSTEM_SUPERLU)
+        find_package(SuperLU REQUIRED)
+        set(SUPERLU_LIB ${SUPERLU_LIBRARY})
+    else()
+        # Build the vendored SuperLU 4.1 from source so that arm64 and
+        # x86_64 macOS link the same solver (the prebuilt archive in
+        # thirdparty/superlu has no arm64 slice).
+        add_subdirectory(superlu41)
+        set(SUPERLU_INCLUDE_DIR ${SDKROOT}/superlu/SuperLU_4.1/SRC)
+        set(SUPERLU_LIB superlu41)
+    endif()
     message("SuperLU:" ${SUPERLU_INCLUDE_DIR})
 
     find_package(JPEG REQUIRED)
@@ -770,4 +782,11 @@ endif()
 
 if(BUILD_ENV_UNIXLIKE AND NOT BUILD_TARGET_WIN)
     add_subdirectory(xdg-data)
+endif()
+
+#-----------------------------------------------------------------------------
+# Tests (NextToonz). GoogleTest unit tests and tcomposer golden renders.
+if(WITH_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
 endif()

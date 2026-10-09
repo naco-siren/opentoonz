@@ -1,0 +1,63 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../build",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "WITH_TRANSLATION": "OFF",
+        "WITH_TESTS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "asan",
+      "displayName": "Debug + ASan/UBSan",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/../build-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "macos-brew",
+      "displayName": "macOS (Homebrew Qt 5)",
+      "inherits": "release",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "release", "configurePreset": "release" },
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "asan", "configurePreset": "asan" },
+    { "name": "macos-brew", "configurePreset": "macos-brew" }
+  ],
+  "testPresets": [
+    { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } },
+    { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } },
+    { "name": "asan", "configurePreset": "asan", "output": { "outputOnFailure": true } },
+    { "name": "macos-brew", "configurePreset": "macos-brew", "output": { "outputOnFailure": true } }
+  ]
+}
