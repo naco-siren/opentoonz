@@ -23,6 +23,24 @@ if(NOT GTest_FOUND)
 endif()
 include(GoogleTest)
 
+# On macOS the toonz shared libraries carry @executable_path install names
+# (see tnzcore/CMakeLists.txt), so a test executable can only load them when
+# they sit next to it. The app bundle gets them copied in by the OpenToonz
+# target; test executables stage their own copies here. Call this BEFORE
+# gtest_discover_tests so the copy runs before test discovery.
+function(nexttoonz_stage_runtime target)
+    if(NOT APPLE)
+        return()
+    endif()
+    foreach(_dep ${ARGN})
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:${_dep}> $<TARGET_FILE_DIR:${target}>
+            COMMENT "Staging ${_dep} next to ${target}"
+        )
+    endforeach()
+endfunction()
+
 #-----------------------------------------------------------------------------
 # Unit tests against tnzcore
 
@@ -42,6 +60,8 @@ target_link_libraries(nexttoonz_core_tests
         GTest::gtest
         GTest::gtest_main
 )
+
+nexttoonz_stage_runtime(nexttoonz_core_tests tnzcore tnzbase)
 
 gtest_discover_tests(nexttoonz_core_tests
     DISCOVERY_TIMEOUT 60

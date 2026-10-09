@@ -43,12 +43,21 @@ endif()
 set(_stuff_dir ${CMAKE_SOURCE_DIR}/../../stuff)
 set(_golden_work ${CMAKE_BINARY_DIR}/golden)
 
+# On macOS the runnable tcomposer is the copy inside the app bundle, where
+# the OpenToonz target also copies the shared libraries and lzocompress
+# (the dylibs use @executable_path install names, see tests/CMakeLists.txt).
+if(APPLE)
+    set(_tcomposer "$<TARGET_FILE_DIR:OpenToonz>/tcomposer")
+else()
+    set(_tcomposer "$<TARGET_FILE:tcomposer>")
+endif()
+
 foreach(_scene ${_scenes})
     get_filename_component(_name ${_scene} NAME_WE)
     add_test(
         NAME golden_${_name}
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_golden.py
-            --tcomposer $<TARGET_FILE:tcomposer>
+            --tcomposer ${_tcomposer}
             --stuff ${_stuff_dir}
             --project ${_fixture_root}
             --scene ${_scene}

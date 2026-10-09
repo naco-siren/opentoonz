@@ -46,6 +46,13 @@ foreach(_lzo_helper lzocompress lzodecompress)
     endif()
 endforeach()
 
+# macOS: stage the @executable_path dylibs and the lzo helpers next to the
+# test binary (no-op elsewhere; see nexttoonz_stage_runtime in ../CMakeLists.txt).
+nexttoonz_stage_runtime(nexttoonz_toonzlib_tests
+    toonzlib image tnzstdfx colorfx tnzext tnzbase tnzcore
+    lzocompress lzodecompress
+)
+
 # Every test is registered as "toonzlib.<Suite>.<Test>" with the label
 # "toonzlib", so `ctest -R toonzlib` or `ctest -L toonzlib` selects them.
 gtest_discover_tests(nexttoonz_toonzlib_tests
