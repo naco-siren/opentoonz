@@ -98,6 +98,27 @@ Scenes in the reference project (320x180, 8 frames each):
 | `fx_blur_over_colorcard` | zerary fx column, fx inserted in the dag |
 | `subxsheet` | child level, nested xsheet, frame offsets |
 | `checkerboard_camera` | asset-free generator fx, camera pan and rotation |
+| `sound_column` | sound column (wav loaded via `ToonzScene::loadLevel`) next to a vector level |
+| `particles_basic` | particlesFx zerary column with the default sprite (needs GL), over a colour card |
+| `fx_gallery_cpu` | fx chains: linearGradientFx background, glowFx then inoBlurFx, radialBlurFx |
+| `shader_fx` | GLSL shader fx (`sunflare.xml` from `stuff/library/shaders`) with an animated parameter |
+| `plastic_basic` | mesh level from `buildMesh`, mesh column parenting, animated plastic skeleton, PlasticDeformerFx |
 
-Still to add: sound column, plastic deformation, particles, shader fx, and
-the remaining fx families (see `doc/nexttoonz_plan.md`, D7).
+Still to add: the remaining fx families (iwa_, noise and so on, see
+`doc/nexttoonz_plan.md`, D7).
+
+Things to know about the generator and the scene files:
+
+- The generator needs no display or OpenGL. It reads
+  `stuff/library/shaders` through `loadShaderInterfaces()` so shader fx
+  can be instantiated, writes its WAV fixture byte by byte and registers a
+  minimal WAV reader because it does not link the sound library, and builds
+  the plastic meshing mask on the CPU because every vector rasteriser in
+  the codebase still goes through `TOfflineGL`.
+- `.tnz` output is not byte-deterministic: fx sets, terminal sets and cast
+  folders are serialised in pointer order, so a regenerated scene can have
+  lines reordered while describing the same graph. Compare renders, not
+  bytes, until the Phase 2 persistence work orders them by id.
+- `PlasticDeformer` drops a skeleton handle that lies exactly on a mesh
+  edge (`TTextureMesh::faceContains` uses closed sign tests); the generator
+  keeps joints off edges and throws if a joint is outside every face.
