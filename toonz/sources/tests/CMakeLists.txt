@@ -26,15 +26,18 @@ include(GoogleTest)
 #-----------------------------------------------------------------------------
 # Unit tests against tnzcore
 
-add_executable(nexttoonz_core_tests
-    core/test_tgeometry.cpp
-    core/test_tfilepath.cpp
-    core/test_traster.cpp
+# Every core/test_*.cpp is part of the core test binary; re-run cmake after
+# adding a file (CONFIGURE_DEPENDS makes Ninja do that automatically).
+file(GLOB NEXTTOONZ_CORE_TEST_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_*.cpp
 )
+
+add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_TEST_SOURCES})
 
 target_link_libraries(nexttoonz_core_tests
     PRIVATE
         tnzcore
+        tnzbase
         Qt5::Core
         GTest::gtest
         GTest::gtest_main
@@ -43,6 +46,13 @@ target_link_libraries(nexttoonz_core_tests
 gtest_discover_tests(nexttoonz_core_tests
     DISCOVERY_TIMEOUT 60
 )
+
+#-----------------------------------------------------------------------------
+# Tests against toonzlib and the image library (formats, scene model)
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toonzlib/CMakeLists.txt)
+    add_subdirectory(toonzlib)
+endif()
 
 #-----------------------------------------------------------------------------
 # Golden renders (registered by golden/CMakeLists.txt once fixtures exist)
