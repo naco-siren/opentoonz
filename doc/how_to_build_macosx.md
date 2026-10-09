@@ -90,6 +90,8 @@ To build from command line, do the following:
 cmake ../sources -DQT_PATH='/opt/homebrew/opt/qt@5/lib'  #replace QT path with your installed QT version#
 make
 ```
+- Apple Silicon (arm64) builds natively. SuperLU is compiled from the sources vendored in `thirdparty/superlu/SuperLU_4.1` on both arm64 and x86_64, so no Homebrew `superlu` is needed; pass `-DWITH_SYSTEM_SUPERLU=ON` only if you want to link a system SuperLU instead.
+- Tests are built by default (`-DWITH_TESTS=OFF` disables them) and need GoogleTest: `brew install googletest`. Run them with `ctest --output-on-failure` from the build directory. See `toonz/sources/tests/README.md`.
 - If you downloaded the QT installer and installed to `/Users/yourlogin/Qt` instead of by using homebrew, your lib path may look something like this: `~/Qt/5.12.2/clang_64/lib` or `~/Qt/5.12.2/clang_32/lib`
 
 To build using Xcode, do the following:

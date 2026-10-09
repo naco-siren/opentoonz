@@ -21,18 +21,26 @@ on:
       - '!doc/**'
       - '!**/.github/**'
       - '.github/workflows/workflow_macos.yml'
+  workflow_dispatch:
 
 jobs:
   macOS:
     timeout-minutes: 180 # Stop job if it exceeds expected build time
-    # GHA are sunsetting support for macOS 13 (Intel & Apple Silicon/arm) & will be fully unsupported on (December 4th 2025),
-    # See: https://github.blog/changelog/2025-09-19-github-actions-macos-13-runner-image-is-closing-down/ & https://github.com/actions/runner-images/issues/13046
-    # (Septemer 19th 2025) - Replacing `macos-13` runner image with the new `macos-15-intel` runner image to maintain macOS (Intel x64) support.
-    # See: https://github.com/actions/runner-images/issues/13045
-    # GHA (x86_64) SUNSETTING SUPPORT DEADLINE WARNING!!! `macos-15-intel` runner image will be the last available x86_64 image from Actions, and after (August 2027) the x86_64 architecture will not be supported on GitHub Actions.
-    # Xref.: https://github.com/actions/runner-images/issues/13045
-    # TODO: Change macOS GHA Runner Image to (Apple Silicon) based image on/prior to sunsetting of `macos-15-intel` (x86_64) runner image (August 2027)
-    runs-on: macos-15-intel
+    # NextToonz builds macOS arm64 and x86_64 at parity (doc/nexttoonz_plan.md, D5).
+    # - `macos-15` is an Apple Silicon (arm64, M1 3-vCPU) image.
+    # - `macos-15-intel` is the last x86_64 image GitHub offers; it goes away in
+    #   August 2027 (https://github.com/actions/runner-images/issues/13045).
+    # - `macos-14` is being retired in November 2026, do not use it
+    #   (https://github.com/actions/runner-images/issues/13518).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
 
@@ -63,7 +71,7 @@ jobs:
             done
           }
 
-          checkPkgAndInstall pkg-config glew lz4 libjpeg libpng lzo boost libusb libmypaint ccache jpeg-turbo ninja opencv@4 openjph openexr
+          checkPkgAndInstall pkg-config glew lz4 libjpeg libpng lzo boost libusb libmypaint ccache jpeg-turbo ninja opencv@4 openjph openexr googletest
 
           brew list --formula | grep '^qt' | grep -v '@5' | xargs -n1 brew unlink || true
 
@@ -73,40 +81,46 @@ jobs:
 
       - name: Set up cache
         run: |
-          export PATH="/usr/local/opt/ccache/libexec:$PATH"
           mkdir -p /Users/runner/.ccache
       - uses: actions/cache@v5
         with:
           path: /Users/runner/.ccache
-          key: ${{ runner.os }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-
+          key: ${{ runner.os }}-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-${{ matrix.arch }}-
 
       - name: Build libtiff
         run: |
           cd thirdparty/tiff-4.0.3
           CFLAGS='-fPIC' CXXFLAGS='-fPIC' ./configure --disable-lzma
           make -j $(sysctl -n hw.ncpu)
-          make install  # Ensures CMake finds the installed lib (avoid linking issues)
+          sudo make install  # Ensures CMake finds the installed lib (avoid linking issues)
       - name: Build
+        env:
+          CCACHE_DIR: /Users/runner/.ccache
         run: |
-          export PKG_CONFIG_PATH="/usr/local/opt/jpeg-turbo/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export PKG_CONFIG_PATH="$(brew --prefix jpeg-turbo)/lib/pkgconfig:$PKG_CONFIG_PATH"
           cd toonz
-          rm -rf build  
+          rm -rf build
           mkdir -p build
           cd build
           cmake ../sources -G Ninja \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DQT_PATH=$(brew --prefix qt@5)/lib \
             -DQt5_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5 \
-            -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5)/lib/cmake/Qt5 \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)/lib/cmake/Qt5;$(brew --prefix googletest)" \
             -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4 \
             -DWITH_TRANSLATION=OFF
           ninja -j $(sysctl -n hw.ncpu)
+      - name: Test
+        run: |
+          python3 -m pip install --quiet --break-system-packages numpy pillow || python3 -m pip install --quiet numpy pillow
+          cd toonz/build
+          ctest --output-on-failure --timeout 600
       - name: Introduce Libraries and Stuff
         run: |
           cd toonz/build/toonz
           cp -pr ../../../stuff OpenToonz.app/portablestuff
-          /usr/local/opt/qt@5/bin/macdeployqt OpenToonz.app -verbose=0 -always-overwrite \
+          $(brew --prefix qt@5)/bin/macdeployqt OpenToonz.app -verbose=0 -always-overwrite \
             -executable=OpenToonz.app/Contents/MacOS/lzocompress \
             -executable=OpenToonz.app/Contents/MacOS/lzodecompress \
             -executable=OpenToonz.app/Contents/MacOS/tcleanup \
@@ -130,7 +144,7 @@ jobs:
           cd toonz/build/toonz
           echo "Creating DMG..."
           ATTEMPT=1
-          until /usr/local/opt/qt@5/bin/macdeployqt OpenToonz.app -dmg -verbose=0 && [ -f OpenToonz.dmg ]; do
+          until $(brew --prefix qt@5)/bin/macdeployqt OpenToonz.app -dmg -verbose=0 && [ -f OpenToonz.dmg ]; do
             echo "Attempt $ATTEMPT failed to build DMG."
             if [ $ATTEMPT -eq 10 ]; then
               echo ">>> DMG file creation failed after 10 attempts. Aborting!"
@@ -143,5 +157,5 @@ jobs:
           echo "DMG created successfully."
       - uses: actions/upload-artifact@v6
         with:
-          name: Opentoonz-${{ runner.os }}-${{ github.sha }}
+          name: Opentoonz-${{ runner.os }}-${{ matrix.arch }}-${{ github.sha }}
           path: toonz/build/toonz/OpenToonz.dmg
