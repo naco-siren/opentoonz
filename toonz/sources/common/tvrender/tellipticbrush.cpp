@@ -172,8 +172,22 @@ This is coherent with the assumption that pixels orientation is not known.
 It's easy to see that maxAngle just has to be not multiplied by 2.
 */
 
-  double maxAngle = acos(1.0 - err / radius);  //* 2.0;
-  nAngles         = tceil(fabs(angle) / maxAngle);
+  // The formula is only defined for err > 0 and radius >= err / 2: below
+  // that (hairline and zero-thickness strokes) acos() gets an argument
+  // smaller than -1 and returns NaN. Converting NaN, or any value outside
+  // the int range, to int is undefined behaviour whose result differs
+  // between x86-64 and arm64. Such strokes need no intermediate points, so
+  // the arc keeps its end points only (which is also what the x86-64 code
+  // happened to do with the NaN).
+  nAngles = 0;
+  if (!(radius > 0.0) || !(err > 0.0)) return;
+
+  double cosMaxAngle = 1.0 - err / radius;
+  if (cosMaxAngle < -1.0) return;
+
+  double maxAngle     = acos(cosMaxAngle);  //* 2.0;
+  double subdivisions = fabs(angle) / maxAngle;
+  if (subdivisions < 2147483647.0) nAngles = tceil(subdivisions);
 }
 
 //------------------------------------------------------------

@@ -67,12 +67,17 @@ Each scene in `fixtures/reference_project/scenes/` becomes a ctest named
    `golden/compare_images.py`, and writes diff images into
    `<build>/golden/<scene>/diff/` on failure.
 
-Comparison is tolerant, not bit-exact: a frame fails when more than 0.1% of
+Comparison is tolerant, not bit-exact: a frame fails when more than 0.5% of
 its pixels differ by more than 2 in any channel. Vector levels and some
 effects are rasterised through OpenGL today, so antialiasing differs
-between drivers and platforms; the tolerance absorbs that while still
-catching real regressions. Expect the goldens to be regenerated once Phase
-1 replaces the OpenGL rasteriser with a deterministic CPU one.
+between drivers and platforms: the goldens come from Mesa's llvmpipe on
+Linux, and Apple's OpenGL rasteriser disagrees with it on up to about 0.4%
+of the pixels of a stroke-heavy frame. The tolerance absorbs that while
+still catching real regressions (a missing stroke, a wrong colour or a
+blank frame changes far more pixels). On failure the log also reports how
+many non-blank pixels each image has, so a frame that rendered empty is
+recognisable without downloading it. Expect the goldens to be regenerated
+once Phase 1 replaces the OpenGL rasteriser with a deterministic CPU one.
 
 On Linux the renders run under `xvfb-run` with Mesa's software rasteriser
 because the OpenGL paths need a display (`NEXTTOONZ_GOLDEN_XVFB`, on by

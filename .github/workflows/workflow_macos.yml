@@ -82,7 +82,10 @@ jobs:
       - name: Set up cache
         run: |
           mkdir -p /Users/runner/.ccache
-      - uses: actions/cache@v5
+      # restore + save instead of actions/cache so that the compiler cache is
+      # kept even when the Test step fails: a failed job otherwise skips the
+      # post step and the next push rebuilds everything from scratch.
+      - uses: actions/cache/restore@v5
         with:
           path: /Users/runner/.ccache
           key: ${{ runner.os }}-${{ matrix.arch }}-${{ github.sha }}
@@ -111,6 +114,12 @@ jobs:
             -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4 \
             -DWITH_TRANSLATION=OFF
           ninja -j $(sysctl -n hw.ncpu)
+      - name: Save cache
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: /Users/runner/.ccache
+          key: ${{ runner.os }}-${{ matrix.arch }}-${{ github.sha }}
       - name: Test
         run: |
           python3 -m pip install --quiet --break-system-packages numpy pillow || python3 -m pip install --quiet numpy pillow

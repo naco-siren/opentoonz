@@ -181,7 +181,7 @@ Qt 外的平台特定代码：`_WIN32` 554 行 235 文件，`MACOSX` 201 行 95 
 
 ### 2.6 Apple 平台与 iPad 约束
 
-- 仓库预编译的 `thirdparty/superlu/libsuperlu_4.1.a` 只含 i386 和 x86_64 两个切片，没有 arm64。Apple 构建默认 `WITH_SYSTEM_SUPERLU=OFF`，所以 Apple Silicon 原生构建需要 `-DWITH_SYSTEM_SUPERLU=ON` 加 `brew install superlu`，而 macOS 构建文档没有写。mac CI 跑在 Intel runner 上。仓库从未在 Apple Silicon 上验证过构建。
+- 仓库预编译的 `thirdparty/superlu/libsuperlu_4.1.a` 只含 i386 和 x86_64 两个切片，没有 arm64。Apple 构建默认 `WITH_SYSTEM_SUPERLU=OFF`，所以 Apple Silicon 原生构建原本需要 `-DWITH_SYSTEM_SUPERLU=ON` 加 `brew install superlu`，而 macOS 构建文档没有写。mac CI 跑在 Intel runner 上。仓库从未在 Apple Silicon 上验证过构建。（Phase 0 已改为在 Apple 上从源码编译同版本的 SuperLU 4.1，两种架构链接同一份求解器。）
 - iOS 的 OpenGL ES 自 iOS 12 起废弃，框架仍随系统分发但已冻结。只有 ES 1.1 有固定管线，而它没有 `glBegin`/`glEnd`、显示列表、`glPushAttrib`、`GL_QUADS`、`GL_POLYGON`、`GL_SELECT`、GLU、GLUT。现有 GL 代码在任何 iOS GL ES 版本上都无法运行。
 - iPadOS 不允许 spawn 子进程。现有的 `lzocompress`、ffmpeg、`t32bitsrv` 外部进程路径在 iPad 上全部不可用。
 - 以上三条是"iPad 约束必须提前烧入架构"的依据，见 D10。
@@ -349,7 +349,7 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
 工作项：
 
-- 启用 fork 的 Actions。新增 macOS arm64 job，与 x86_64 job 并列，`brew install superlu` 并 `-DWITH_SYSTEM_SUPERLU=ON`。
+- 启用 fork 的 Actions。新增 macOS arm64 job，与 x86_64 job 并列。Apple 构建改为从 `thirdparty/superlu/SuperLU_4.1` 的源码编译 SuperLU（`superlu41` 静态库），不再依赖只有 x86 切片的预编译包，也不要求 `brew install superlu`。
 - GoogleTest 加 CTest 接入 CMake；`CMakePresets.json`；导出 compile_commands；核心单测开 ASan 和 UBSan。
 - Linux job 加 Xvfb 加 llvmpipe，使 tcomposer 可无头渲染矢量场景。
 - 自建 reference project 并提交。
@@ -455,6 +455,7 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 - **macOS runner 性能。** M1 标准 runner 为 3 vCPU 7 GB，预计对 88 万行 C++ 的全量构建偏慢，Phase 0 启用后实测。缓解：ccache、分模块构建、必要时拆 job。
 - **Skia 构建重量。** 上游只支持 GN 构建。缓解：vcpkg 或预编译二进制，见待定事项。
 - **单人项目的阶段跨度。** Phase 2 与 Phase 3 并列最长，各 6 到 9 人月，且 Phase 2 全程用户不可见。缓解：每个子项（线程、路径、模型、命令搬迁）独立合并，每次合并后 golden 必须通过。
+- **x86-64 与 arm64 对未定义行为的不同结果。** 代码里大量 `(int)double` 转换在越界或 NaN 时是未定义行为，两种架构给出不同结果；Phase 0 已遇到一例让 arm64 macOS 的每一帧渲染变成空白（已知问题第 14 条）。缓解：清洁剂 CI 用 UBSan 跑全部 golden 场景并阻塞，macOS arm64 与 x86_64 的 golden 都阻塞合并。
 - **GPU 相关 golden 在 CI 上不可验证。** 托管 runner 的 Metal 可用性未验证。缓解：golden 只走 CPU 路径，GPU 后端用本地截图人工审查。
 
 ---

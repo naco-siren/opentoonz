@@ -23,9 +23,10 @@ Phase 0 的测试在编写过程中发现了下面这些库行为。它们目前
 | 11 | `common/tvectorimage/tl2lautocloser.cpp`，`Imp::getIntersection` | 对同一笔触求自交（`tcomputeregions.cpp` 的循环从 `j = i` 开始）时同一 map 键写两次，第一个 `StrokesIntersection` 泄漏。 | `tests/toonzlib/test_level_formats.cpp` |
 | 12 | `toonzlib/outputproperties.cpp` | `~TOutputProperties()` 不删除构造函数和 `operator=` 里 new 出来的 `m_boardSettings`，每次加载场景泄漏一到两个。 | `tests/toonzlib/test_scene_io.cpp` |
 | 13 | `stdfx/changecolorfx.cpp` | `ChangeColorFx` 的 `FX_PLUGIN_IDENTIFIER` 被注释掉，`getDeclaration()` 只声明未定义，vtable 和 typeinfo 从不生成；`stdfx/changecolorfx.h` 是过期副本。开启 UBSan 的 vptr 检查时 `libtnzstdfx` 无法链接，asan preset 因此暂时带 `-fno-sanitize=vptr`。应删除这段死代码。 | 清洁剂 CI |
+| 14 | `include/tutil.h` 的 `tfloor`/`tceil`，`include/tcommon.h` 的 `tround`/`troundp`，`include/tgeometry.h` 的 `convert(const TRectD&)` | 这些辅助函数用 `(int)x` 转换，`x` 超出 int 范围或为 NaN 时是未定义行为，而结果在 x86-64（`cvttsd2si` 给 INT_MIN）和 arm64（标量 `fcvtzs` 饱和；向量化后先转 64 位再截断低 32 位）上不同。`tnzbase/trasterfx.cpp` 与 `common/tfx/tfxcachemanager.cpp` 的 `enlargeToI()` 曾把 `TConsts::infiniteRectD`（零元 fx 与 over 链的 bbox）交给它们：x86-64 上恰好得到空矩形于是原样保留，arm64 上变成 (-1,-1) 处的 1×1 矩形，tcomposer 的每一帧只剩一个像素。Phase 0 已把两处 `enlargeToI()` 改为 `std::floor`/`std::ceil` 的双精度运算，并让 `common/tvrender/tellipticbrush.cpp` 的 `buildAngularSubdivision()` 对细于半个像素的笔触（`acos` 得 NaN）明确返回 0 个细分而不是把 NaN 交给 `tceil`（UBSan 在 12 个 golden 场景上再无 float-cast-overflow 报告），辅助函数本身仍是 UB，Phase 2 触碰 `tgeometry` 时应改成定义明确的饱和转换，并逐个确认调用方不依赖越界输入。 | macOS arm64 CI 的 golden；清洁剂构建下的 tcomposer |
 | 5 | `tnzext/ttexturemesh` 与 `plasticdeformer.cpp` | `TTextureMesh::faceContains` 用严格符号判断，正好落在网格边上的骨骼句柄不属于任何面，`PlasticDeformer::compile()` 会静默丢掉它，网格只做刚体旋转。 | `tests/fixtures/gen_reference_project.cpp`（生成器把关节放在 y=3.3 避开边） |
 
-清洁剂 CI（`workflow_sanitizers.yml`）目前关闭了泄漏检测（`detect_leaks=0`），修掉第 10 到 12 条后可以打开。
+清洁剂 CI（`workflow_sanitizers.yml`）目前关闭了泄漏检测（`detect_leaks=0`），修掉第 10 到 12 条后可以打开。它除单测外也用清洁剂构建的 tcomposer 跑全部 golden 场景并以 `halt_on_error=1` 阻塞，第 14 条这类“只在另一种架构上出错”的未定义行为因此会先在 Linux x86-64 上被 UBSan 抓住。
 
 ## 值得知道但不算 bug 的行为
 

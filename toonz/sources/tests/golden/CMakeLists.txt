@@ -7,7 +7,8 @@
 # Vector levels and GL effects still need an OpenGL context (Phase 1 removes
 # that). On Linux the tests therefore run under xvfb-run with Mesa's
 # software rasteriser when NEXTTOONZ_GOLDEN_XVFB is ON (the default on
-# Linux); macOS runs tcomposer directly with the offscreen QPA plugin.
+# Linux); macOS runs tcomposer directly on the default cocoa platform
+# (its offscreen plugin has no OpenGL).
 
 find_package(Python3 COMPONENTS Interpreter)
 

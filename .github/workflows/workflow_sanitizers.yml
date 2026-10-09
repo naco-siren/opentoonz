@@ -1,10 +1,12 @@
 name: Sanitizers
 
-# Builds the NextToonz unit tests with AddressSanitizer and
+# Builds the NextToonz unit tests and tcomposer with AddressSanitizer and
 # UndefinedBehaviorSanitizer (the `asan` preset in
-# toonz/sources/CMakePresets.json) and runs them through ctest. Only the
-# test binaries and the libraries they link are built; the golden renders
-# need tcomposer and run in workflow_linux.yml instead.
+# toonz/sources/CMakePresets.json) and runs the whole ctest suite: the unit
+# tests and the golden renders. The renders matter here because undefined
+# behaviour in the render path can give different pixels on different
+# architectures (doc/nexttoonz_known_issues.md, item 14); UBSan catches it
+# on Linux x86-64 before the macOS arm64 job does.
 # See doc/nexttoonz_plan.md, D7.
 
 concurrency:
@@ -90,13 +92,12 @@ jobs:
           -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
           -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
-    - name: Build tests
+    - name: Build tests and tcomposer
       working-directory: toonz/build-asan
+      # tcomposer (with the lzo helpers it spawns for tlv levels) renders the
+      # golden scenes; the GUI executable is not needed.
       run: |
-        targets=nexttoonz_core_tests
-        if ninja -t targets all | grep -q '^nexttoonz_toonzlib_tests:'; then
-          targets="$targets nexttoonz_toonzlib_tests"
-        fi
+        targets="nexttoonz_core_tests nexttoonz_toonzlib_tests tcomposer lzocompress lzodecompress"
         echo "Building: $targets"
         ccache -z
         ninja -k 0 $targets
@@ -104,9 +105,19 @@ jobs:
 
     - name: Test
       working-directory: toonz/build-asan
-      # Every non-golden test, i.e. the gtest cases of the binaries built
-      # above (labels "core" and "toonzlib").
-      run: ctest -LE golden --no-tests=error --output-on-failure --timeout 900
+      # Unit tests (labels "core" and "toonzlib") and the golden renders,
+      # which run tcomposer under xvfb-run with Mesa's software rasteriser.
+      run: ctest --no-tests=error --output-on-failure --timeout 900
+
+    - name: Upload golden renders on failure
+      if: failure()
+      uses: actions/upload-artifact@v6
+      with:
+        name: sanitizer-golden-renders-${{ github.sha }}
+        path: |
+          toonz/build-asan/golden/*/out/*.png
+          toonz/build-asan/golden/*/diff/*.png
+        if-no-files-found: ignore
 
     - uses: actions/upload-artifact@v6
       if: failure()

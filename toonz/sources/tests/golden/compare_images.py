@@ -8,6 +8,15 @@ change it again. Instead a frame passes when the fraction of pixels whose
 largest channel difference exceeds ``--max-channel-diff`` is at most
 ``--max-diff-fraction``.
 
+The defaults (2 levels, 0.5% of the pixels) come from the goldens being
+rendered with Mesa's llvmpipe on Linux: Apple's OpenGL rasteriser differs
+from it on up to about 0.4% of the pixels of a stroke-heavy 320x180 frame,
+while a real regression (a missing or displaced stroke, a wrong colour, a
+blank frame) changes far more than that.
+
+On failure the summary also says how many non-blank pixels each image has,
+so a frame that came out empty is recognisable from the log alone.
+
 Usage:
     compare_images.py EXPECTED ACTUAL [--diff OUT.png]
                       [--max-channel-diff N] [--max-diff-fraction F]
@@ -25,7 +34,7 @@ import numpy as np
 from PIL import Image
 
 DEFAULT_MAX_CHANNEL_DIFF = 2
-DEFAULT_MAX_DIFF_FRACTION = 0.001
+DEFAULT_MAX_DIFF_FRACTION = 0.005
 
 
 def load_rgba(path: Path) -> np.ndarray:
@@ -70,6 +79,14 @@ def compare(
         f"peak channel diff {peak}, {fraction * 100:.4f}% of pixels over "
         f"tolerance {max_channel_diff} (limit {max_diff_fraction * 100:.4f}%)"
     )
+    if not passed:
+        # A pixel is blank when every channel is (near) zero: transparent black.
+        blank_e = int((e.max(axis=2) <= max_channel_diff).sum())
+        blank_a = int((a.max(axis=2) <= max_channel_diff).sum())
+        total = e.shape[0] * e.shape[1]
+        summary += f"; non-blank pixels expected {total - blank_e}, actual {total - blank_a}"
+        if blank_a == total:
+            summary += " (actual frame is entirely blank)"
     return passed, summary
 
 

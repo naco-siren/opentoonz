@@ -7,6 +7,8 @@
 
 #include "tfxcachemanager.h"
 
+#include <cmath>
+
 // Debug
 //#define DIAGNOSTICS
 #ifdef DIAGNOSTICS
@@ -98,9 +100,12 @@ inline bool isEmpty(const TRectD &rect) {
   return rect.x0 >= rect.x1 || rect.y0 >= rect.y1;
 }
 inline void enlargeToI(TRectD &r) {
-  TRectD temp(tfloor(r.x0), tfloor(r.y0), tceil(r.x1), tceil(r.y1));
-  if (!isEmpty(temp))
-    r = temp;  // Since r could have TConsts::infiniteRectD-like coordinates...
+  // In double arithmetic: r can be TConsts::infiniteRectD, which must stay
+  // as it is, and converting it through tfloor()/tceil() is undefined
+  // behaviour that differs between x86-64 and arm64 (see trasterfx.cpp).
+  TRectD temp(std::floor(r.x0), std::floor(r.y0), std::ceil(r.x1),
+              std::ceil(r.y1));
+  if (!isEmpty(temp)) r = temp;
 }
 
 // Qt's contains actually returns QRegion::intersected... I wonder why...

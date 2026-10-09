@@ -41,3 +41,6 @@ ipch/
 
 # generated qm files
 /stuff/config/loc
+# Python bytecode caches (tests/golden scripts)
+__pycache__/
+*.pyc

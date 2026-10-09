@@ -2,6 +2,8 @@
 
 #include "trasterfx.h"
 
+#include <cmath>
+
 // Core-system includes
 #include "tsystem.h"
 #include "tthreadmessage.h"
@@ -74,9 +76,15 @@ inline TRectD myConvert(const TRect &rect) {
 //--------------------------------------------------
 
 inline void enlargeToI(TRectD &r) {
-  TRectD temp(tfloor(r.x0), tfloor(r.y0), tceil(r.x1), tceil(r.y1));
-  // NOTE: If we enlarge a TConsts::infiniteRectD or one which trespass
-  // ints' numerical bounds, the rect may become empty.
+  // Enlarge to integer coordinates in double arithmetic. Going through
+  // tfloor()/tceil() is undefined behaviour for TConsts::infiniteRectD (the
+  // bbox of fxs with unbounded output) and for any rect beyond the int
+  // range: on x86-64 the conversion happened to yield an empty rect, so the
+  // infinite rect was left alone, while on arm64 the vectorised code narrows
+  // a 64-bit conversion to 32 bits and turned it into a 1x1 rect at (-1,-1),
+  // blanking every render. std::floor/std::ceil leave such rects unchanged.
+  TRectD temp(std::floor(r.x0), std::floor(r.y0), std::ceil(r.x1),
+              std::ceil(r.y1));
   if (!myIsEmpty(temp)) r = temp;
 }
 
