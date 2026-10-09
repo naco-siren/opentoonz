@@ -81,6 +81,16 @@ jobs:
         cd toonz/build
         ctest --output-on-failure --timeout 900
 
+    - name: Upload golden renders on failure
+      if: failure()
+      uses: actions/upload-artifact@v6
+      with:
+        name: golden-renders-${{ matrix.compiler }}-${{ github.sha }}
+        path: |
+          toonz/build/golden/*/out/*.png
+          toonz/build/golden/*/diff/*.png
+        if-no-files-found: ignore
+
     - name: Create Artifact
       run: |
         cd toonz/build

@@ -116,6 +116,15 @@ jobs:
           python3 -m pip install --quiet --break-system-packages numpy pillow || python3 -m pip install --quiet numpy pillow
           cd toonz/build
           ctest --output-on-failure --timeout 600
+      - name: Upload golden renders on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: golden-renders-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            toonz/build/golden/*/out/*.png
+            toonz/build/golden/*/diff/*.png
+          if-no-files-found: ignore
       - name: Introduce Libraries and Stuff
         run: |
           cd toonz/build/toonz
