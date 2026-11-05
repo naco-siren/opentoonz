@@ -1551,7 +1551,6 @@ void sceneFxSweep(const TFilePath &projectFolder, const std::string &name,
   for (int row = 0; row < frames; ++row) {
     TFxP fx = createFx(fxIds[row]);
     SweepEntry entry{name, row + 1, fxIds[row], ""};
-    if (getenv("NEXTTOONZ_GEN_TRACE")) std::cerr << "TRACE " << name << " " << fxIds[row] << std::endl;
     const SweepSetup *setup = sweepSetup(fxIds[row]);
     const int flags         = setup ? setup->flags : 0;
     if (setup && setup->params) setup->params(fx);
@@ -1606,13 +1605,14 @@ void sceneFxSweep(const TFilePath &projectFolder, const std::string &name,
 }
 
 // Builds the fx_sweep_* scenes: base compositing fxs, then the standard fxs
-// by family, 16 per scene. GPU shader fxs get scenes of their own
-// (fx_sweep_gpu_*, fx_sweep_gpuin_*), since their output depends on the
-// driver.
+// by family, 16 per scene. Fxs whose output depends on more than the code
+// get scenes of their own, so that the golden tests can treat them per
+// platform: text fxs (fx_sweep_font_*, system fonts) and GPU shader fxs
+// (fx_sweep_gpu_*, fx_sweep_gpuin_*, the driver).
 void scenesFxSweep(const TFilePath &projectFolder) {
   std::vector<TFxInfo> infos;
   TFx::listFxs(infos);
-  std::vector<std::string> cpu, gpu, gpuWithInputs;
+  std::vector<std::string> cpu, font, gpu, gpuWithInputs;
   std::vector<std::pair<std::string, std::string>> excluded;
   for (const TFxInfo &info : infos) {
     if (const char *why = sweepExclusion(info))
@@ -1620,6 +1620,9 @@ void scenesFxSweep(const TFilePath &projectFolder) {
     else if (info.m_name.compare(0, 7, "SHADER_") == 0)
       (TFxP(TFx::create(info.m_name))->getInputPortCount() ? gpuWithInputs : gpu)
           .push_back(info.m_name);
+    else if (info.m_name == "STD_iwa_TextFx" ||
+             info.m_name == "STD_iwa_TimeCodeFx")
+      font.push_back(info.m_name);
     else
       cpu.push_back(info.m_name);
   }
@@ -1635,6 +1638,7 @@ void scenesFxSweep(const TFilePath &projectFolder) {
     return std::make_pair(family(a), a) < std::make_pair(family(b), b);
   };
   std::sort(cpu.begin(), cpu.end(), byFamily);
+  std::sort(font.begin(), font.end());
   std::sort(gpu.begin(), gpu.end());
   std::sort(gpuWithInputs.begin(), gpuWithInputs.end());
 
@@ -1652,6 +1656,8 @@ void scenesFxSweep(const TFilePath &projectFolder) {
     }
   };
   emitScenes(cpu, "fx_sweep");
+  // Fxs that draw text render with whatever font the system provides.
+  emitScenes(font, "fx_sweep_font");
   emitScenes(gpu, "fx_sweep_gpu");
   // Shader fxs with input ports take a different path (a second program with
   // transform feedback computes the input areas), so they are kept apart.

@@ -639,10 +639,10 @@
         </internal>
       <terminal>
         <fxnode>
-          <Toonz_zeraryColumnFx id='3'/>
+          <STD_blurFx id='7'/>
         </fxnode>
         <fxnode>
-          <STD_blurFx id='7'/>
+          <Toonz_zeraryColumnFx id='3'/>
         </fxnode>
         </terminal>
       <xsheet>

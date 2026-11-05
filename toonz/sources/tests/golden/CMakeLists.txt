@@ -55,6 +55,13 @@ endif()
 
 foreach(_scene ${_scenes})
     get_filename_component(_name ${_scene} NAME_WE)
+
+    # Scenes whose output depends on more than the code under test.
+    #   fx_sweep_font_*   text fxs draw with the system's fonts; the goldens
+    #                     come from Linux, so they are compared there only.
+    if(_name MATCHES "^fx_sweep_font_" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        continue()
+    endif()
     add_test(
         NAME golden_${_name}
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_golden.py
@@ -70,6 +77,12 @@ foreach(_scene ${_scenes})
         LABELS "golden"
         TIMEOUT 900
     )
+    #   fx_sweep_gpuin_*  shader fxs with input ports crash tcomposer on macOS
+    #                     (doc/nexttoonz_known_issues.md, item 15). Listed as
+    #                     disabled there so that the gap stays visible.
+    if(APPLE AND _name MATCHES "^fx_sweep_gpuin_")
+        set_tests_properties(golden_${_name} PROPERTIES DISABLED TRUE)
+    endif()
 endforeach()
 
 message(STATUS "Golden tests: registered ${_scenes}")

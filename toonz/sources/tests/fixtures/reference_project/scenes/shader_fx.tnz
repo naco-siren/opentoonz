@@ -695,10 +695,10 @@
     <fxnodes>
       <terminal>
         <fxnode>
-          <Toonz_zeraryColumnFx id='2'/>
+          <Toonz_zeraryColumnFx id='5'/>
         </fxnode>
         <fxnode>
-          <Toonz_zeraryColumnFx id='5'/>
+          <Toonz_zeraryColumnFx id='2'/>
         </fxnode>
         </terminal>
       <xsheet>

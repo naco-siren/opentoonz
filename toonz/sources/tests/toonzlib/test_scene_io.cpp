@@ -94,7 +94,8 @@ struct SceneExpectation {
 
 // TXsheet::insertColumn() does not update the frame count (see
 // XsheetOps.InsertZeraryColumnLeavesFrameCountStale), so the generator calls
-// updateFrameCount() before saving; every header therefore says 8 frames.
+// updateFrameCount() before saving; the headers of these scenes therefore
+// say 8 frames.
 // clang-format off
 const SceneExpectation kKnownScenes[] = {
     // name                    columns  tnz header frame count
@@ -170,8 +171,16 @@ TEST_P(SceneLoad, FrameColumnAndCameraCounts) {
   ASSERT_TRUE(scene->getProject() != nullptr);
   EXPECT_EQ(scene->getProject()->getName(), TFilePath("reference_project"));
 
-  // Every reference scene is 8 frames at 320x180 (16 x 9 inches).
-  EXPECT_EQ(scene->getFrameCount(), kFrames);
+  // The scenes of kKnownScenes are 8 frames long; the others (the fx sweeps
+  // and the showcases) have a frame count of their own, which the header
+  // must agree with. All are 320x180 (16 x 9 inches).
+  if (expected.tnzHeaderFrameCount != kUnknown)
+    EXPECT_EQ(scene->getFrameCount(), kFrames);
+  else {
+    EXPECT_GT(scene->getFrameCount(), 0);
+    EXPECT_EQ(headerFrameCount(scenePath(expected.name)),
+              scene->getFrameCount());
+  }
   TXsheet *xsh = scene->getXsheet();
   ASSERT_NE(xsh, nullptr);
   EXPECT_GT(xsh->getColumnCount(), 0);
@@ -446,7 +455,7 @@ TEST_P(SceneSaveRoundTrip, ReloadsWithSameStructure) {
   TXsheet *b = reloaded->getXsheet();
   EXPECT_EQ(b->getFrameCount(), a->getFrameCount());
   // Saving writes the recomputed frame count, fixing a stale header.
-  EXPECT_EQ(headerFrameCount(resaved), kFrames);
+  EXPECT_EQ(headerFrameCount(resaved), a->getFrameCount());
   EXPECT_EQ(b->getColumnCount(), a->getColumnCount());
   EXPECT_EQ(cellTable(b), cellTable(a));
   EXPECT_EQ(columnParents(b), columnParents(a));

@@ -377,7 +377,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='1'/><level id='2'/>
+        <level id='2'/><level id='1'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -757,7 +757,43 @@
           
         </fxnode>
         <fxnode>
-          <STD_radialBlurFx id='11'>
+          <STD_inoBlurFx id='11'>
+            
+            <params>
+              <radius>
+                <default>
+                  6 
+                </default>
+                </radius>
+              <reference>
+                0 
+              </reference>
+              </params>
+            <ports>
+              <Source>
+                <STD_glowFx id='10'/>
+              </Source>
+              <Reference>
+                </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              BlurIno01 
+            </name>
+            <fxId>
+              BlurIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_inoBlurFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_radialBlurFx id='12'>
             
             <params>
               <point>
@@ -804,52 +840,16 @@
           </STD_radialBlurFx>
           
         </fxnode>
-        <fxnode>
-          <STD_inoBlurFx id='12'>
-            
-            <params>
-              <radius>
-                <default>
-                  6 
-                </default>
-                </radius>
-              <reference>
-                0 
-              </reference>
-              </params>
-            <ports>
-              <Source>
-                <STD_glowFx id='10'/>
-              </Source>
-              <Reference>
-                </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              BlurIno01 
-            </name>
-            <fxId>
-              BlurIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_inoBlurFx>
-          
-        </fxnode>
         </internal>
       <terminal>
         <fxnode>
+          <STD_inoBlurFx id='11'/>
+        </fxnode>
+        <fxnode>
+          <STD_radialBlurFx id='12'/>
+        </fxnode>
+        <fxnode>
           <Toonz_zeraryColumnFx id='4'/>
-        </fxnode>
-        <fxnode>
-          <STD_radialBlurFx id='11'/>
-        </fxnode>
-        <fxnode>
-          <STD_inoBlurFx id='12'/>
         </fxnode>
         </terminal>
       <xsheet>
