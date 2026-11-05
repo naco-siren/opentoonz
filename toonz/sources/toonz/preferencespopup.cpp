@@ -294,7 +294,7 @@ PreferencesPopup::AdditionalStyleEdit::AdditionalStyleEdit(
   setModal(true);
   setMinimumWidth(460);
 
-  m_edit                    = new QTextEdit(this);
+  m_edit                   = new QTextEdit(this);
   QPushButton* loadButton  = new QPushButton(tr("Load..."), this);
   QPushButton* saveButton  = new QPushButton(tr("Save..."), this);
   QPushButton* okButton    = new QPushButton(tr("OK"), this);
@@ -319,7 +319,8 @@ PreferencesPopup::AdditionalStyleEdit::AdditionalStyleEdit(
 
   connect(loadButton, &QPushButton::pressed, this, [this]() {
     const QString filter =
-        tr("Style Sheets (*.qss *.css *.theme);;Theme Files (*.qss *.css *.theme *.txt);;All Files (*)");
+        tr("Style Sheets (*.qss *.css *.theme);;Theme Files (*.qss *.css "
+           "*.theme *.txt);;All Files (*)");
     const QString fileName = QFileDialog::getOpenFileName(
         this, tr("Load Style Sheet"), QString(), filter);
     if (fileName.isEmpty()) return;
@@ -334,10 +335,10 @@ PreferencesPopup::AdditionalStyleEdit::AdditionalStyleEdit(
   });
   connect(saveButton, &QPushButton::pressed, this, [this]() {
     const QString filter =
-        tr("Style Sheets (*.qss *.css *.theme);;Theme Files (*.qss *.css *.theme *.txt);;All Files (*)");
+        tr("Style Sheets (*.qss *.css *.theme);;Theme Files (*.qss *.css "
+           "*.theme *.txt);;All Files (*)");
     const QString fileName = QFileDialog::getSaveFileName(
-        this, tr("Save Style Sheet"), tr("additional-style-sheet.qss"),
-        filter);
+        this, tr("Save Style Sheet"), tr("additional-style-sheet.qss"), filter);
     if (fileName.isEmpty()) return;
 
     QFile file(fileName);
@@ -432,7 +433,7 @@ PreferencesPopup::Display30bitChecker::Display30bitChecker(
   GLView* view10bit     = new GLView(this, true);
   QPushButton* closeBtn = new QPushButton(tr("Close"), this);
   QString infoLabel     = tr(
-      "If the lower gradient looks smooth and has no banding compared to the upper gradient,\n\
+          "If the lower gradient looks smooth and has no banding compared to the upper gradient,\n\
 30bit display is available in the current configuration.");
 
   QVBoxLayout* lay = new QVBoxLayout();
@@ -1280,6 +1281,8 @@ QString PreferencesPopup::getUIString(PreferencesItemId id) {
       {sceneNumberingEnabled, tr("Add Info water mark in Rendered Frames")},
       {watchFileSystemEnabled,
        tr("Watch File System and Update File Browser Automatically")},
+      {fileBrowserFolderDoubleClick,
+       tr("Open Folders in File Browser with Double-Click")},
       //{ projectRoot,               tr("") },
       {customProjectRoot, tr("Custom Project Path(s):")},
       {pathAliasPriority, tr("Path Alias Priority:")},
@@ -1315,10 +1318,12 @@ QString PreferencesPopup::getUIString(PreferencesItemId id) {
       {displayIn30bit, tr("30bit Display*")},
       {showIconsInMenu, tr("Show Icons In Menu*")},
       {showRoomBindButtons, tr("Show Room Bind Buttons*")},
+      {togglePanelWithShortcut, tr("Toggle Panels with Shortcut")},
       {customHelpLink, tr("Quicklink URL:")},
       {viewerIndicatorEnabled, tr("Show Viewer Indicators")},
       {restoreViewerViewFromLastSession,
        tr("Restore Viewer Zoom and Pan from Last Session")},
+      {RestoreStyleEditorTab, tr("Remember Style Editor Tab")},
 
       // Visualization
       {show0ThickLines, tr("Show Lines with Thickness 0")},
@@ -1385,6 +1390,7 @@ QString PreferencesPopup::getUIString(PreferencesItemId id) {
        tr("Use higher DPI for calculations - Slower but more accurate")},
 
       // Tools
+      {compressInputEvents, tr("Compress Input Events*")},
       // {dropdownShortcutsCycleOptions, tr("Dropdown Shortcuts:")}, //
       // removed
       {FillOnlysavebox,
@@ -1485,6 +1491,7 @@ QString PreferencesPopup::getUIString(PreferencesItemId id) {
 
       // Colors
       {viewerBGColor, tr("Viewer BG Color:")},
+      {tableColor, tr("Table Color:")},
       {previewBGColor, tr("Preview BG Color:")},
       {levelEditorBoxColor, tr("Level Editor Box Color:")},
       {chessboardColor1, tr("Chessboard Color 1:")},
@@ -1765,7 +1772,7 @@ PreferencesPopup::PreferencesPopup()
           &QStackedWidget::setCurrentIndex);
   connect(m_pref, &Preferences::fillOnlySaveboxChanged, this,
           [this](bool enabled) {
-            CheckBox *saveboxCheck = getUI<CheckBox *>(FillOnlysavebox);
+            CheckBox* saveboxCheck = getUI<CheckBox*>(FillOnlysavebox);
             if (!saveboxCheck || saveboxCheck->isChecked() == enabled) return;
             QSignalBlocker blocker(saveboxCheck);
             saveboxCheck->setChecked(enabled);
@@ -1799,6 +1806,7 @@ QWidget* PreferencesPopup::createGeneralPage() {
   insertUI(undoMemorySize, lay);
   insertUI(rasterOptimizedMemory, lay);
   insertUI(watchFileSystemEnabled, lay);
+  insertUI(fileBrowserFolderDoubleClick, lay);
   insertUI(lazyLoadRooms, lay);
 
   QGridLayout* projectRootLay =
@@ -1945,6 +1953,8 @@ QWidget* PreferencesPopup::createInterfacePage() {
   lay->addWidget(check30bitBtn, row - 1, 2, Qt::AlignRight);
   insertUI(showIconsInMenu, lay);
   insertUI(showRoomBindButtons, lay);
+  insertUI(togglePanelWithShortcut, lay);
+  insertUI(RestoreStyleEditorTab, lay);
   insertUI(customHelpLink, lay);
   getUI<FileField*>(customHelpLink)
       ->setToolTip(
@@ -2269,6 +2279,15 @@ QWidget* PreferencesPopup::createToolsPage() {
   insertUI(useCtrlAltToResizeBrush, lay);
   insertUI(clickTwiceToCreateArcs, lay);
   insertUI(tempToolSwitchTimer, lay);
+  insertUI(compressInputEvents, lay);
+  getUI<CheckBox*>(compressInputEvents)
+      ->setToolTip(
+          tr("Combines frequent input events to reduce processing load. "
+             "Disabling may improve stroke tracking but can affect "
+             "responsiveness and brush behavior. Support varies by platform; "
+             "ordinary mouse movement on Windows is unaffected. "
+             "Separate tool-level input limits remain in effect. "
+             "Changes take effect after restarting OpenToonz."));
 
   QGridLayout* animateToolLay = insertGroupBox(tr("Animate Tool"), lay);
   {
@@ -2358,12 +2377,11 @@ QWidget* PreferencesPopup::createXsheetPage() {
     insertUI(parentColorsInXsheetColumn, xshColHeaderLay);
     insertUI(currentColumnColor, xshColHeaderLay);
 
-    // The header outline control shares the existing column text color row.
     xshColHeaderLay->addLayout(
         createOutlineControls(customCurrentColumnOutlineColorEnabled,
                               currentColumnOutlineColor,
                               tr("Current Header Outline:")),
-        xshColHeaderLay->rowCount() - 1, 2);
+        xshColHeaderLay->rowCount(), 0, 1, 3);
   }
   QGridLayout* xshCellAreaLay = insertGroupBox(tr("Xsheet Cell Area"), lay);
   {
@@ -2548,6 +2566,7 @@ QWidget* PreferencesPopup::createColorsPage() {
   setupLayout(lay);
 
   insertUI(viewerBGColor, lay);
+  insertUI(tableColor, lay);
   insertUI(previewBGColor, lay);
   insertUI(levelEditorBoxColor, lay);
   insertUI(chessboardColor1, lay);
@@ -2571,6 +2590,7 @@ QWidget* PreferencesPopup::createColorsPage() {
 
   m_onEditedFuncMap.insert(viewerBGColor,
                            &PreferencesPopup::notifySceneChanged);
+  m_onEditedFuncMap.insert(tableColor, &PreferencesPopup::notifySceneChanged);
   m_onEditedFuncMap.insert(previewBGColor,
                            &PreferencesPopup::notifySceneChanged);
   m_onEditedFuncMap.insert(levelEditorBoxColor,
@@ -2839,6 +2859,9 @@ void PreferencesPopup::onChange() {
     return;
 
   if (m_onEditedFuncMap.contains(id)) (this->*m_onEditedFuncMap[id])();
+  if (id == DefLevelType || id == EnableAutocreation)
+    TApp::instance()->getCurrentScene()->notifyPreferenceChanged(
+        id == DefLevelType ? "DefLevelType" : "EnableAutocreation");
 }
 
 //-----------------------------------------------------------------------------
