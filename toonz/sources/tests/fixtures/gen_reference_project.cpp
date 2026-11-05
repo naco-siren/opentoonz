@@ -34,6 +34,7 @@
 #include "tspectrumparam.h"
 #include "tnotanimatableparam.h"
 #include "tparamcontainer.h"
+#include "ttonecurveparam.h"
 #include "toutputproperties.h"
 #include "tsound.h"
 #include "tsound_io.h"
@@ -440,7 +441,7 @@ struct SceneBuild {
   TXsheet *xsh = nullptr;
 };
 
-SceneBuild newScene(const std::string &name) {
+SceneBuild newScene(const std::string &name, int frames = kFrames) {
   SceneBuild b;
   b.scene.reset(new ToonzScene());
   TProjectManager::instance()->initializeScene(b.scene.get());
@@ -452,7 +453,7 @@ SceneBuild newScene(const std::string &name) {
 
   TOutputProperties *out = b.scene->getProperties()->getOutputProperties();
   out->setPath(TFilePath("+outputs") + (name + ".png"));
-  out->setRange(0, kFrames - 1, 1);
+  out->setRange(0, frames - 1, 1);
   out->setFrameRate(24.0);
   return b;
 }
@@ -980,6 +981,376 @@ void scenePlasticBasic(const TFilePath &projectFolder) {
 }
 
 //-----------------------------------------------------------------------------
+// Test cards
+//
+// Full-colour 320x180 rasters that pack many independent features into one
+// frame, so that whatever an fx does to hue, luminance, alpha, hard edges,
+// fine detail or soft falloff shows up somewhere. Pixels are premultiplied,
+// like every TRaster32 in the render pipeline.
+
+// Composites the straight colour (r, g, b) with opacity a (0..1) over p.
+void over(TPixel32 &p, double r, double g, double b, double a) {
+  a      = std::max(0.0, std::min(1.0, a));
+  auto c = [&](double src, int dst) {
+    return (TPixel32::Channel)std::lround(
+        std::max(0.0, std::min(255.0, src * a + dst * (1.0 - a))));
+  };
+  p = TPixel32(c(r, p.r), c(g, p.g), c(b, p.b), c(255.0, p.m));
+}
+
+// Fills the pixels of `box` with the coverage of `inside` (4x4 supersampled).
+void fillShape(const TRaster32P &ras, const TRect &box,
+               const std::function<bool(double, double)> &inside, double r,
+               double g, double b, double a = 1.0) {
+  TRect clip = box * ras->getBounds();
+  for (int y = clip.y0; y <= clip.y1; ++y)
+    for (int x = clip.x0; x <= clip.x1; ++x) {
+      int hits = 0;
+      for (int sy = 0; sy < 4; ++sy)
+        for (int sx = 0; sx < 4; ++sx)
+          if (inside(x + (sx + 0.5) / 4.0, y + (sy + 0.5) / 4.0)) ++hits;
+      if (hits) over(ras->pixels(y)[x], r, g, b, a * hits / 16.0);
+    }
+}
+
+void fillRect(const TRaster32P &ras, const TRect &box, double r, double g,
+              double b, double a = 1.0) {
+  fillShape(ras, box, [](double, double) { return true; }, r, g, b, a);
+}
+
+void fillDisc(const TRaster32P &ras, double cx, double cy, double radius,
+              double r, double g, double b, double a = 1.0,
+              double innerRadius = 0.0) {
+  TRect box(int(cx - radius) - 1, int(cy - radius) - 1, int(cx + radius) + 1,
+            int(cy + radius) + 1);
+  fillShape(
+      ras, box,
+      [=](double x, double y) {
+        double d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        return d2 <= radius * radius && d2 >= innerRadius * innerRadius;
+      },
+      r, g, b, a);
+}
+
+void hsvToRgb(double h, double s, double v, double &r, double &g, double &b) {
+  h        = std::fmod(h, 360.0) / 60.0;
+  int i    = int(h);
+  double f = h - i, p = v * (1 - s), q = v * (1 - s * f),
+         t = v * (1 - s * (1 - f));
+  switch (i) {
+  case 0: r = v, g = t, b = p; break;
+  case 1: r = q, g = v, b = p; break;
+  case 2: r = p, g = v, b = t; break;
+  case 3: r = p, g = q, b = v; break;
+  case 4: r = t, g = p, b = v; break;
+  default: r = v, g = p, b = q; break;
+  }
+  r *= 255, g *= 255, b *= 255;
+}
+
+// The main source: transparent margin and background; from top to bottom
+//   - hue ramp, luminance ramp, alpha ramp (three strips)
+//   - hard-edged primaries: disc, square, triangle; a white square with a
+//     1 px grid; a half-transparent disc overlapping an opaque square
+//   - fine detail: 1 px checker, 1 px lines at growing pitch, thin diagonals;
+//     a soft gaussian blob; a thin ring
+void drawCardMain(TRaster32P ras, int) {
+  const int x0 = 16, x1 = 303;
+  for (int x = x0; x <= x1; ++x) {
+    double t = (x - x0) / double(x1 - x0), r, g, b;
+    hsvToRgb(t * 359.0, 1.0, 1.0, r, g, b);
+    for (int y = 152; y <= 167; ++y) over(ras->pixels(y)[x], r, g, b, 1.0);
+    for (int y = 135; y <= 148; ++y)
+      over(ras->pixels(y)[x], t * 255, t * 255, t * 255, 1.0);
+    for (int y = 118; y <= 131; ++y) over(ras->pixels(y)[x], 255, 140, 0, t);
+  }
+
+  fillDisc(ras, 46, 86, 22, 230, 30, 30);
+  fillRect(ras, TRect(82, 66, 121, 105), 30, 180, 60);
+  fillShape(
+      ras, TRect(134, 66, 176, 106),
+      [](double x, double y) {
+        return y >= 66 && y <= 106 && std::abs(x - 155) <= (106 - y) * 0.5;
+      },
+      40, 70, 230);
+  fillRect(ras, TRect(188, 66, 227, 105), 255, 255, 255);
+  for (int i = 188; i <= 227; i += 8) {
+    fillRect(ras, TRect(i, 66, i, 105), 0, 0, 0);
+    fillRect(ras, TRect(188, i - 122, 227, i - 122), 0, 0, 0);
+  }
+  fillRect(ras, TRect(240, 70, 275, 105), 0, 200, 220);
+  fillDisc(ras, 278, 80, 19, 230, 0, 200, 0.5);
+
+  for (int y = 14; y <= 49; ++y)
+    for (int x = 16; x <= 55; ++x) {
+      double v = ((x + y) & 1) ? 255 : 0;
+      over(ras->pixels(y)[x], v, v, v, 1.0);
+    }
+  fillRect(ras, TRect(64, 14, 119, 49), 255, 255, 255);
+  for (int x = 66, pitch = 2; x <= 117; x += pitch, ++pitch)
+    fillRect(ras, TRect(x, 14, x, 49), 0, 0, 0);
+  for (int k = 0; k < 5; ++k)
+    fillShape(
+        ras, TRect(128, 14, 183, 49),
+        [=](double x, double y) {
+          double d = (y - 14) - (x - 128 - k * 9) * 0.9;
+          return std::abs(d) <= 0.6 + 0.3 * k;
+        },
+        20, 20, 20);
+  for (int y = 12; y <= 52; ++y)
+    for (int x = 194; x <= 236; ++x) {
+      double d2 = (x - 215.0) * (x - 215.0) + (y - 32.0) * (y - 32.0);
+      over(ras->pixels(y)[x], 255, 255, 255, std::exp(-d2 / (2 * 8.0 * 8.0)));
+    }
+  fillDisc(ras, 276, 32, 15, 250, 210, 30, 1.0, 12);
+}
+
+// The second source of two-input fx (Back, Down, Source2): the whole frame
+// in opaque diagonal stripes under a radial light, fading to transparent
+// over the right quarter.
+void drawCardBack(TRaster32P ras, int) {
+  for (int y = 0; y < kHeight; ++y)
+    for (int x = 0; x < kWidth; ++x) {
+      int band   = ((x + y) / 20) % 3;
+      double r   = band == 0 ? 20 : band == 1 ? 30 : 120;
+      double g   = band == 0 ? 110 : band == 1 ? 40 : 60;
+      double b   = band == 0 ? 120 : band == 1 ? 110 : 170;
+      double d   = std::hypot(x - 110.0, y - 100.0) / 140.0;
+      double lit = std::max(0.35, 1.25 - d);
+      double a   = x < 240 ? 1.0 : std::max(0.0, (kWidth - 1 - x) / 79.0);
+      over(ras->pixels(y)[x], r * lit, g * lit, b * lit, a);
+    }
+}
+
+// The reference input (Reference, Matte, Controller, Depth, Noise, Flow,
+// Warper, Iris...): a grey ripple pattern on a ramp, inside a soft-edged
+// ellipse.
+void drawCardRef(TRaster32P ras, int) {
+  for (int y = 0; y < kHeight; ++y)
+    for (int x = 0; x < kWidth; ++x) {
+      double v = 0.5 + 0.3 * std::sin(x / 12.0) * std::cos(y / 9.0) +
+                 0.2 * (x / double(kWidth - 1) - 0.5) * 2.0;
+      double e = std::hypot((x - 160.0) / 130.0, (y - 90.0) / 70.0);
+      double a = std::max(0.0, std::min(1.0, (1.0 - e) * 8.0));
+      v        = std::max(0.0, std::min(1.0, v)) * 255;
+      over(ras->pixels(y)[x], v, v, v, a);
+    }
+}
+
+// A one-frame card level, shared by all the scenes that use it: the first
+// scene draws and saves it, the others load the saved file.
+// (createNewLevel() looks for a free name when the file already exists,
+// which would give every scene its own renamed copy.)
+TXshSimpleLevel *cardLevel(ToonzScene *scene, const TFilePath &projectFolder,
+                           const std::wstring &name, const RgbDrawer &draw) {
+  const TFilePath frame =
+      projectFolder + "drawings" + (name + L".0001.png");
+  if (!TFileStatus(frame).doesExist())
+    return makeRasterLevel(scene, name, 1, draw);
+  TXshLevel *xl = scene->loadLevel(projectFolder + "drawings" + (name + L"..png"));
+  TXshSimpleLevel *sl = xl ? xl->getSimpleLevel() : nullptr;
+  if (!sl) throw TException(L"cannot load " + frame.getWideString());
+  sl->getProperties()->setDpiPolicy(LevelProperties::DP_CustomDpi);
+  sl->getProperties()->setDpi(TPointD(kDpi, kDpi));
+  return sl;
+}
+
+//-----------------------------------------------------------------------------
+// Fx sweep
+//
+// Every registered fx, one per frame, applied to the test cards with its
+// default parameters. A source column has a cell only on the frame of the fx
+// it feeds, so each frame shows exactly one fx.
+
+enum CardKind { CardMain, CardBack, CardRef };
+
+// Which card feeds an input port, from the port's name.
+CardKind cardForPort(const std::string &portName, int index) {
+  QString n = QString::fromStdString(portName).toLower();
+  for (const char *ref :
+       {"reference", "matte", "control", "depth", "noise", "flow", "warper",
+        "hori", "vert", "displacement", "thickness", "height", "iris",
+        "source3", "area"})
+    if (n.startsWith(ref)) return CardRef;
+  for (const char *back : {"back", "down", "basesrc", "source2", "source4"})
+    if (n.startsWith(back)) return CardBack;
+  if (index == 0) return CardMain;
+  for (const char *main_ :
+       {"source", "fore", "up", "blendsrc", "light", "shape", "color",
+        "texture", "brush"})
+    if (n.startsWith(main_)) return CardMain;
+  return CardBack;
+}
+
+// Fxs that are not swept, and why.
+const char *sweepExclusion(const TFxInfo &info) {
+  if (info.m_isHidden) return "internal fx";
+  if (info.m_name == "macroFx") return "container, no behaviour of its own";
+  if (info.m_name == "externalProgramFx") return "runs an external program";
+  return nullptr;
+}
+
+struct SweepEntry {
+  std::string scene;
+  int frame;  // 1-based, as in the output file names
+  std::string fxId;
+  std::string inputs;
+};
+
+void sceneFxSweep(const TFilePath &projectFolder, const std::string &name,
+                  const std::vector<std::string> &fxIds,
+                  std::vector<SweepEntry> &manifest) {
+  const int frames = int(fxIds.size());
+  SceneBuild b     = newScene(name, frames);
+  TXshSimpleLevel *cards[3] = {
+      cardLevel(b.scene.get(), projectFolder, L"card_main", drawCardMain),
+      cardLevel(b.scene.get(), projectFolder, L"card_back", drawCardBack),
+      cardLevel(b.scene.get(), projectFolder, L"card_ref", drawCardRef)};
+  const char *cardNames[3] = {"main", "back", "ref"};
+
+  FxDag *dag = b.xsh->getFxDag();
+  int col    = 0;
+  for (int row = 0; row < frames; ++row) {
+    TFxP fx = createFx(fxIds[row]);
+    SweepEntry entry{name, row + 1, fxIds[row], ""};
+    if (fx->getInputPortCount() == 0) {
+      // Zerary fx: its own column, exposed on this frame only.
+      TXshZeraryFxColumn *column = new TXshZeraryFxColumn(row + 1);
+      if (row > 0) column->clearCells(0, row);
+      column->getZeraryColumnFx()->setZeraryFx(fx.getPointer());
+      b.xsh->insertColumn(col++, column);
+      dag->assignUniqueId(fx.getPointer());
+    } else {
+      dag->assignUniqueId(fx.getPointer());
+      dag->getInternalFxs()->addFx(fx.getPointer());
+      for (int i = 0; i < fx->getInputPortCount(); ++i) {
+        const std::string portName = fx->getInputPortName(i);
+        const CardKind kind        = cardForPort(portName, i);
+        b.xsh->setCell(row, col, TXshCell(cards[kind], TFrameId(1)));
+        TFx *columnFx = b.xsh->getColumn(col)->getFx();
+        fx->getInputPort(i)->setFx(columnFx);
+        dag->removeFromXsheet(columnFx);
+        ++col;
+        entry.inputs += (i ? " " : "") + portName + "=" + cardNames[kind];
+      }
+      dag->addToXsheet(fx.getPointer());
+    }
+    manifest.push_back(entry);
+  }
+  saveScene(b, projectFolder, name);
+}
+
+// Builds the fx_sweep_* scenes: base compositing fxs, then the standard fxs
+// by family, 16 per scene. GPU shader fxs get scenes of their own
+// (fx_sweep_gpu_*), since their output depends on the driver.
+void scenesFxSweep(const TFilePath &projectFolder) {
+  std::vector<TFxInfo> infos;
+  TFx::listFxs(infos);
+  std::vector<std::string> cpu, gpu;
+  std::vector<std::pair<std::string, std::string>> excluded;
+  for (const TFxInfo &info : infos) {
+    if (const char *why = sweepExclusion(info))
+      excluded.push_back({info.m_name, why});
+    else if (info.m_name.compare(0, 7, "SHADER_") == 0)
+      gpu.push_back(info.m_name);
+    else
+      cpu.push_back(info.m_name);
+  }
+  // Base fxs first, then STD_ classic, STD_ino*, STD_iwa_*; alphabetical
+  // within each group, so that adding an fx moves as few frames as possible.
+  auto family = [](const std::string &id) {
+    if (id.compare(0, 4, "STD_") != 0) return 0;
+    if (id.compare(0, 7, "STD_ino") == 0) return 2;
+    if (id.compare(0, 8, "STD_iwa_") == 0) return 3;
+    return 1;
+  };
+  auto byFamily = [&](const std::string &a, const std::string &b) {
+    return std::make_pair(family(a), a) < std::make_pair(family(b), b);
+  };
+  std::sort(cpu.begin(), cpu.end(), byFamily);
+  std::sort(gpu.begin(), gpu.end());
+
+  std::vector<SweepEntry> manifest;
+  const size_t perScene = 16;
+  auto emitScenes = [&](const std::vector<std::string> &ids, const char *prefix) {
+    for (size_t i = 0, n = 1; i < ids.size(); i += perScene, ++n) {
+      std::vector<std::string> chunk(
+          ids.begin() + i, ids.begin() + std::min(ids.size(), i + perScene));
+      // A letter suffix: a scene name ending in _<digits> would be read as
+      // a frame number when tcomposer builds the output file names.
+      const std::string sceneName =
+          std::string(prefix) + "_" + char('a' + int(n) - 1);
+      sceneFxSweep(projectFolder, sceneName, chunk, manifest);
+    }
+  };
+  emitScenes(cpu, "fx_sweep");
+  emitScenes(gpu, "fx_sweep_gpu");
+
+  // The manifest maps every output frame to its fx.
+  const TFilePath manifestPath = projectFolder + "extras" + "fx_sweep.txt";
+  TSystem::touchParentDir(manifestPath);
+  QFile f(manifestPath.getQString());
+  if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
+    throw TException(L"cannot write " + manifestPath.getWideString());
+  QByteArray text("# scene frame fx inputs\n");
+  for (const SweepEntry &e : manifest) {
+    char frame[16];
+    snprintf(frame, sizeof frame, "%04d", e.frame);
+    text += (e.scene + " " + frame + " " + e.fxId + " " + e.inputs + "\n")
+                .c_str();
+  }
+  for (const auto &x : excluded)
+    text += ("# not swept: " + x.first + " (" + x.second + ")\n").c_str();
+  f.write(text);
+  std::cout << "  wrote " << ::to_string(manifestPath) << " (" << manifest.size()
+            << " fxs)" << std::endl;
+}
+
+//-----------------------------------------------------------------------------
+// Fx inventory
+
+std::string paramKind(const TParamP &param) {
+  if (TDoubleParamP(param)) return "double";
+  if (TRangeParamP(param)) return "range";
+  if (TPointParamP(param)) return "point";
+  if (TPixelParamP(param)) return "pixel";
+  if (TSpectrumParamP(param)) return "spectrum";
+  if (TIntEnumParamP(param)) return "enum";
+  if (TIntParamP(param)) return "int";
+  if (TBoolParamP(param)) return "bool";
+  if (TStringParamP(param)) return "string";
+  if (TFilePathParamP(param)) return "path";
+  if (TToneCurveParamP(param)) return "tonecurve";
+  return "other";
+}
+
+// One line per registered fx: id, hidden flag, input ports, parameters.
+void listFxs() {
+  std::vector<TFxInfo> infos;
+  TFx::listFxs(infos);
+  std::sort(infos.begin(), infos.end(),
+            [](const TFxInfo &a, const TFxInfo &b) { return a.m_name < b.m_name; });
+  for (const TFxInfo &info : infos) {
+    TFxP fx = TFx::create(info.m_name);
+    std::cout << info.m_name << (info.m_isHidden ? " [hidden]" : "");
+    if (!fx) {
+      std::cout << " [not creatable]" << std::endl;
+      continue;
+    }
+    std::cout << " ports(";
+    for (int i = 0; i < fx->getInputPortCount(); ++i)
+      std::cout << (i ? "," : "") << fx->getInputPortName(i);
+    std::cout << ")" << (fx->hasDynamicPortGroups() ? " [dynamic ports]" : "");
+    std::cout << " params(";
+    TParamContainer *params = fx->getParams();
+    for (int i = 0; i < params->getParamCount(); ++i)
+      std::cout << (i ? "," : "") << params->getParamName(i) << ":"
+                << paramKind(params->getParam(i));
+    std::cout << ")" << std::endl;
+  }
+}
+
+//-----------------------------------------------------------------------------
 
 TFilePath absolutePath(const char *arg) {
   return TFilePath(
@@ -990,14 +1361,15 @@ TFilePath absolutePath(const char *arg) {
 
 int main(int argc, char *argv[]) {
   QCoreApplication app(argc, argv);
+  const bool listOnly = argc == 3 && std::string(argv[1]) == "--list-fx";
   if (argc != 3) {
-    std::cerr << "usage: " << argv[0] << " <stuff dir> <output project dir>"
-              << std::endl;
+    std::cerr << "usage: " << argv[0] << " <stuff dir> <output project dir>\n"
+              << "       " << argv[0] << " --list-fx <stuff dir>" << std::endl;
     return 1;
   }
 
-  const TFilePath stuffSource   = absolutePath(argv[1]);
-  const TFilePath projectFolder = absolutePath(argv[2]);
+  const TFilePath stuffSource   = absolutePath(argv[listOnly ? 2 : 1]);
+  const TFilePath projectFolder = listOnly ? TFilePath() : absolutePath(argv[2]);
 
   // Work on a scratch copy of stuff: Preferences and the project manager
   // write into it.
@@ -1023,6 +1395,11 @@ int main(int argc, char *argv[]) {
   TSoundTrackReader::define("wav", FixtureWavReader::create);
   TFileType::declare("wav", TFileType::AUDIO_LEVEL);
   Preferences::instance();
+
+  if (listOnly) {
+    listFxs();
+    return 0;
+  }
 
   try {
     // Start from a clean project folder so regeneration is deterministic.
@@ -1050,6 +1427,7 @@ int main(int argc, char *argv[]) {
     sceneFxGalleryCpu(projectFolder);
     sceneShaderFx(projectFolder);
     scenePlasticBasic(projectFolder);
+    scenesFxSweep(projectFolder);
   } catch (const TException &e) {
     std::cerr << "error: " << ::to_string(e.getMessage()) << std::endl;
     return 1;
