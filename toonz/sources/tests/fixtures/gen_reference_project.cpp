@@ -341,6 +341,33 @@ void setInt(const TFxP &fx, const std::string &name, int value) {
   fxParam<TIntParamP>(fx, name)->setValue(value);
 }
 
+void setBool(const TFxP &fx, const std::string &name, bool value) {
+  fxParam<TBoolParamP>(fx, name)->setValue(value);
+}
+
+void setString(const TFxP &fx, const std::string &name,
+               const std::wstring &value) {
+  fxParam<TStringParamP>(fx, name)->setValue(value);
+}
+
+// Selects the index-th item of an enum parameter.
+void setEnumIndex(const TFxP &fx, const std::string &name, int index) {
+  TIntEnumParamP param = fxParam<TIntEnumParamP>(fx, name);
+  if (index < 0 || index >= param->getItemCount())
+    throw TException(fx->getFxType() + ": " + name + " has no item " +
+                     std::to_string(index));
+  int value;
+  std::string caption;
+  param->getItem(index, value, caption);
+  param->setValue(value);
+}
+
+void offsetPoint(const TFxP &fx, const std::string &name, double dx,
+                 double dy) {
+  TPointParamP param = fxParam<TPointParamP>(fx, name);
+  param->setDefaultValue(param->getDefaultValue() + TPointD(dx, dy));
+}
+
 TFxP createFx(const std::string &id) {
   TFxP fx = TFx::create(id);
   if (!fx) throw TException("unknown fx " + id);
@@ -1052,6 +1079,7 @@ void hsvToRgb(double h, double s, double v, double &r, double &g, double &b) {
 //   - hue ramp, luminance ramp, alpha ramp (three strips)
 //   - hard-edged primaries: disc, square, triangle; a white square with a
 //     1 px grid; a half-transparent disc overlapping an opaque square
+//   - a strip of isolated 1 and 2 px speckles
 //   - fine detail: 1 px checker, 1 px lines at growing pitch, thin diagonals;
 //     a soft gaussian blob; a thin ring
 void drawCardMain(TRaster32P ras, int) {
@@ -1103,6 +1131,15 @@ void drawCardMain(TRaster32P ras, int) {
       over(ras->pixels(y)[x], 255, 255, 255, std::exp(-d2 / (2 * 8.0 * 8.0)));
     }
   fillDisc(ras, 276, 32, 15, 250, 210, 30, 1.0, 12);
+
+  // Speckles: isolated 1 and 2 px dots on the transparent background, for
+  // despeckle, median and noise fxs. Fixed pseudo-random positions.
+  unsigned seed = 12345;
+  auto next     = [&]() { return seed = seed * 1103515245u + 12345u, (seed >> 16) & 0x7fff; };
+  for (int i = 0; i < 90; ++i) {
+    int x = 18 + next() % 284, y = 54 + next() % 7, big = next() % 3 == 0;
+    fillRect(ras, TRect(x, y, x + big, y + big), 30, 30, 30);
+  }
 }
 
 // The second source of two-input fx (Back, Down, Source2): the whole frame
@@ -1137,6 +1174,58 @@ void drawCardRef(TRaster32P ras, int) {
     }
 }
 
+// The Toonz raster (ink and paint) card, for the fxs that work on palette
+// indexes. Styles, in palette order: 2 black ink, 3 red ink, 4 yellow paint,
+// 5 blue paint, 6 green paint.
+//   - an ellipse and a rectangle with ink outlines and paint fills
+//   - a paint disc without ink, an ink ring without paint
+//   - a thick red sine line and a hairline diagonal
+enum { TzInkBlack = 2, TzInkRed, TzPaintYellow, TzPaintBlue, TzPaintGreen };
+
+void drawCardTz(TRasterCM32P ras, TPalette *plt, int) {
+  const TPixel32 colors[] = {TPixel32(15, 15, 15, 255),
+                             TPixel32(210, 40, 40, 255),
+                             TPixel32(250, 215, 70, 255),
+                             TPixel32(70, 130, 230, 255),
+                             TPixel32(80, 190, 110, 255)};
+  for (int i = 0; i < 5; ++i)
+    if (addSolidStyle(plt, colors[i]) != TzInkBlack + i)
+      throw TException("unexpected style id in the toonz raster card");
+
+  // An ink stroke along the zero set of a signed distance: full ink within
+  // halfThick, one pixel of antialiasing (tone ramp) outside it.
+  auto ink = [&](int x, int y, double dist, double halfThick, int style) {
+    int tone = int(std::lround(
+        std::max(0.0, std::min(1.0, std::abs(dist) - halfThick)) * 255));
+    TPixelCM32 &p = ras->pixels(y)[x];
+    if (tone < p.getTone()) p = TPixelCM32(style, p.getPaint(), tone);
+  };
+  auto paint = [&](int x, int y, int style) {
+    TPixelCM32 &p = ras->pixels(y)[x];
+    p             = TPixelCM32(p.getInk(), style, p.getTone());
+  };
+  for (int y = 0; y < kHeight; ++y)
+    for (int x = 0; x < kWidth; ++x) {
+      // Ellipse (approximate distance) with a black outline, yellow inside.
+      double e = (std::hypot((x - 80.0) / 55.0, (y - 115.0) / 40.0) - 1) * 40;
+      if (e < 0) paint(x, y, TzPaintYellow);
+      ink(x, y, e, 1.5, TzInkBlack);
+      // Rectangle with a red outline, blue inside.
+      double rx = std::abs(x - 220.0) - 60, ry = std::abs(y - 118.0) - 35;
+      double r  = std::max(rx, ry);
+      if (r < 0) paint(x, y, TzPaintBlue);
+      ink(x, y, r, 1.0, TzInkRed);
+      // Paint without ink, ink without paint.
+      if (std::hypot(x - 60.0, y - 38.0) < 22) paint(x, y, TzPaintGreen);
+      ink(x, y, std::hypot(x - 130.0, y - 38.0) - 20, 2.0, TzInkBlack);
+      // Lines.
+      ink(x, y, y - (40 + 18 * std::sin((x - 170) / 14.0)),
+          x >= 170 && x <= 300 ? 2.5 : -10, TzInkRed);
+      ink(x, y, ((y - 70) - (x - 20) * 0.35) * 0.94,
+          x >= 20 && x <= 300 ? 0.2 : -10, TzInkBlack);
+    }
+}
+
 // A one-frame card level, shared by all the scenes that use it: the first
 // scene draws and saves it, the others load the saved file.
 // (createNewLevel() looks for a free name when the file already exists,
@@ -1152,6 +1241,17 @@ TXshSimpleLevel *cardLevel(ToonzScene *scene, const TFilePath &projectFolder,
   if (!sl) throw TException(L"cannot load " + frame.getWideString());
   sl->getProperties()->setDpiPolicy(LevelProperties::DP_CustomDpi);
   sl->getProperties()->setDpi(TPointD(kDpi, kDpi));
+  return sl;
+}
+
+TXshSimpleLevel *cardTzLevel(ToonzScene *scene,
+                             const TFilePath &projectFolder) {
+  const TFilePath path = projectFolder + "drawings" + "card_tz.tlv";
+  if (!TFileStatus(path).doesExist())
+    return makeToonzRasterLevel(scene, L"card_tz", 1, drawCardTz);
+  TXshLevel *xl       = scene->loadLevel(path);
+  TXshSimpleLevel *sl = xl ? xl->getSimpleLevel() : nullptr;
+  if (!sl) throw TException(L"cannot load " + path.getWideString());
   return sl;
 }
 
@@ -1182,11 +1282,240 @@ CardKind cardForPort(const std::string &portName, int index) {
   return CardBack;
 }
 
+// What an fx needs beyond its defaults to show that it does something.
+enum SweepFlag {
+  SourceToonzRaster = 1,  // port 0 gets the ink and paint card
+  SourceSmall       = 2,  // port 0's column is scaled down inside the frame
+  SourceMoving      = 4   // port 0's column moves (speed-aware fxs)
+};
+
+struct SweepSetup {
+  const char *fxId;
+  int flags;
+  std::function<void(const TFxP &)> params;
+};
+
+const std::vector<SweepSetup> &sweepSetups() {
+  auto ids = [](std::initializer_list<int> styles) {
+    std::wstring text;
+    for (int id : styles) text += (text.empty() ? L"" : L",") + std::to_wstring(id);
+    return text;
+  };
+  static const std::vector<SweepSetup> setups = {
+      // Base fxs
+      {"blendFx", 0, [](const TFxP &fx) { setDouble(fx, "value", 50); }},
+      // Colour adjustment
+      {"STD_adjustLevelsFx", 0,
+       [](const TFxP &fx) {
+         setRange(fx, "in_rgb", 40, 200);
+         setRange(fx, "out_rgb", 20, 235);
+         setDouble(fx, "gamma_rgb", 1.6);
+       }},
+      {"STD_brightContFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "brightness", 30);
+         setDouble(fx, "contrast", 50);
+       }},
+      {"STD_channelMixerFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "green_to_red", 0.6);
+         setDouble(fx, "red_to_blue", 0.5);
+         setDouble(fx, "blue_to_green", 0.4);
+       }},
+      {"STD_colorMatrixFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "red_green", 0.5);
+         setDouble(fx, "green_blue", 0.4);
+         setDouble(fx, "blue_offset", 0.2);
+       }},
+      {"STD_gammaFx", 0, [](const TFxP &fx) { setDouble(fx, "value", 2.2); }},
+      {"STD_hsvScaleFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "hue", 90);
+         setDouble(fx, "saturation_scale", 50);
+       }},
+      {"STD_rgbmCutFx", 0,
+       [](const TFxP &fx) {
+         setRange(fx, "r_range", 60, 200);
+         setRange(fx, "g_range", 30, 220);
+       }},
+      {"STD_rgbmScaleFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "red", 40);
+         setDouble(fx, "blue", 160);
+       }},
+      {"STD_toneCurveFx", 0,
+       [](const TFxP &fx) {
+         // The default two-point curve with its handles pulled apart: the
+         // number of control points must stay what the parameter holds.
+         QList<TPointD> curve = {
+             TPointD(-40, 0),   TPointD(-20, 0),   TPointD(-20, 0),
+             TPointD(0, 0),     TPointD(40, 120),  TPointD(215, 135),
+             TPointD(255, 255), TPointD(275, 255), TPointD(275, 255),
+             TPointD(295, 255)};
+         fxParam<TToneCurveParamP>(fx, "curve")->setDefaultValue(curve);
+       }},
+      {"STD_despeckleFx", 0, [](const TFxP &fx) { setInt(fx, "size", 12); }},
+      {"STD_erodeDilateFx", 0,
+       [](const TFxP &fx) { setDouble(fx, "radius", 3); }},
+      // Geometry
+      {"STD_freeDistortFx", 0,
+       [](const TFxP &fx) {
+         offsetPoint(fx, "top_right_a", -90, -50);
+         offsetPoint(fx, "bottom_left_a", 40, 30);
+       }},
+      {"STD_tileFx", SourceSmall,
+       [](const TFxP &fx) { setBool(fx, "xMirror", true); }},
+      {"STD_iwa_TileFx", SourceSmall,
+       [](const TFxP &fx) {
+         setEnumIndex(fx, "leftQuantity", 1);
+         setEnumIndex(fx, "rightQuantity", 1);
+         setEnumIndex(fx, "topQuantity", 1);
+         setBool(fx, "xMirror", true);
+       }},
+      {"STD_motionBlurFx", SourceMoving,
+       [](const TFxP &fx) { setDouble(fx, "intensity", 40); }},
+      // Palette-index fxs, on the ink and paint card
+      {"STD_artContourFx", SourceToonzRaster,
+       [=](const TFxP &fx) {
+         setString(fx, "Color_Index", ids({TzInkBlack, TzInkRed}));
+       }},
+      {"STD_blendTzFx", SourceToonzRaster,
+       [=](const TFxP &fx) {
+         setString(fx, "Color_Index", ids({TzPaintYellow, TzPaintBlue}));
+         setDouble(fx, "Amount", 60);
+         setDouble(fx, "Smoothness", 20);
+       }},
+      {"STD_calligraphicFx", SourceToonzRaster,
+       [=](const TFxP &fx) {
+         setString(fx, "Color_Index", ids({TzInkBlack, TzInkRed}));
+         setDouble(fx, "Thickness", 30);
+       }},
+      {"STD_outBorderFx", SourceToonzRaster,
+       [](const TFxP &fx) { setDouble(fx, "Thickness", 30); }},
+      {"STD_paletteFilterFx", SourceToonzRaster,
+       [=](const TFxP &fx) {
+         setString(fx, "indexes", ids({TzInkRed, TzPaintBlue}));
+       }},
+      {"STD_textureFx", SourceToonzRaster,
+       [=](const TFxP &fx) {
+         setString(fx, "indexes", ids({TzPaintYellow, TzPaintBlue}));
+       }},
+      {"STD_cornerPinFx", SourceToonzRaster,
+       [=](const TFxP &fx) {
+         setString(fx, "indexes", ids({TzPaintYellow, TzPaintBlue}));
+       }},
+      // ino_
+      {"STD_inoBlurFx", 0, [](const TFxP &fx) { setDouble(fx, "radius", 8); }},
+      {"STD_inoChannelSelectorFx", 0,
+       [](const TFxP &fx) {
+         setEnumIndex(fx, "red_channel", 2);
+         setEnumIndex(fx, "blue_channel", 0);
+       }},
+      {"STD_inoCrossDissolveFx", 0,
+       [](const TFxP &fx) { setDouble(fx, "opacity", 0.5); }},
+      {"STD_inoDensityFx", 0,
+       [](const TFxP &fx) { setDouble(fx, "density", 2.5); }},
+      {"STD_inoFogFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "radius", 12);
+         setDouble(fx, "power", 1.0);
+       }},
+      {"STD_inoLevelAutoFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "gamma", 2.0);
+         setDouble(fx, "out_min", 0.2);
+       }},
+      {"STD_inoLevelMasterFx", 0,
+       [](const TFxP &fx) {
+         setRange(fx, "in", 0.2, 0.8);
+         setDouble(fx, "gamma", 1.5);
+       }},
+      {"STD_inoLevelrgbaFx", 0,
+       [](const TFxP &fx) {
+         setRange(fx, "red_in", 0.2, 0.8);
+         setDouble(fx, "gre_gamma", 2.0);
+         setRange(fx, "blu_out", 0.3, 1.0);
+       }},
+      // Lengths of the ino_ fxs are in millimetres at 640 px per 12 inches,
+      // scaled by the camera dpi: 20 here is about 7 px in these scenes.
+      {"STD_inoMedianFx", 0,
+       [](const TFxP &fx) { setDouble(fx, "radius", 20); }},
+      {"STD_inoRadialBlurFx", 0,
+       [](const TFxP &fx) { setDouble(fx, "blur", 1.0); }},
+      {"STD_inoSpinBlurFx", 0,
+       [](const TFxP &fx) { setDouble(fx, "blur", 20); }},
+      {"STD_inoWarphvFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "h_maxlen", 20);
+         setDouble(fx, "v_maxlen", 15);
+       }},
+      {"STD_inohlsAdjustFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "shift_hue", 90);
+         setDouble(fx, "scale_saturation", 0.5);
+       }},
+      {"STD_inohlsNoiseFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "hue", 0.3);
+         setDouble(fx, "lightness", 0.6);
+         setDouble(fx, "saturation", 0.4);
+       }},
+      {"STD_inohsvAdjustFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "shift_hue", 120);
+         setDouble(fx, "scale_value", 0.7);
+       }},
+      {"STD_inohsvNoiseFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "hue", 0.3);
+         setDouble(fx, "value", 0.6);
+       }},
+      // iwa_
+      {"STD_iwa_AdjustExposureFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "scale", 1.5);
+         setDouble(fx, "offset", 0.05);
+       }},
+      {"STD_iwa_BarrelDistortFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "distortion", 0.5);
+         setDouble(fx, "chromaticAberration", 0.05);
+         setDouble(fx, "vignetteAmount", 0.6);
+       }},
+      {"STD_iwa_FlowBlurFx", 0,
+       [](const TFxP &fx) { setDouble(fx, "length", 20); }},
+      {"STD_iwa_GradientWarpFx", 0,
+       [](const TFxP &fx) {
+         setDouble(fx, "h_maxlen", 120);
+         setDouble(fx, "v_maxlen", 120);
+       }},
+      // Motion-aware fxs read the movement of their own column.
+      {"STD_iwa_MotionBlurCompFx", SourceMoving, nullptr},
+      {"STD_iwa_MotionFlowFx", SourceMoving, nullptr},
+      {"STD_iwa_PNPerspectiveFx", 0,
+       [](const TFxP &fx) { setDouble(fx, "size", 10); }},
+  };
+  return setups;
+}
+
+const SweepSetup *sweepSetup(const std::string &fxId) {
+  for (const SweepSetup &setup : sweepSetups())
+    if (fxId == setup.fxId) return &setup;
+  return nullptr;
+}
+
 // Fxs that are not swept, and why.
 const char *sweepExclusion(const TFxInfo &info) {
   if (info.m_isHidden) return "internal fx";
   if (info.m_name == "macroFx") return "container, no behaviour of its own";
   if (info.m_name == "externalProgramFx") return "runs an external program";
+  if (info.m_name == "STD_particlesFx")
+    return "in particles_basic; its default sprite needs OpenGL";
+  if (info.m_name == "STD_iwa_TiledParticlesFx")
+    return "needs its texture on the earlier frames too, not built yet";
+  if (info.m_name == "STD_externalPaletteFx")
+    return "needs a palette column, not built yet";
   return nullptr;
 }
 
@@ -1207,17 +1536,28 @@ void sceneFxSweep(const TFilePath &projectFolder, const std::string &name,
       cardLevel(b.scene.get(), projectFolder, L"card_back", drawCardBack),
       cardLevel(b.scene.get(), projectFolder, L"card_ref", drawCardRef)};
   const char *cardNames[3] = {"main", "back", "ref"};
+  TXshSimpleLevel *cardTz  = nullptr;  // loaded on first use
 
   FxDag *dag = b.xsh->getFxDag();
   int col    = 0;
   for (int row = 0; row < frames; ++row) {
     TFxP fx = createFx(fxIds[row]);
     SweepEntry entry{name, row + 1, fxIds[row], ""};
+    if (getenv("NEXTTOONZ_GEN_TRACE")) std::cerr << "TRACE " << name << " " << fxIds[row] << std::endl;
+    const SweepSetup *setup = sweepSetup(fxIds[row]);
+    const int flags         = setup ? setup->flags : 0;
+    if (setup && setup->params) setup->params(fx);
     if (fx->getInputPortCount() == 0) {
       // Zerary fx: its own column, exposed on this frame only.
       TXshZeraryFxColumn *column = new TXshZeraryFxColumn(row + 1);
       if (row > 0) column->clearCells(0, row);
       column->getZeraryColumnFx()->setZeraryFx(fx.getPointer());
+      if (flags & SourceMoving) {
+        const TStageObjectId columnId = TStageObjectId::ColumnId(col);
+        setKey(b.xsh, columnId, TStageObject::T_X, row - 1, -1.5);
+        setKey(b.xsh, columnId, TStageObject::T_X, row + 1, 1.5);
+        entry.inputs = "(moving)";
+      }
       b.xsh->insertColumn(col++, column);
       dag->assignUniqueId(fx.getPointer());
     } else {
@@ -1226,12 +1566,29 @@ void sceneFxSweep(const TFilePath &projectFolder, const std::string &name,
       for (int i = 0; i < fx->getInputPortCount(); ++i) {
         const std::string portName = fx->getInputPortName(i);
         const CardKind kind        = cardForPort(portName, i);
-        b.xsh->setCell(row, col, TXshCell(cards[kind], TFrameId(1)));
+        std::string cardName       = cardNames[kind];
+        TXshSimpleLevel *card      = cards[kind];
+        if (i == 0 && (flags & SourceToonzRaster)) {
+          if (!cardTz) cardTz = cardTzLevel(b.scene.get(), projectFolder);
+          card = cardTz, cardName = "tz";
+        }
+        b.xsh->setCell(row, col, TXshCell(card, TFrameId(1)));
+        const TStageObjectId columnId = TStageObjectId::ColumnId(col);
+        if (i == 0 && (flags & SourceSmall)) {
+          setKey(b.xsh, columnId, TStageObject::T_Scale, 0, 0.4);
+          cardName += "(small)";
+        }
+        if (i == 0 && (flags & SourceMoving)) {
+          // Three inches to the right over the two frames around this one.
+          setKey(b.xsh, columnId, TStageObject::T_X, row - 1, -1.5);
+          setKey(b.xsh, columnId, TStageObject::T_X, row + 1, 1.5);
+          cardName += "(moving)";
+        }
         TFx *columnFx = b.xsh->getColumn(col)->getFx();
         fx->getInputPort(i)->setFx(columnFx);
         dag->removeFromXsheet(columnFx);
         ++col;
-        entry.inputs += (i ? " " : "") + portName + "=" + cardNames[kind];
+        entry.inputs += (i ? " " : "") + portName + "=" + cardName;
       }
       dag->addToXsheet(fx.getPointer());
     }
@@ -1242,17 +1599,19 @@ void sceneFxSweep(const TFilePath &projectFolder, const std::string &name,
 
 // Builds the fx_sweep_* scenes: base compositing fxs, then the standard fxs
 // by family, 16 per scene. GPU shader fxs get scenes of their own
-// (fx_sweep_gpu_*), since their output depends on the driver.
+// (fx_sweep_gpu_*, fx_sweep_gpuin_*), since their output depends on the
+// driver.
 void scenesFxSweep(const TFilePath &projectFolder) {
   std::vector<TFxInfo> infos;
   TFx::listFxs(infos);
-  std::vector<std::string> cpu, gpu;
+  std::vector<std::string> cpu, gpu, gpuWithInputs;
   std::vector<std::pair<std::string, std::string>> excluded;
   for (const TFxInfo &info : infos) {
     if (const char *why = sweepExclusion(info))
       excluded.push_back({info.m_name, why});
     else if (info.m_name.compare(0, 7, "SHADER_") == 0)
-      gpu.push_back(info.m_name);
+      (TFxP(TFx::create(info.m_name))->getInputPortCount() ? gpuWithInputs : gpu)
+          .push_back(info.m_name);
     else
       cpu.push_back(info.m_name);
   }
@@ -1269,6 +1628,7 @@ void scenesFxSweep(const TFilePath &projectFolder) {
   };
   std::sort(cpu.begin(), cpu.end(), byFamily);
   std::sort(gpu.begin(), gpu.end());
+  std::sort(gpuWithInputs.begin(), gpuWithInputs.end());
 
   std::vector<SweepEntry> manifest;
   const size_t perScene = 16;
@@ -1285,6 +1645,9 @@ void scenesFxSweep(const TFilePath &projectFolder) {
   };
   emitScenes(cpu, "fx_sweep");
   emitScenes(gpu, "fx_sweep_gpu");
+  // Shader fxs with input ports take a different path (a second program with
+  // transform feedback computes the input areas), so they are kept apart.
+  emitScenes(gpuWithInputs, "fx_sweep_gpuin");
 
   // The manifest maps every output frame to its fx.
   const TFilePath manifestPath = projectFolder + "extras" + "fx_sweep.txt";
