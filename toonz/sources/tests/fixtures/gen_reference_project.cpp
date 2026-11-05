@@ -40,6 +40,12 @@
 #include "tsound_io.h"
 #include "tfiletype.h"
 #include "tmeshimage.h"
+#include "toonz/imagestyles.h"
+#include "toonz/toonzfolders.h"
+#include "tsimplecolorstyles.h"
+#include "tvectorbrushstyle.h"
+#include "timage_io.h"
+#include "tcolorstyles.h"
 #include "toonz/toonzscene.h"
 #include "toonz/tproject.h"
 #include "toonz/txsheet.h"
@@ -61,6 +67,8 @@
 #include "toonz/tstageobject.h"
 #include "toonz/tstageobjectid.h"
 #include "toonz/tstageobjecttree.h"
+#include "toonz/tstageobjectspline.h"
+#include "tdoublekeyframe.h"
 #include "toonz/levelproperties.h"
 #include "toonz/preferences.h"
 #include "toonz/stage.h"
@@ -1670,6 +1678,348 @@ void scenesFxSweep(const TFilePath &projectFolder) {
 }
 
 //-----------------------------------------------------------------------------
+// Vector styles
+//
+// Every registered colour style class, eight per frame in a 4x2 grid. Each
+// cell holds a closed blob and an open wavy stroke: a region style fills the
+// blob, a stroke style draws the blob's outline and the wavy stroke; where a
+// style is not of that kind, plain ink or a plain fill stands in.
+// extras/vector_styles.txt maps every frame and cell to its style.
+
+// A style of the class registered under `tag`. The classes that draw with an
+// asset are given one from stuff/library, as a default-constructed one has
+// nothing to draw with (and a vector brush style without a brush cannot even
+// be saved, see doc/nexttoonz_known_issues.md).
+TColorStyle *makeStyle(int tag) {
+  TColorStyle *style = TColorStyle::create(tag);
+  if (!style)
+    throw TException("cannot create colour style " + std::to_string(tag));
+  const std::string id = style->getBrushIdName();
+  const std::pair<const char *, const char *> assets[] = {
+      {"VectorBrushStyle", "arrow"},
+      {"RasterImagePatternStrokeStyle", "Arc"},
+      {"VectorImagePatternStrokeStyle", "ball"}};
+  for (const auto &asset : assets)
+    if (id.compare(0, strlen(asset.first), asset.first) == 0) {
+      delete style;
+      style = TColorStyle::create(std::string(asset.first) + ":" + asset.second);
+      if (!style) throw TException(std::string("cannot load ") + asset.second);
+      return style;
+    }
+  if (dynamic_cast<TTextureStyle *>(style)) {
+    const TFilePath texture("arabesque.bmp");
+    TImageP img;
+    TImageReader::load(
+        ToonzFolder::getLibraryFolder() + "textures" + texture, img);
+    TRasterImageP ri(img);
+    if (!ri) throw TException("cannot load the arabesque texture");
+    delete style;
+    style = new TTextureStyle(ri->getRaster(), texture);
+  }
+  return style;
+}
+
+void sceneVectorStyles(const TFilePath &projectFolder) {
+  std::vector<int> tags;
+  TColorStyle::getAllTags(tags);
+  std::sort(tags.begin(), tags.end());
+  const int cols = 4, rows = 2, perFrame = cols * rows;
+  const int frames = int((tags.size() + perFrame - 1) / perFrame);
+  SceneBuild b     = newScene("vector_styles", frames);
+
+  addZeraryColumn(b.xsh, 0, TFxUtil::makeColorCard(TPixel32(236, 234, 226, 255)),
+                  frames);
+
+  struct Cell {
+    int styleId;
+    bool stroke, region;
+  };
+  std::vector<Cell> cells;
+  int ink = -1, plainFill = -1;
+  QByteArray manifest("# frame cell tag stroke region description\n");
+
+  const double cellW = 2.0 * kHalfW / cols, cellH = 2.0 * kHalfH / rows;
+  TXshSimpleLevel *sl = makeVectorLevel(
+      b.scene.get(), L"vec_styles", frames,
+      [&](TVectorImageP vi, TPalette *plt, int f) {
+        if (f == 1) {
+          ink       = addSolidStyle(plt, TPixel32(25, 25, 30, 255));
+          plainFill = addSolidStyle(plt, TPixel32(205, 205, 210, 255));
+          for (size_t i = 0; i < tags.size(); ++i) {
+            TColorStyle *style = makeStyle(tags[i]);
+            if (style->hasMainColor()) {
+              double r, g, bl;
+              hsvToRgb(std::fmod(i * 47.0, 360.0), 0.75, 0.85, r, g, bl);
+              style->setMainColor(TPixel32(int(r), int(g), int(bl), 255));
+            }
+            Cell cell{plt->addStyle(style), style->isStrokeStyle(),
+                      style->isRegionStyle()};
+            plt->getPage(0)->addStyle(cell.styleId);
+            cells.push_back(cell);
+            char line[64];
+            snprintf(line, sizeof line, "%04d %d %d %d %d ",
+                     int(i / perFrame) + 1, int(i % perFrame), tags[i],
+                     int(cell.stroke), int(cell.region));
+            manifest += QByteArray(line) + style->getDescription().toUtf8() + "\n";
+          }
+        }
+        std::vector<TPointD> centres;
+        std::vector<int> fills;
+        for (int k = 0; k < perFrame; ++k) {
+          size_t i = size_t(f - 1) * perFrame + k;
+          if (i >= cells.size()) break;
+          const Cell &cell = cells[i];
+          const TPointD c(-kHalfW + (k % cols + 0.5) * cellW,
+                          kHalfH - (k / cols + 0.5) * cellH);
+          const int strokeStyle = cell.stroke ? cell.styleId : ink;
+          const TPointD blob(c.x, c.y + cellH * 0.16);
+          vi->addStroke(makeCircle(blob, cellH * 0.26, cell.stroke ? 5.0 : 1.5,
+                                   strokeStyle));
+          centres.push_back(blob);
+          fills.push_back(cell.region ? cell.styleId : plainFill);
+          const double y0 = c.y - cellH * 0.33, amp = cellH * 0.07;
+          vi->addStroke(makeCurve(
+              c.x - cellW * 0.4, c.x + cellW * 0.4, 12,
+              [=](double x) {
+                return y0 + amp * std::sin((x - c.x) / cellW * 4.0 * M_PI);
+              },
+              cell.stroke ? 6.0 : 2.0, strokeStyle));
+        }
+        vi->findRegions();
+        for (UINT r = 0; r < vi->getRegionCount(); ++r) {
+          TRegion *region = vi->getRegion(r);
+          const TRectD box = region->getBBox();
+          const TPointD mid((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2);
+          for (size_t k = 0; k < centres.size(); ++k)
+            if (tdistance(mid, centres[k]) < cellH * 0.1)
+              region->setStyle(fills[k]);
+        }
+      });
+  fillColumn(b.xsh, 1, sl, frames);
+
+  const TFilePath manifestPath = projectFolder + "extras" + "vector_styles.txt";
+  TSystem::touchParentDir(manifestPath);
+  QFile file(manifestPath.getQString());
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    throw TException(L"cannot write " + manifestPath.getWideString());
+  file.write(manifest);
+  saveScene(b, projectFolder, "vector_styles");
+}
+
+//-----------------------------------------------------------------------------
+// Stage showcase
+//
+// One scene, twelve frames, seven groups of independent xsheet and stage
+// features laid out in separate areas of the frame:
+//
+//   top left      seven dots rising side by side, one per keyframe
+//                 interpolation type (linear, speed in/out, ease in/out,
+//                 ease in/out %, exponential, expression, constant)
+//   top middle    a flag rotating and scaling non-uniformly; a flag sheared
+//   top right     pegbar -> pegbar -> column: a dot orbiting a point that
+//                 orbits a square
+//   bottom left   a flag travelling along a motion path, aiming along it
+//   bottom middle two overlapping squares swapping stacking order half way
+//   bottom right  column properties: half opacity, colour filter, and a
+//                 column hidden from the render (its square must not show);
+//                 next to them a tally exposed on twos, with a gap, then
+//                 backwards
+
+// Keys `param` at f0 and f1 and gives the segment between them `type`.
+void setSegment(TDoubleParam *param, int f0, double v0, int f1, double v1,
+                TDoubleKeyframe::Type type,
+                const std::string &expression = "") {
+  param->setValue(f0, v0);
+  param->setValue(f1, v1);
+  TDoubleKeyframe k0 = param->getKeyframe(0), k1 = param->getKeyframe(1);
+  k0.m_type = type;
+  const double third = (f1 - f0) / 3.0;
+  switch (type) {
+  case TDoubleKeyframe::SpeedInOut:
+    k0.m_speedOut = TPointD(third * 2, 0);
+    k1.m_speedIn  = TPointD(-third * 2, 0);
+    break;
+  case TDoubleKeyframe::EaseInOut:
+    k0.m_speedOut = TPointD(third, 0);
+    k1.m_speedIn  = TPointD(-third, 0);
+    break;
+  case TDoubleKeyframe::EaseInOutPercentage:
+    k0.m_speedOut = TPointD(40, 0);
+    k1.m_speedIn  = TPointD(-40, 0);
+    break;
+  case TDoubleKeyframe::Expression:
+    k0.m_expressionText = expression;
+    break;
+  default:
+    break;
+  }
+  param->setKeyframe(0, k0);
+  param->setKeyframe(1, k1);
+}
+
+void sceneStageShowcase(const TFilePath &projectFolder) {
+  const int frames = 12, last = frames - 1;
+  SceneBuild b     = newScene("stage_showcase", frames);
+  TXsheet *xsh     = b.xsh;
+  const double in  = Stage::inch;
+
+  // Marker drawings: 1 dot, 2 square, 3 flag (asymmetric, shows rotation),
+  // 4..7 a tally of one to four bars.
+  TXshSimpleLevel *markers = makeVectorLevel(
+      b.scene.get(), L"vec_markers", 7,
+      [=](TVectorImageP vi, TPalette *plt, int f) {
+        static int ink = -1, fills[4];
+        if (ink < 0) {
+          ink      = addSolidStyle(plt, TPixel32(20, 20, 30, 255));
+          fills[0] = addSolidStyle(plt, TPixel32(225, 60, 50, 255));
+          fills[1] = addSolidStyle(plt, TPixel32(60, 120, 225, 255));
+          fills[2] = addSolidStyle(plt, TPixel32(250, 190, 40, 255));
+          fills[3] = addSolidStyle(plt, TPixel32(70, 180, 110, 255));
+        }
+        const double u = 0.3 * in;
+        if (f == 1) {
+          vi->addStroke(makeCircle(TPointD(), u, 1.5, ink));
+          fillAllRegions(vi, fills[0]);
+        } else if (f == 2) {
+          vi->addStroke(makeRect(TRectD(-u, -u, u, u), 1.5, ink));
+          fillAllRegions(vi, fills[1]);
+        } else if (f == 3) {
+          vi->addStroke(makeRect(TRectD(-u, -u, u, u * 0.2), 1.5, ink));
+          vi->addStroke(makeRect(TRectD(u * 0.2, u * 0.2, u, u), 1.5, ink));
+          fillAllRegions(vi, fills[2]);
+        } else {
+          for (int bar = 0; bar < f - 3; ++bar) {
+            const double x = (bar - 1.5) * u * 0.55;
+            vi->addStroke(
+                makeRect(TRectD(x - u * 0.15, -u, x + u * 0.15, u), 1.0, ink));
+          }
+          fillAllRegions(vi, fills[3]);
+        }
+      });
+  enum { Dot = 1, Square, Flag, Tally };
+
+  addZeraryColumn(xsh, 0, TFxUtil::makeColorCard(TPixel32(238, 236, 228, 255)),
+                  frames);
+  int col = 1;
+  // A column showing `marker` on every frame, placed at (x, y) inches.
+  auto place = [&](int marker, double x, double y) {
+    for (int r = 0; r < frames; ++r)
+      xsh->setCell(r, col, TXshCell(markers, TFrameId(marker)));
+    TStageObjectId id = TStageObjectId::ColumnId(col++);
+    setKey(xsh, id, TStageObject::T_X, 0, x);
+    setKey(xsh, id, TStageObject::T_Y, 0, y);
+    return id;
+  };
+  auto param = [&](const TStageObjectId &id, TStageObject::Channel channel) {
+    return xsh->getStageObject(id)->getParam(channel);
+  };
+
+  // Interpolation types (the values stay positive: an exponential segment
+  // falls back to linear otherwise).
+  const TDoubleKeyframe::Type types[] = {
+      TDoubleKeyframe::Linear,     TDoubleKeyframe::SpeedInOut,
+      TDoubleKeyframe::EaseInOut,  TDoubleKeyframe::EaseInOutPercentage,
+      TDoubleKeyframe::Exponential, TDoubleKeyframe::Expression,
+      TDoubleKeyframe::Constant};
+  for (int i = 0; i < 7; ++i) {
+    TStageObjectId id = place(Dot, -7.3 + i * 0.72, 0.8);
+    setSegment(param(id, TStageObject::T_Y), 0, 0.8, last, 3.8, types[i],
+               "0.8 + 3 * (frame - 1) * (frame - 1) / 121");
+  }
+
+  // Rotation with non-uniform scale; shear.
+  {
+    TStageObjectId id = place(Flag, -1.0, 2.6);
+    setSegment(param(id, TStageObject::T_Angle), 0, 0, last, 300,
+               TDoubleKeyframe::Linear);
+    setSegment(param(id, TStageObject::T_ScaleX), 0, 1.0, last, 2.2,
+               TDoubleKeyframe::Linear);
+    setSegment(param(id, TStageObject::T_ScaleY), 0, 1.6, last, 0.7,
+               TDoubleKeyframe::Linear);
+    id = place(Flag, 1.2, 2.6);
+    // Shear is a factor, not an angle: 1 slants the flag by 45 degrees.
+    setSegment(param(id, TStageObject::T_ShearX), 0, 0, last, 1.0,
+               TDoubleKeyframe::Linear);
+    setKey(xsh, id, TStageObject::T_Scale, 0, 1.6);
+  }
+
+  // Two-level pegbar hierarchy.
+  {
+    TStageObjectId peg1 = TStageObjectId::PegbarId(0),
+                   peg2 = TStageObjectId::PegbarId(1);
+    xsh->getStageObject(peg1);
+    xsh->getStageObject(peg2)->setParent(peg1);
+    setKey(xsh, peg1, TStageObject::T_X, 0, 5.2);
+    setKey(xsh, peg1, TStageObject::T_Y, 0, 2.4);
+    setSegment(param(peg1, TStageObject::T_Angle), 0, 0, last, 150,
+               TDoubleKeyframe::Linear);
+    setKey(xsh, peg2, TStageObject::T_X, 0, 1.3);
+    setSegment(param(peg2, TStageObject::T_Angle), 0, 0, last, -330,
+               TDoubleKeyframe::Linear);
+    TStageObjectId square = place(Square, 0, 0);
+    xsh->getStageObject(square)->setParent(peg1);
+    TStageObjectId dot = place(Dot, 0.7, 0);
+    xsh->getStageObject(dot)->setParent(peg2);
+    setKey(xsh, dot, TStageObject::T_Scale, 0, 0.6);
+  }
+
+  // Motion path, aiming along the path.
+  {
+    std::vector<TThickPoint> pts;
+    for (int i = 0; i <= 8; ++i) {
+      const double t = i / 8.0;
+      pts.push_back(TThickPoint((-7.2 + t * 5.4) * in,
+                                (-2.6 + 1.0 * std::sin(t * 2 * M_PI)) * in, 0));
+    }
+    TStageObjectSpline *spline = xsh->getStageObjectTree()->createSpline();
+    spline->setStroke(new TStroke(pts));
+    TStageObjectId id = place(Flag, 0, 0);
+    TStageObject *obj = xsh->getStageObject(id);
+    obj->setSpline(spline);
+    obj->setStatus(TStageObject::PATH_AIM);
+    setSegment(param(id, TStageObject::T_Path), 0, 0, last, 100,
+               TDoubleKeyframe::Linear);
+  }
+
+  // Stacking order: the red dot goes from below the blue square to above it.
+  {
+    // (Both stay above the background column, whose stacking order is 0.)
+    TStageObjectId square = place(Square, 0.0, -2.6);
+    setKey(xsh, square, TStageObject::T_SO, 0, 5);
+    TStageObjectId dot = place(Dot, 0.3, -2.4);
+    setKey(xsh, dot, TStageObject::T_Scale, 0, 1.4);
+    setSegment(param(dot, TStageObject::T_SO), 0, 2, frames / 2, 8,
+               TDoubleKeyframe::Constant);
+  }
+
+  // Column properties.
+  {
+    b.scene->getProperties()->enableColumnColorFilterOnRender(true);
+    place(Square, 3.0, -1.6);
+    xsh->getColumn(col - 1)->setOpacity(110);
+    place(Square, 3.0, -2.5);
+    xsh->getColumn(col - 1)->setColorFilterId(1);
+    TStageObjectId hidden = place(Square, 3.0, -3.4);
+    setKey(xsh, hidden, TStageObject::T_Scale, 0, 2.0);
+    xsh->getColumn(col - 1)->setPreviewVisible(false);
+  }
+
+  // Cell timing: on twos, a two-frame gap, then backwards.
+  {
+    const int exposure[12] = {4, 4, 5, 5, 6, 6, 7, 7, 0, 0, 6, 5};
+    for (int r = 0; r < frames; ++r)
+      if (exposure[r])
+        xsh->setCell(r, col, TXshCell(markers, TFrameId(exposure[r])));
+    TStageObjectId id = TStageObjectId::ColumnId(col++);
+    setKey(xsh, id, TStageObject::T_X, 0, 5.6);
+    setKey(xsh, id, TStageObject::T_Y, 0, -2.5);
+    setKey(xsh, id, TStageObject::T_Scale, 0, 2.2);
+  }
+
+  saveScene(b, projectFolder, "stage_showcase");
+}
+
+//-----------------------------------------------------------------------------
 // Fx inventory
 
 std::string paramKind(const TParamP &param) {
@@ -1758,6 +2108,13 @@ int main(int argc, char *argv[]) {
   TSoundTrackReader::define("wav", FixtureWavReader::create);
   TFileType::declare("wav", TFileType::AUDIO_LEVEL);
   Preferences::instance();
+  // Asset-based colour styles resolve their files against the library.
+  const TFilePath library = ToonzFolder::getLibraryFolder();
+  TRasterImagePatternStrokeStyle::setRootDir(library);
+  TVectorImagePatternStrokeStyle::setRootDir(library);
+  TVectorBrushStyle::setRootDir(library);
+  TPalette::setRootDir(library);
+  TImageStyle::setLibraryDir(library);
 
   if (listOnly) {
     listFxs();
@@ -1791,6 +2148,8 @@ int main(int argc, char *argv[]) {
     sceneShaderFx(projectFolder);
     scenePlasticBasic(projectFolder);
     scenesFxSweep(projectFolder);
+    sceneVectorStyles(projectFolder);
+    sceneStageShowcase(projectFolder);
   } catch (const TException &e) {
     std::cerr << "error: " << ::to_string(e.getMessage()) << std::endl;
     return 1;
