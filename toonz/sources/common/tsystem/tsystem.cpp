@@ -154,6 +154,13 @@ void TSystem::hasMainLoop(bool state) {
 
 //-----------------------------------------------------------------------------------
 
+#ifndef MACOSX
+// The macOS implementation is in tsystem_mac.mm.
+void TSystem::disableWindowStateRestoration() {}
+#endif
+
+//-----------------------------------------------------------------------------------
+
 QString TSystem::getHostName() { return QHostInfo::localHostName(); }
 
 //------------------------------------------------------------

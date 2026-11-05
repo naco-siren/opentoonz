@@ -91,6 +91,14 @@ extern const int MaxHostNameLen;  // Maximum length of the host name  ==64
 
 DVAPI bool doHaveMainLoop();
 DVAPI void hasMainLoop(bool state);
+
+// For command-line tools that still create a QApplication (tcomposer,
+// tcleanup): call it before the QApplication is constructed. On macOS it
+// makes AppKit ignore saved window state, so that a previous crash of any
+// program in the app bundle cannot leave the tool waiting on the modal
+// "reopen windows?" alert. Does nothing on other platforms.
+DVAPI void disableWindowStateRestoration();
+
 // DVAPI void enableFrameGrouping(bool on);
 // DVAPI bool isFrameGroupingEnabled();
 

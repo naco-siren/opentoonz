@@ -491,6 +491,8 @@ static void cleanupLevel(TXshSimpleLevel *xl, std::set<TFrameId> fidsInXsheet,
 //------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
+  TSystem::disableWindowStateRestoration();
+
   QApplication app(argc, argv);
 
   // questo definisce la registry root e inizializza TEnv

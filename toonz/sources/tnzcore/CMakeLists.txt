@@ -257,6 +257,7 @@ if(BUILD_TARGET_WIN)
 elseif(BUILD_TARGET_APPLE)
     set(SOURCES ${SOURCES}
         ../common/tsound/tsound_qt.cpp
+        ../common/tsystem/tsystem_mac.mm
     )
 elseif(BUILD_TARGET_UNIX)
     set(SOURCES ${SOURCES}
@@ -337,11 +338,13 @@ elseif(BUILD_ENV_APPLE)
     find_library(AUDIOUNIT_LIB AudioUnit)
     find_library(AUDIOTB_LIB AudioToolbox)
     find_library(CARBON_LIB Carbon)
+    find_library(FOUNDATION_LIB Foundation)
 
     set(EXTRA_LIBS
         ${AUDIOUNIT_LIB}
         ${AUDIOTB_LIB}
         ${CARBON_LIB}
+        ${FOUNDATION_LIB}
     )
 elseif(BUILD_ENV_UNIXLIKE)
     if(NOT BUILD_TARGET_WIN)

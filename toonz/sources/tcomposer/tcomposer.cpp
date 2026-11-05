@@ -652,6 +652,8 @@ int main(int argc, char *argv[]) {
                                 q_itr->second->getValue().getQString());
   }
 
+  TSystem::disableWindowStateRestoration();
+
   QApplication app(argc, argv);
 
   // Create a QObject destroyed just before app - see Tnz6's main.cpp for
