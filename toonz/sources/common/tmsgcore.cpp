@@ -197,11 +197,17 @@ void TMsgCore::connectTo(const QString &address)  // client side
   // m_clientSocket->connectToServer (connectionName, QIODevice::ReadWrite |
   // QIODevice::Text);
   bool ret = m_clientSocket->waitForConnected(1000);
-  if (!ret) {
-    // std::cout << "cannot connect to "<< address.toStdString() << std::endl;
-    // std::cout << "error "<< m_clientSocket->errorString().toStdString() <<
-    // std::endl;
-    int err = m_clientSocket->error();
+  // Nobody is listening when tcomposer or tcleanupper run on their own. Drop
+  // the socket in that case instead of leaving it to the event loop: on macOS
+  // Qt 5.15 reports a refused loopback connection as connected (the peer
+  // address stays null), and when the failure later reaches the socket
+  // notifier, QCFSocketNotifier's connect callback closes the socket and then
+  // reads the freed notifier record, which crashes at random in the first
+  // processEvents() call. send() already copes with a null socket.
+  if (!ret || m_clientSocket->peerAddress().isNull()) {
+    m_clientSocket->abort();
+    delete m_clientSocket;
+    m_clientSocket = 0;
   }
 }
 
