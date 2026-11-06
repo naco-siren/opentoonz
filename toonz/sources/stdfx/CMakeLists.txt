@@ -108,7 +108,6 @@ set(SOURCES
     bodyhighlightfx.cpp
     bright_contfx.cpp
     calligraphicfx.cpp
-    changecolorfx.cpp
     channelmixerfx.cpp
     cloudsfx.cpp
     colorembossfx.cpp
