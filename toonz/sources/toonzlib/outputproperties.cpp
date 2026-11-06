@@ -79,6 +79,7 @@ TOutputProperties::TOutputProperties(const TOutputProperties &src)
 
 TOutputProperties::~TOutputProperties() {
   delete m_renderSettings;
+  delete m_boardSettings;
 
   std::for_each(m_formatProperties.begin(), m_formatProperties.end(),
                 ::deleteValue);
@@ -105,6 +106,8 @@ TOutputProperties &TOutputProperties::operator=(const TOutputProperties &src) {
 
   std::for_each(m_formatProperties.begin(), m_formatProperties.end(),
                 ::deleteValue);
+  // Without this, a format that src does not have keeps its deleted group.
+  m_formatProperties.clear();
 
   std::map<std::string, TPropertyGroup *>::const_iterator sft,
       sfEnd = src.m_formatProperties.end();

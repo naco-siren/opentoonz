@@ -455,6 +455,7 @@ std::pair<bool, int> MovieRenderer::Imp::saveFrame(
         const std::string &type = toLower(m_fp.getType());
         Tiio::Writer *writer    = Tiio::makeWriter(type);
         writeInLinearColorSpace = writer && writer->writeInLinearColorSpace();
+        delete writer;  // it was only made to ask that
         if (writeInLinearColorSpace) {
           TDoubleProperty *gammaProp =
               (TDoubleProperty *)(m_levelUpdaterA->getLevelWriter()

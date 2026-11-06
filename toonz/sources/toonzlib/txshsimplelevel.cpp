@@ -1883,7 +1883,8 @@ void TXshSimpleLevel::initializePalette() {
     fullPath =
         scene->decodeFilePath(TFilePath("+palettes\\Toonz_Raster_Palette.tpl"));
     if (hasPalettesAlias && TSystem::doesExistFileOrLevel(fullPath)) {
-      palette = new TPalette();
+      // operator>> creates the palette it reads: allocating one first only
+      // leaked it.
       TIStream is(fullPath);
       is >> palette;
     } else {
@@ -1892,7 +1893,6 @@ void TXshSimpleLevel::initializePalette() {
               "\\Global Palettes\\Default "
               "Palettes\\Toonz_Raster_Palette.tpl"));
       if (TSystem::doesExistFileOrLevel(globalPath)) {
-        palette = new TPalette();
         TIStream is(globalPath);
         is >> palette;
         if (hasPalettesAlias) TSystem::copyFile(fullPath, globalPath);
@@ -1903,7 +1903,6 @@ void TXshSimpleLevel::initializePalette() {
     fullPath =
         scene->decodeFilePath(TFilePath("+palettes\\Toonz_Vector_Palette.tpl"));
     if (hasPalettesAlias && TSystem::doesExistFileOrLevel(fullPath)) {
-      palette = new TPalette();
       TIStream is(fullPath);
       is >> palette;
     } else {
@@ -1912,7 +1911,6 @@ void TXshSimpleLevel::initializePalette() {
               "\\Global Palettes\\Default "
               "Palettes\\Toonz_Vector_Palette.tpl"));
       if (TSystem::doesExistFileOrLevel(globalPath)) {
-        palette = new TPalette();
         TIStream is(globalPath);
         is >> palette;
         if (hasPalettesAlias) TSystem::copyFile(fullPath, globalPath);
