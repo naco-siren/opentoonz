@@ -1228,10 +1228,15 @@ void TCrystallizeStrokeStyle::computeData(Points &positions,
     }  // non dovrebbe succedere mai, ma per prudenza....
     u         = normalize(u);
     TPointD v = rotate90(u) * (pos.thick / 2);
-    positions.push_back(pos + v * (1 + rnd.getFloat()) +
-                        u * 2 * rnd.getFloat());
-    positions.push_back(pos - v * (1 + rnd.getFloat()) -
-                        u * 2 * rnd.getFloat());
+    // One random draw per statement: the order in which the operands of an
+    // expression are evaluated is unspecified, and GCC and Clang disagreed
+    // here, so the same drawing rendered differently in their builds.
+    const double across1 = 1 + rnd.getFloat();
+    const double along1  = 2 * rnd.getFloat();
+    positions.push_back(pos + v * across1 + u * along1);
+    const double across2 = 1 + rnd.getFloat();
+    const double along2  = 2 * rnd.getFloat();
+    positions.push_back(pos - v * across2 - u * along2);
     s += step;
   }
 }
@@ -1720,7 +1725,12 @@ void TBubbleStrokeStyle::drawStroke(const TColorFunction *cf,
     int toff        = rnd.getInt(0, 999);
     int t           = (m_currentFrame + toff) % 1000;
     TRandom rnd2(t >> 2);
-    p += 2 * TPointD(-0.5 + rnd2.getFloat(), -0.5 + rnd2.getFloat());
+    // x first, then y, in separate statements (as in
+    // TCrystallizeStrokeStyle::computeData above: the
+    // evaluation order of function arguments is unspecified).
+    const double dx = -0.5 + rnd2.getFloat();
+    const double dy = -0.5 + rnd2.getFloat();
+    p += 2 * TPointD(dx, dy);
     if (pos.thick < MINTHICK)
       thickness = minthickness;
     else
