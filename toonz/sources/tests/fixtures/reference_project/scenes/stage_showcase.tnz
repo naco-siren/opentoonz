@@ -1358,6 +1358,9 @@
       <pegbar id="Col2">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          y_linear 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1415,6 +1418,9 @@
       <pegbar id="Col3">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          y_speed 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1472,6 +1478,9 @@
       <pegbar id="Col4">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          y_ease 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1529,6 +1538,9 @@
       <pegbar id="Col5">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          y_ease_pct 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1586,6 +1598,9 @@
       <pegbar id="Col6">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          y_expo 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1640,6 +1655,9 @@
       <pegbar id="Col7">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          y_expr 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1694,6 +1712,9 @@
       <pegbar id="Col8">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          y_const 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1748,6 +1769,9 @@
       <pegbar id="Col9">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          rot_scale 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1837,6 +1861,9 @@
       <pegbar id="Col10">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          shear 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1909,6 +1936,9 @@
       <pegbar id="Col11">
         <parent handle="B" id="Peg1" parentHandle="B">
           </parent>
+        <name>
+          on_peg1 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -1960,6 +1990,9 @@
       <pegbar id="Col12">
         <parent handle="B" id="Peg2" parentHandle="B">
           </parent>
+        <name>
+          on_peg2 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -2016,6 +2049,9 @@
       <pegbar id="Col13">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          path_aim 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -2086,6 +2122,9 @@
       <pegbar id="Col14">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          so_5 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -2147,6 +2186,9 @@
       <pegbar id="Col15">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          so_2_to_8 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -2216,6 +2258,9 @@
       <pegbar id="Col16">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          opacity_110 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -2267,6 +2312,9 @@
       <pegbar id="Col17">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          filter_red 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -2318,6 +2366,9 @@
       <pegbar id="Col18">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          no_render 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -2374,6 +2425,9 @@
       <pegbar id="Col19">
         <parent handle="B" id="Table" parentHandle="B">
           </parent>
+        <name>
+          timing 
+        </name>
         <isOpened>
           0 
         </isOpened>
@@ -2434,31 +2488,34 @@
     <fxnodes>
       <terminal>
         <fxnode>
-          <Toonz_zeraryColumnFx id='3'/>
+          <Toonz_columnFx id='38'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='6'/>
+          <Toonz_columnFx id='36'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='8'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_columnFx id='10'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_columnFx id='12'/>
+          <Toonz_columnFx id='40'/>
         </fxnode>
         <fxnode>
           <Toonz_columnFx id='14'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='16'/>
+          <Toonz_columnFx id='8'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='18'/>
+          <Toonz_columnFx id='6'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_zeraryColumnFx id='3'/>
         </fxnode>
         <fxnode>
           <Toonz_columnFx id='20'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_columnFx id='12'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_columnFx id='32'/>
         </fxnode>
         <fxnode>
           <Toonz_columnFx id='22'/>
@@ -2476,19 +2533,16 @@
           <Toonz_columnFx id='30'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='32'/>
+          <Toonz_columnFx id='16'/>
         </fxnode>
         <fxnode>
           <Toonz_columnFx id='34'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='36'/>
+          <Toonz_columnFx id='10'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='38'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_columnFx id='40'/>
+          <Toonz_columnFx id='18'/>
         </fxnode>
         </terminal>
       <xsheet>

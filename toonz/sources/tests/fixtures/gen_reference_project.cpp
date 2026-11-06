@@ -1940,11 +1940,14 @@ void sceneStageShowcase(const TFilePath& projectFolder) {
   addZeraryColumn(xsh, 0, TFxUtil::makeColorCard(TPixel32(238, 236, 228, 255)),
                   frames);
   int col = 1;
-  // A column showing `marker` on every frame, placed at (x, y) inches.
-  auto place = [&](int marker, double x, double y) {
+  // A column showing `marker` on every frame, placed at (x, y) inches. The
+  // name says what the column exercises: it is what one sees in the xsheet
+  // when opening the scene (tests/README.md lists the columns).
+  auto place = [&](const char* name, int marker, double x, double y) {
     for (int r = 0; r < frames; ++r)
       xsh->setCell(r, col, TXshCell(markers, TFrameId(marker)));
     TStageObjectId id = TStageObjectId::ColumnId(col++);
+    xsh->getStageObject(id)->setName(name);
     setKey(xsh, id, TStageObject::T_X, 0, x);
     setKey(xsh, id, TStageObject::T_Y, 0, y);
     return id;
@@ -1960,22 +1963,24 @@ void sceneStageShowcase(const TFilePath& projectFolder) {
       TDoubleKeyframe::EaseInOut,   TDoubleKeyframe::EaseInOutPercentage,
       TDoubleKeyframe::Exponential, TDoubleKeyframe::Expression,
       TDoubleKeyframe::Constant};
+  const char* typeNames[] = {"y_linear", "y_speed", "y_ease", "y_ease_pct",
+                             "y_expo",   "y_expr",  "y_const"};
   for (int i = 0; i < 7; ++i) {
-    TStageObjectId id = place(Dot, -7.3 + i * 0.72, 0.8);
+    TStageObjectId id = place(typeNames[i], Dot, -7.3 + i * 0.72, 0.8);
     setSegment(param(id, TStageObject::T_Y), 0, 0.8, last, 3.8, types[i],
                "0.8 + 3 * (frame - 1) * (frame - 1) / 121");
   }
 
   // Rotation with non-uniform scale; shear.
   {
-    TStageObjectId id = place(Flag, -1.0, 2.6);
+    TStageObjectId id = place("rot_scale", Flag, -1.0, 2.6);
     setSegment(param(id, TStageObject::T_Angle), 0, 0, last, 300,
                TDoubleKeyframe::Linear);
     setSegment(param(id, TStageObject::T_ScaleX), 0, 1.0, last, 2.2,
                TDoubleKeyframe::Linear);
     setSegment(param(id, TStageObject::T_ScaleY), 0, 1.6, last, 0.7,
                TDoubleKeyframe::Linear);
-    id = place(Flag, 1.2, 2.6);
+    id = place("shear", Flag, 1.2, 2.6);
     // Shear is a factor, not an angle: 1 slants the flag by 45 degrees.
     setSegment(param(id, TStageObject::T_ShearX), 0, 0, last, 1.0,
                TDoubleKeyframe::Linear);
@@ -1995,9 +2000,9 @@ void sceneStageShowcase(const TFilePath& projectFolder) {
     setKey(xsh, peg2, TStageObject::T_X, 0, 1.3);
     setSegment(param(peg2, TStageObject::T_Angle), 0, 0, last, -330,
                TDoubleKeyframe::Linear);
-    TStageObjectId square = place(Square, 0, 0);
+    TStageObjectId square = place("on_peg1", Square, 0, 0);
     xsh->getStageObject(square)->setParent(peg1);
-    TStageObjectId dot = place(Dot, 0.7, 0);
+    TStageObjectId dot = place("on_peg2", Dot, 0.7, 0);
     xsh->getStageObject(dot)->setParent(peg2);
     setKey(xsh, dot, TStageObject::T_Scale, 0, 0.6);
   }
@@ -2012,7 +2017,7 @@ void sceneStageShowcase(const TFilePath& projectFolder) {
     }
     TStageObjectSpline* spline = xsh->getStageObjectTree()->createSpline();
     spline->setStroke(new TStroke(pts));
-    TStageObjectId id = place(Flag, 0, 0);
+    TStageObjectId id = place("path_aim", Flag, 0, 0);
     TStageObject* obj = xsh->getStageObject(id);
     obj->setSpline(spline);
     obj->setStatus(TStageObject::PATH_AIM);
@@ -2023,22 +2028,24 @@ void sceneStageShowcase(const TFilePath& projectFolder) {
   // Stacking order: the red dot goes from below the blue square to above it.
   {
     // (Both stay above the background column, whose stacking order is 0.)
-    TStageObjectId square = place(Square, 0.0, -2.6);
+    TStageObjectId square = place("so_5", Square, 0.0, -2.6);
     setKey(xsh, square, TStageObject::T_SO, 0, 5);
-    TStageObjectId dot = place(Dot, 0.3, -2.4);
+    TStageObjectId dot = place("so_2_to_8", Dot, 0.3, -2.4);
     setKey(xsh, dot, TStageObject::T_Scale, 0, 1.4);
     setSegment(param(dot, TStageObject::T_SO), 0, 2, frames / 2, 8,
                TDoubleKeyframe::Constant);
   }
 
-  // Column properties.
+  // Column properties. The last square is twice the size of the others and
+  // is meant to be missing from every render: its column has the render
+  // toggle off, so it shows in the camera stand view only.
   {
     b.scene->getProperties()->enableColumnColorFilterOnRender(true);
-    place(Square, 3.0, -1.6);
+    place("opacity_110", Square, 3.0, -1.6);
     xsh->getColumn(col - 1)->setOpacity(110);
-    place(Square, 3.0, -2.5);
+    place("filter_red", Square, 3.0, -2.5);
     xsh->getColumn(col - 1)->setColorFilterId(1);
-    TStageObjectId hidden = place(Square, 3.0, -3.4);
+    TStageObjectId hidden = place("no_render", Square, 3.0, -3.4);
     setKey(xsh, hidden, TStageObject::T_Scale, 0, 2.0);
     xsh->getColumn(col - 1)->setPreviewVisible(false);
   }
@@ -2050,6 +2057,7 @@ void sceneStageShowcase(const TFilePath& projectFolder) {
       if (exposure[r])
         xsh->setCell(r, col, TXshCell(markers, TFrameId(exposure[r])));
     TStageObjectId id = TStageObjectId::ColumnId(col++);
+    xsh->getStageObject(id)->setName("timing");
     setKey(xsh, id, TStageObject::T_X, 0, 5.6);
     setKey(xsh, id, TStageObject::T_Y, 0, -2.5);
     setKey(xsh, id, TStageObject::T_Scale, 0, 2.2);

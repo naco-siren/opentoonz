@@ -148,6 +148,46 @@ depend on the system's fonts, C library or OpenGL driver (known issue 18),
 so they are compared on Linux only, where the goldens come from. The other
 scenes are compared on every platform.
 
+### What `stage_showcase` should look like
+
+Every column carries one marker drawing and is named after what it
+exercises. Column 1 is the colour card behind everything.
+
+| Column | Where | What to expect over the 12 frames |
+|---|---|---|
+| `y_linear`, `y_speed`, `y_ease`, `y_ease_pct`, `y_expo`, `y_expr`, `y_const` | row of seven dots on the left | all rise from the same height to the same height, each along its own interpolation; `y_const` stays put until the last frame |
+| `rot_scale` | first flag, top middle | turns 300 degrees while getting wider and flatter |
+| `shear` | second flag, top middle | slants to 45 degrees |
+| `on_peg1`, `on_peg2` | square and small dot, upper right | the square turns with `Peg1`; the dot orbits `Peg2`, a child of `Peg1` that turns the other way |
+| `path_aim` | flag, lower left | follows a sine-shaped motion path, pointing along it |
+| `so_5`, `so_2_to_8` | square and large dot, bottom middle | the dot is behind the square for frames 1 to 6 and in front of it from frame 7 |
+| `opacity_110` | top square of three, bottom right of centre | half transparent (110 of 255) |
+| `filter_red` | middle square of three | tinted by the column's red colour filter |
+| `no_render` | bottom square of three, twice the size | **missing from every render**: the column's render toggle is off, so it shows in the camera stand view only |
+| `timing` | tally marks, far right | one to four bars on twos, nothing on frames 9 and 10, then three and two bars |
+
+### Looking at a scene in OpenToonz
+
+Open a copy, not the fixtures themselves, so that saving cannot change
+them, and give OpenToonz a copy of `stuff/` so it leaves any installed
+configuration alone:
+
+```
+cp -R stuff /tmp/review/stuff
+cp -R toonz/sources/tests/fixtures/reference_project /tmp/review/reference_project
+OpenToonz -TOONZROOT /tmp/review/stuff /tmp/review/reference_project/scenes/stage_showcase.tnz
+```
+
+(On macOS the binary is `OpenToonz.app/Contents/MacOS/OpenToonz`.) When
+asked which project to use, choose "Change Project".
+
+The viewer starts in the camera stand view, which draws the source
+drawings only. Fxs, column opacity, colour filters and render toggles
+take effect in the preview (the eye button in the viewer's title bar),
+and that is what the goldens hold. The preview is rendered at the camera
+resolution of 320x180, so it looks coarse when the viewer zooms in; the
+camera stand view draws vectors at screen resolution and does not.
+
 The sweeps are built from the fx registry (`TFx::listFxs`), so a new fx
 gets a frame the next time the project is regenerated. Their inputs are
 four test cards in `drawings/`:
