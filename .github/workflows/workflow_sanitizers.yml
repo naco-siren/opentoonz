@@ -1,7 +1,7 @@
 name: Sanitizers
 
-# Builds the NextToonz unit tests and tcomposer with AddressSanitizer and
-# UndefinedBehaviorSanitizer (the `asan` preset in
+# Builds the NextToonz unit tests and tcomposer with AddressSanitizer (with
+# leak detection) and UndefinedBehaviorSanitizer (the `asan` preset in
 # toonz/sources/CMakePresets.json) and runs the whole ctest suite: the unit
 # tests and the golden renders. The renders matter here because undefined
 # behaviour in the render path can give different pixels on different
@@ -44,14 +44,11 @@ jobs:
       CCACHE_MAXSIZE: 1G   # a cold build stores ~600 MB of objects before compression
       # gtest_discover_tests runs every test binary at build time to list its
       # tests, so these must be set for the build step as well as for ctest.
-      # Leak checking is off for now: the toonzlib tests leak at exit (library
-      # singletons, test fixtures and a few small leaks in toonzlib/tnzcore).
-      # The asan preset also passes -fno-sanitize=vptr: the vptr check makes
-      # every member function reference its class's typeinfo, and the unused
-      # ChangeColorFx in stdfx/changecolorfx.cpp never defines its key
-      # function (getDeclaration), so libtnzstdfx.so fails to link into any
-      # executable. Re-enable vptr once that dead class is removed.
-      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+      # Leak checking is on, for the unit tests and for tcomposer. The leaks
+      # the library is known to have are listed, one by one, in
+      # toonz/sources/tests/lsan.supp; anything else fails the job.
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      LSAN_OPTIONS: suppressions=${{ github.workspace }}/toonz/sources/tests/lsan.supp:print_suppressions=0
       UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
       QT_QPA_PLATFORM: offscreen
     steps:

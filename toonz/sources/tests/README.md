@@ -98,6 +98,35 @@ python3 ../sources/tests/golden/run_golden.py \
 Review the new frames before committing updated goldens; they are the
 source of truth for every later refactor.
 
+## Sanitizers
+
+`workflow_sanitizers.yml` builds the unit tests and tcomposer with the
+`asan` preset (AddressSanitizer with leak detection, and
+UndefinedBehaviorSanitizer) and runs the whole suite, golden scenes
+included. To do the same on a Linux machine:
+
+```
+cd toonz/sources
+cmake --preset asan -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+cd ../build-asan
+export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1
+export LSAN_OPTIONS=suppressions=$PWD/../sources/tests/lsan.supp:print_suppressions=0
+export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+ninja nexttoonz_core_tests nexttoonz_toonzlib_tests tcomposer lzocompress lzodecompress
+ctest --output-on-failure
+```
+
+`lsan.supp` lists the leaks the library is known to have, each with its
+number in `doc/nexttoonz_known_issues.md`. A leak that is not listed fails
+the test that hit it. Fix a new leak, or record it as a known issue before
+adding an entry. One entry is by test name: the three tests that call
+`TVectorImage::removeStroke()` (known issue 10); a new test that calls it
+needs to be added there.
+
+Leak detection does not work with Apple's clang; on macOS, `leaks --atExit
+-- ./nexttoonz_core_tests` (with `MallocStackLogging=1` for stacks) gives a
+similar report.
+
 ## Regenerating the reference project
 
 ```

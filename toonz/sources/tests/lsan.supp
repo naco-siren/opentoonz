@@ -1,0 +1,53 @@
+# LeakSanitizer suppressions for the NextToonz unit tests.
+#
+# Used by workflow_sanitizers.yml (LSAN_OPTIONS=suppressions=<this file>).
+# Each entry is a leak in the library that is known and not fixed yet; the
+# numbers refer to doc/nexttoonz_known_issues.md. LeakSanitizer matches the
+# text after "leak:" against the functions of the allocation's stack, and
+# also drops everything reachable from a suppressed allocation.
+#
+# Do not add an entry to make a new leak go away: fix it, or record it in
+# the known issues first. Remove an entry when its issue is fixed.
+
+# 10: TVectorImage::removeStroke() never frees the stroke's VIStroke wrapper.
+# Only the three tests that call it are let through, so that any other leak
+# of a wrapper still shows.
+leak:TVectorImage_AddGetRemoveStrokes_Test
+leak:TVectorImage_RemovingTheClosedStrokeRemovesItsRegion_Test
+leak:TVectorImage_CloneImageIsIndependent_Test
+
+# 20: createStandardCleanupPalette() returns a palette with a reference that
+# nobody releases; every CleanupParameters (one per TSceneProperties) leaks
+# its palette.
+leak:createStandardCleanupPalette
+
+# 21: TOutputProperties::getFileFormatProperties() replaces the property
+# group of a format without deleting the old one.
+leak:TOutputProperties::getFileFormatProperties
+
+# 22: TXshZeraryFxColumn and its TXshZeraryFxLevel hold a reference on each
+# other, so no zerary column is ever freed, nor the fx inside it.
+leak:TXshZeraryFxColumn::TXshZeraryFxColumn
+
+# 23: objects that live until the process exits but are not reachable from
+# a global by then: the measures and units of TMeasureManager, the generator
+# registered by a static initialiser in stdfx/shaderfx.cpp, and in tcomposer
+# the writer properties registered by Tiio::defineStd() and the plugin
+# loader's thread object.
+leak:TMeasureManager::
+leak:SCMDelegateGenerator::SCMDelegateGenerator
+leak:Tiio::defineStd
+leak:PluginLoader::load_entries
+
+# 24: the fxs ported from Toonz 4.6 (artContourFx, blendTzFx, calligraphicFx,
+# outBorderFx, and applyCmappedFx in toonzlib/tcolumnfx.cpp) pass their
+# parameters as C strings made by strsave(), which nothing frees.
+leak:strsave
+
+# 25: a TLevelWriter does not free the property group it is given, and
+# LevelUpdater hands it a fresh clone every time it opens one.
+leak:LevelUpdater::open
+
+# Not ours: Qt's xcb event thread can still be inside libxcb when tcomposer
+# exits under xvfb-run.
+leak:xcb_wait_for_event
