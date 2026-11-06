@@ -1,0 +1,54 @@
+# frame cell tag stroke region description
+0001 0 2 1 0 Constant
+0001 1 3 1 1 SolidColorStyle
+0001 2 4 1 1 TextureStyle
+0001 3 103 1 0 Herringbone
+0001 4 104 1 0 Chain
+0001 5 106 1 0 Circlets
+0001 6 107 1 0 Dashes
+0001 7 108 1 0 Rope
+0002 0 109 1 0 Tulle
+0002 1 111 1 0 Vanishing
+0002 2 113 1 0 Fuzz
+0002 3 114 1 0 Bubbles
+0002 4 117 1 0 Gauze
+0002 5 120 1 0 Bump
+0002 6 123 1 0 Chalk
+0002 7 125 1 0 Fade
+0003 0 126 1 0 Ribbon
+0003 1 127 1 0 Jagged
+0003 2 129 1 0 Zigzag
+0003 3 130 1 0 Wave
+0003 4 132 1 0 Striped
+0003 5 133 1 0 Curl
+0003 6 134 1 0 Watercolor
+0003 7 135 1 0 Shade
+0004 0 136 1 0 Plait
+0004 1 138 1 0 Gouache
+0004 2 141 1 0 Toothpaste
+0004 3 201 1 0 Flow Line
+0004 4 1125 0 1 Offset
+0004 5 1127 0 1 Hatched Shading
+0004 6 1128 0 1 Blob
+0004 7 1129 0 1 Sponge Shading
+0005 0 1130 0 1 Polka Dots
+0005 1 1131 0 1 Square
+0005 2 1132 0 1 Irregular
+0005 3 1135 0 1 Plain Shadow
+0005 4 1136 0 1 Chessboard
+0005 5 1137 0 1 Banded
+0005 6 1138 0 1 Linear Gradient
+0005 7 1139 0 1 Radial Gradient
+0006 0 1140 0 1 Concentric
+0006 1 1141 0 1 Stained Glass
+0006 2 1142 0 1 Beehive
+0006 3 1143 0 1 Chalk
+0006 4 1150 0 0 Airbrush
+0006 5 1151 0 0 Markup
+0006 6 1160 0 0 Blend
+0006 7 2000 1 0 TRasterImagePatternStrokeStyle
+0007 0 2001 1 1 CleanupColor
+0007 1 2002 1 1 CleanupBlack
+0007 2 2800 1 0 TVectorImagePatternStrokeStyle
+0007 3 3000 1 0 VectorBrushStyle
+0007 4 4001 1 0 MyPaintBrushStyle

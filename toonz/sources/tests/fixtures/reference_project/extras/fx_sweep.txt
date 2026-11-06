@@ -1,0 +1,185 @@
+# scene frame fx inputs
+fx_sweep_base_a 0001 addFx Source1=main Source2=back
+fx_sweep_base_a 0002 atopFx Up=main Down=back
+fx_sweep_base_a 0003 blendFx Source1=main Source2=back
+fx_sweep_base_a 0004 checkBoardFx 
+fx_sweep_base_a 0005 colorBurnFx Source1=main Source2=back
+fx_sweep_base_a 0006 colorCardFx 
+fx_sweep_base_a 0007 colorDodgeFx Source1=main Source2=back
+fx_sweep_base_a 0008 inFx Source=main Matte=ref
+fx_sweep_base_a 0009 invertFx source=main
+fx_sweep_base_a 0010 maxFx Source1=main Source2=back
+fx_sweep_base_a 0011 minFx Source1=main Source2=back
+fx_sweep_base_a 0012 multFx Source1=main Source2=back
+fx_sweep_base_a 0013 outFx Source=main Matte=ref
+fx_sweep_base_a 0014 overFx Source1=main Source2=back
+fx_sweep_base_a 0015 screenFx Source1=main Source2=back
+fx_sweep_base_a 0016 subFx Source1=main Source2=back
+fx_sweep_std_a 0001 STD_adjustLevelsFx Source=main
+fx_sweep_std_a 0002 STD_backlitFx Light=main Source=main
+fx_sweep_std_a 0003 STD_blendTzFx Source=tz
+fx_sweep_std_a 0004 STD_blurFx Source=main
+fx_sweep_std_a 0005 STD_bodyHighLightFx Source=main
+fx_sweep_std_a 0006 STD_brightContFx Source=main
+fx_sweep_std_a 0007 STD_calligraphicFx Source=tz
+fx_sweep_std_a 0008 STD_castShadowFx source=main
+fx_sweep_std_a 0009 STD_channelMixerFx Source=main
+fx_sweep_std_a 0010 STD_cloudsFx 
+fx_sweep_std_a 0011 STD_colorEmbossFx Source=main Controller=ref
+fx_sweep_std_a 0012 STD_colorMatrixFx Source=main
+fx_sweep_std_a 0013 STD_colorRaylitFx Source=main
+fx_sweep_std_a 0014 STD_cornerPinFx source=tz Texture=main
+fx_sweep_std_a 0015 STD_despeckleFx Source=main
+fx_sweep_std_a 0016 STD_diamondGradientFx 
+fx_sweep_std_b 0001 STD_directionalBlurFx Source=main
+fx_sweep_std_b 0002 STD_dissolveFx Source=main
+fx_sweep_std_b 0003 STD_dropShadowFx Source=main
+fx_sweep_std_b 0004 STD_embossFx Source=main
+fx_sweep_std_b 0005 STD_erodeDilateFx Source=main
+fx_sweep_std_b 0006 STD_fadeFx Source=main
+fx_sweep_std_b 0007 STD_fourPointsGradientFx 
+fx_sweep_std_b 0008 STD_freeDistortFx source=main
+fx_sweep_std_b 0009 STD_gammaFx Source=main
+fx_sweep_std_b 0010 STD_glowFx Light=main Source=main
+fx_sweep_std_b 0011 STD_hsvKeyFx Source=main
+fx_sweep_std_b 0012 STD_hsvScaleFx Source=main
+fx_sweep_std_b 0013 STD_kaleidoFx Source=main
+fx_sweep_std_b 0014 STD_lightSpotFx 
+fx_sweep_std_b 0015 STD_linearGradientFx 
+fx_sweep_std_b 0016 STD_linearWaveFx Source=main
+fx_sweep_std_c 0001 STD_localBlurFx Source=main Reference=ref
+fx_sweep_std_c 0002 STD_localTransparencyFx Source=main Reference=ref
+fx_sweep_std_c 0003 STD_mosaicFx Source=main
+fx_sweep_std_c 0004 STD_motionBlurFx Source=main(moving)
+fx_sweep_std_c 0005 STD_multiLinearGradientFx 
+fx_sweep_std_c 0006 STD_multiRadialGradientFx 
+fx_sweep_std_c 0007 STD_multiToneFx Source=main
+fx_sweep_std_c 0008 STD_naru_LazyBrushFx Source=main Reference=ref
+fx_sweep_std_c 0009 STD_noiseFx Source=main
+fx_sweep_std_c 0010 STD_nothingFx Source=main
+fx_sweep_std_c 0011 STD_outBorderFx Source=tz
+fx_sweep_std_c 0012 STD_paletteFilterFx Source=tz
+fx_sweep_std_c 0013 STD_perlinNoiseFx Source=main
+fx_sweep_std_c 0014 STD_posterizeFx Source=main
+fx_sweep_std_c 0015 STD_premultiplyFx Source=main
+fx_sweep_std_c 0016 STD_radialBlurFx Source=main
+fx_sweep_std_d 0001 STD_radialGradientFx 
+fx_sweep_std_d 0002 STD_randomWaveFx Source=main
+fx_sweep_std_d 0003 STD_raylitFx Source=main
+fx_sweep_std_d 0004 STD_rgbKeyFx Source=main
+fx_sweep_std_d 0005 STD_rgbmCutFx Source=main
+fx_sweep_std_d 0006 STD_rgbmFadeFx Source=main
+fx_sweep_std_d 0007 STD_rgbmScaleFx Source=main
+fx_sweep_std_d 0008 STD_rippleFx Source=main
+fx_sweep_std_d 0009 STD_rotationalBlurFx Source=main
+fx_sweep_std_d 0010 STD_saltpepperNoiseFx Source=main
+fx_sweep_std_d 0011 STD_sharpenFx Source=main
+fx_sweep_std_d 0012 STD_solarizeFx Source=main
+fx_sweep_std_d 0013 STD_spiralFx 
+fx_sweep_std_d 0014 STD_squareGradientFx 
+fx_sweep_std_d 0015 STD_targetSpotFx 
+fx_sweep_std_d 0016 STD_textureFx Source=tz Texture=main
+fx_sweep_std_e 0001 STD_tileFx Source=main(small)
+fx_sweep_std_e 0002 STD_toneCurveFx Source=main
+fx_sweep_std_e 0003 STD_unmultiplyFx Source=main
+fx_sweep_std_e 0004 STD_warpFx Source=main warper=ref
+fx_sweep_ino_a 0001 STD_inoAddFx Fore=main Back=back
+fx_sweep_ino_a 0002 STD_inoBlurFx Source=main Reference=ref
+fx_sweep_ino_a 0003 STD_inoChannelSelectorFx Source1=main Source2=back Source3=ref Source4=back
+fx_sweep_ino_a 0004 STD_inoColorBurnFx Fore=main Back=back
+fx_sweep_ino_a 0005 STD_inoColorDodgeFx Fore=main Back=back
+fx_sweep_ino_a 0006 STD_inoCrossDissolveFx Fore=main Back=back
+fx_sweep_ino_a 0007 STD_inoDarkenFx Fore=main Back=back
+fx_sweep_ino_a 0008 STD_inoDarkerColorFx Fore=main Back=back
+fx_sweep_ino_a 0009 STD_inoDensityFx Source=main Reference=ref
+fx_sweep_ino_a 0010 STD_inoDivideFx Fore=main Back=back
+fx_sweep_ino_a 0011 STD_inoFogFx Source=main
+fx_sweep_ino_a 0012 STD_inoHardLightFx Fore=main Back=back
+fx_sweep_ino_a 0013 STD_inoHardMixFx Fore=main Back=back
+fx_sweep_ino_a 0014 STD_inoLevelAutoFx Source=main
+fx_sweep_ino_a 0015 STD_inoLevelMasterFx Source=main Reference=ref
+fx_sweep_ino_a 0016 STD_inoLevelrgbaFx Source=main Reference=ref
+fx_sweep_ino_b 0001 STD_inoLightenFx Fore=main Back=back
+fx_sweep_ino_b 0002 STD_inoLighterColorFx Fore=main Back=back
+fx_sweep_ino_b 0003 STD_inoLinearBurnFx Fore=main Back=back
+fx_sweep_ino_b 0004 STD_inoLinearDodgeFx Fore=main Back=back
+fx_sweep_ino_b 0005 STD_inoLinearLightFx Fore=main Back=back
+fx_sweep_ino_b 0006 STD_inoMaxMinFx Source=main Reference=ref
+fx_sweep_ino_b 0007 STD_inoMedianFilterFx Source=main Reference=ref
+fx_sweep_ino_b 0008 STD_inoMedianFx Source=main Reference=ref
+fx_sweep_ino_b 0009 STD_inoMotionBlurFx Source=main
+fx_sweep_ino_b 0010 STD_inoMotionWindFx Source=main Reference=ref
+fx_sweep_ino_b 0011 STD_inoMultiplyFx Fore=main Back=back
+fx_sweep_ino_b 0012 STD_inoNegateFx Source=main
+fx_sweep_ino_b 0013 STD_inoOverFx Fore=main Back=back
+fx_sweep_ino_b 0014 STD_inoOverlayFx Fore=main Back=back
+fx_sweep_ino_b 0015 STD_inoPinLightFx Fore=main Back=back
+fx_sweep_ino_b 0016 STD_inoRadialBlurFx Source=main Reference=ref
+fx_sweep_ino_c 0001 STD_inoScreenFx Fore=main Back=back
+fx_sweep_ino_c 0002 STD_inoSoftLightFx Fore=main Back=back
+fx_sweep_ino_c 0003 STD_inoSpinBlurFx Source=main Reference=ref
+fx_sweep_ino_c 0004 STD_inoSubtractFx Fore=main Back=back
+fx_sweep_ino_c 0005 STD_inoVividLightFx Fore=main Back=back
+fx_sweep_ino_c 0006 STD_inoWarphvFx Source=main Hori=ref Vert=ref
+fx_sweep_ino_c 0007 STD_inohlsAddFx Source=main Noise=ref Reference=ref
+fx_sweep_ino_c 0008 STD_inohlsAdjustFx Source=main Reference=ref
+fx_sweep_ino_c 0009 STD_inohlsNoiseFx Source=main Reference=ref
+fx_sweep_ino_c 0010 STD_inohsvAddFx Source=main Noise=ref Reference=ref
+fx_sweep_ino_c 0011 STD_inohsvAdjustFx Source=main Reference=ref
+fx_sweep_ino_c 0012 STD_inohsvNoiseFx Source=main Reference=ref
+fx_sweep_ino_c 0013 STD_inopnCloudsFx 
+fx_sweep_iwa_a 0001 STD_iwa_AdjustExposureFx Source=main
+fx_sweep_iwa_a 0002 STD_iwa_BarrelDistortFx Source=main
+fx_sweep_iwa_a 0003 STD_iwa_BloomFx Source=main
+fx_sweep_iwa_a 0004 STD_iwa_BokehAdvancedFx Iris=ref Source1=main Source2=back Source3=ref Source4=back Source5=main Depth1=ref
+fx_sweep_iwa_a 0005 STD_iwa_BokehFx Iris=ref Source1=main Source2=back Source3=ref Source4=back Source5=main
+fx_sweep_iwa_a 0006 STD_iwa_BokehRefFx Iris=ref Source=main Depth=ref
+fx_sweep_iwa_a 0007 STD_iwa_CorridorGradientFx 
+fx_sweep_iwa_a 0008 STD_iwa_DirectionalBlurFx Source=main Reference=ref
+fx_sweep_iwa_a 0009 STD_iwa_FloorBumpFx Height=ref Texture=main Displacement=ref
+fx_sweep_iwa_a 0010 STD_iwa_FlowBlurFx Source=main Flow=ref Reference=ref
+fx_sweep_iwa_a 0011 STD_iwa_FlowPaintBrushFx Brush=main Flow=ref Area=ref Color=main
+fx_sweep_iwa_a 0012 STD_iwa_FractalNoiseFx 
+fx_sweep_iwa_a 0013 STD_iwa_GlareFx Source=main Iris=ref
+fx_sweep_iwa_a 0014 STD_iwa_GradientWarpFx Source=main Warper=ref
+fx_sweep_iwa_a 0015 STD_iwa_LinearGradientFx 
+fx_sweep_iwa_a 0016 STD_iwa_MotionBlurCompFx Source=main(moving) Back=back
+fx_sweep_iwa_b 0001 STD_iwa_MotionFlowFx (moving)
+fx_sweep_iwa_b 0002 STD_iwa_PNPerspectiveFx 
+fx_sweep_iwa_b 0003 STD_iwa_PerspectiveDistortFx Source=main
+fx_sweep_iwa_b 0004 STD_iwa_RainbowFx 
+fx_sweep_iwa_b 0005 STD_iwa_SmootherFx Source=main
+fx_sweep_iwa_b 0006 STD_iwa_SpectrumFx Source=main Light=main
+fx_sweep_iwa_b 0007 STD_iwa_SpinGradientFx 
+fx_sweep_iwa_b 0008 STD_iwa_TangentFlowFx Source=main
+fx_sweep_iwa_b 0009 STD_iwa_TileFx Source=main(small)
+fx_sweep_font_a 0001 STD_iwa_TextFx 
+fx_sweep_font_a 0002 STD_iwa_TimeCodeFx 
+fx_sweep_rand_a 0001 STD_artContourFx Source=tz Controller=ref
+fx_sweep_rand_a 0002 STD_iwa_SoapBubbleFx Thickness=ref Shape=main Depth=ref
+fx_sweep_gpu_a 0001 SHADER_caustics 
+fx_sweep_gpu_a 0002 SHADER_fireball 
+fx_sweep_gpu_a 0003 SHADER_starsky 
+fx_sweep_gpu_a 0004 SHADER_sunflare 
+fx_sweep_gpu_a 0005 SHADER_wavy 
+fx_sweep_gpuin_a 0001 SHADER_HSLBlendGPU BlendSrc=main BaseSrc=back
+fx_sweep_gpuin_a 0002 SHADER_glitter Source=main
+fx_sweep_gpuin_a 0003 SHADER_radialblurGPU Source=main
+fx_sweep_gpuin_a 0004 SHADER_spinblurGPU Source=main
+# not swept: STD_externalPaletteFx (needs a palette column, not built yet)
+# not swept: STD_inoLineBlurFx (missing from debug builds, where a scene with it does not load)
+# not swept: STD_iwa_TiledParticlesFx (needs its texture on the earlier frames too, not built yet)
+# not swept: STD_particlesFx (in particles_basic; its default sprite needs OpenGL)
+# not swept: Toonz_columnFx (internal fx)
+# not swept: Toonz_outputFx (internal fx)
+# not swept: Toonz_paletteColumnFx (internal fx)
+# not swept: Toonz_xsheetFx (internal fx)
+# not swept: Toonz_zeraryColumnFx (internal fx)
+# not swept: affineFx (internal fx)
+# not swept: columnColorFilterFx (internal fx)
+# not swept: externalProgramFx (runs an external program)
+# not swept: macroFx (container, no behaviour of its own)
+# not swept: naAffineFx (internal fx)
+# not swept: plasticDeformerFx (internal fx)
+# not swept: timeShuffleFx (internal fx)
+# not swept: trFx (internal fx)

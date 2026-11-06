@@ -55,6 +55,24 @@ endif()
 
 foreach(_scene ${_scenes})
     get_filename_component(_name ${_scene} NAME_WE)
+
+    # Scenes whose output depends on more than the code under test. Their
+    # goldens come from Linux (Mesa llvmpipe, glibc) and they are compared
+    # there only:
+    #   fx_sweep_font_*   text fxs draw with the system's fonts
+    #   fx_sweep_rand_*   fxs that call rand(), whose sequence is the C
+    #                     library's
+    #   fx_sweep_gpu*_*   GLSL shader fxs: the result is the driver's, and the
+    #                     ones with input ports crash tcomposer on macOS
+    #                     (doc/nexttoonz_known_issues.md, item 15)
+    #   vector_styles     the special colour styles are drawn with OpenGL
+    #                     lines, textures and smoothing, which rasterise
+    #                     differently on every driver (item 18)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" AND _name MATCHES
+            "^(fx_sweep_font_|fx_sweep_rand_|fx_sweep_gpu_|fx_sweep_gpuin_|vector_styles$)")
+        continue()
+    endif()
+
     add_test(
         NAME golden_${_name}
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_golden.py

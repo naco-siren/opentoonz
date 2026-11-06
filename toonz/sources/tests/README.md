@@ -111,7 +111,8 @@ deterministic. It works on a scratch copy of `stuff/`; the `TOONZROOT not
 set` messages it prints come from `TEnv` looking for an installed
 configuration and are harmless.
 
-Scenes in the reference project (320x180, 8 frames each):
+Scenes in the reference project (320x180). The first twelve are 8 frames
+each:
 
 | Scene | Covers |
 |---|---|
@@ -128,8 +129,58 @@ Scenes in the reference project (320x180, 8 frames each):
 | `shader_fx` | GLSL shader fx (`sunflare.xml` from `stuff/library/shaders`) with an animated parameter |
 | `plastic_basic` | mesh level from `buildMesh`, mesh column parenting, animated plastic skeleton, PlasticDeformerFx |
 
-Still to add: the remaining fx families (iwa_, noise and so on, see
-`doc/nexttoonz_plan.md`, D7).
+Those twelve scenes each isolate one feature with a simple drawing. The
+scenes below do the opposite: they pack many independent features into
+every frame, so that a regression anywhere shows up somewhere.
+
+| Scene | Frames | Covers |
+|---|---|---|
+| `fx_sweep_base_a`, `fx_sweep_std_a`..`e`, `fx_sweep_ino_a`..`c`, `fx_sweep_iwa_a`..`b` | up to 16 each | every registered fx that renders on the CPU, by family, one per frame, applied to the test cards |
+| `fx_sweep_font_a` | 2 | the fxs that draw text (system fonts) |
+| `fx_sweep_rand_a` | 2 | the fxs that take random numbers from the C library's `rand()` |
+| `fx_sweep_gpu_a` | 5 | GLSL shader fxs without inputs |
+| `fx_sweep_gpuin_a` | 4 | GLSL shader fxs with inputs (they crash tcomposer on macOS, known issue 15) |
+| `vector_styles` | 7 | every registered colour style class, eight per frame, on a stroke and a region |
+| `stage_showcase` | 12 | keyframe interpolation types, rotation, non-uniform scale, shear, a two-level pegbar hierarchy, a motion path, stacking order, column opacity, colour filter and visibility, cell timing |
+
+`fx_sweep_font_*`, `fx_sweep_rand_*`, `fx_sweep_gpu*_*` and `vector_styles`
+depend on the system's fonts, C library or OpenGL driver (known issue 18),
+so they are compared on Linux only, where the goldens come from. The other
+scenes are compared on every platform.
+
+The sweeps are built from the fx registry (`TFx::listFxs`), so a new fx
+gets a frame the next time the project is regenerated. Their inputs are
+four test cards in `drawings/`:
+
+- `card_main`: hue, luminance and alpha ramps, hard-edged primaries, a
+  1 px grid, a half-transparent overlap, speckles, a 1 px checker, fine
+  lines, a soft blob and a thin ring;
+- `card_back`: the second input of two-input fxs (Back, Down, Source2);
+- `card_ref`: the reference input (Reference, Matte, Depth, Flow, ...);
+- `card_tz`: an ink-and-paint (Toonz raster) drawing for the fxs that work
+  on palette indexes.
+
+Most fxs run with their default parameters. The ones whose defaults leave
+the input unchanged are listed with the parameters they get in
+`sweepSetups()` in the generator. `extras/fx_sweep.txt` maps every output
+frame to its fx and inputs and lists the fxs that are not swept, with the
+reason; `extras/vector_styles.txt` does the same for the style cells.
+
+`golden/contact_sheet.py` lays the frames of the sweeps out as labelled
+sheets and flags frames that are blank, flat or the same as an input:
+
+```
+python3 ../sources/tests/golden/contact_sheet.py \
+    --project ../sources/tests/fixtures/reference_project \
+    --renders ../sources/tests/golden/expected --out ./sheets
+```
+
+Not covered yet: `externalPaletteFx` (needs a palette column),
+`iwa_TiledParticlesFx` (needs its texture on earlier frames),
+`iwa_MotionFlowFx` (renders flat: it does not see its column's motion in
+the sweep), mask columns, depth and stereoscopic cameras, palette
+animation, raster formats other than png and tlv, and output settings
+(16-bit, shrink, resampling quality).
 
 Things to know about the generator and the scene files:
 

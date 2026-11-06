@@ -19,6 +19,10 @@
 #include "tnzimage.h"
 #include "colorfx.h"
 #include "stdfx/shaderfx.h"
+#include "tpalette.h"
+#include "tsimplecolorstyles.h"
+#include "tvectorbrushstyle.h"
+#include "toonz/imagestyles.h"
 #include "toonz/preferences.h"
 #include "toonz/tproject.h"
 
@@ -97,6 +101,16 @@ public:
     // the generator do; scenes/shader_fx.tnz cannot be loaded otherwise.
     loadShaderInterfaces(stuff + "library" + "shaders");
     Preferences::instance();
+    // Colour styles that draw with an asset (pattern strokes, vector
+    // brushes, textures) look it up under the library, as in tcomposer. The
+    // scratch copy only has the shaders, so read the assets from the source
+    // tree; nothing writes there.
+    const TFilePath library = stuffSource + "library";
+    TRasterImagePatternStrokeStyle::setRootDir(library);
+    TVectorImagePatternStrokeStyle::setRootDir(library);
+    TVectorBrushStyle::setRootDir(library);
+    TPalette::setRootDir(library);
+    TImageStyle::setLibraryDir(library);
 
     // Make the reference project the current project, as the generator
     // does. Scenes find their own project through scenes.xml anyway; this

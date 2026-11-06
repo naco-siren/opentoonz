@@ -24,3 +24,18 @@ target_link_libraries(nexttoonz_gen_fixtures
         tnzbase
         tnzcore
 )
+
+# lzocompress must be built for the generator to save tlv levels.
+foreach(_lzo_helper lzocompress lzodecompress)
+    if(TARGET ${_lzo_helper})
+        add_dependencies(nexttoonz_gen_fixtures ${_lzo_helper})
+    endif()
+endforeach()
+
+# macOS: stage the @executable_path dylibs and the lzo helpers next to the
+# generator, as for the test binaries (see nexttoonz_stage_runtime in
+# ../CMakeLists.txt). Without this the generator cannot start on macOS.
+nexttoonz_stage_runtime(nexttoonz_gen_fixtures
+    toonzlib image tnzstdfx colorfx tnzext tnzbase tnzcore
+    lzocompress lzodecompress
+)

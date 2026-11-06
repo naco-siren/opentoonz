@@ -1,0 +1,4950 @@
+<tnz framecount="16" version="71.1">
+  <generator>
+    "OpenToonz 1.8"
+  </generator>
+  <properties>
+    <cameras>
+      <camera>
+        <cameraSize>
+          16 9 
+        </cameraSize>
+        <cameraRes>
+          320 180 
+        </cameraRes>
+        <cameraXPrevalence>
+          1 
+        </cameraXPrevalence>
+        <interestRect>
+          0 0 -1 -1 
+        </interestRect>
+        </camera>
+      </cameras>
+    <outputs>
+      <output name="main">
+        <range>
+          0 15 
+        </range>
+        <step>
+          1 
+        </step>
+        <shrink>
+          1 
+        </shrink>
+        <applyShrinkToViewer>
+          0 
+        </applyShrinkToViewer>
+        <fps>
+          24 
+        </fps>
+        <path>
+          "+outputs/fx_sweep_iwa_a.png"
+        </path>
+        <bpp>
+          32 
+        </bpp>
+        <multimedia>
+          0 
+        </multimedia>
+        <threadsIndex>
+          2 
+        </threadsIndex>
+        <maxTileSizeIndex>
+          0 
+        </maxTileSizeIndex>
+        <subcameraPrev>
+          0 
+        </subcameraPrev>
+        <stereoscopic>
+          0 0.05 
+        </stereoscopic>
+        <resquality>
+          0 
+        </resquality>
+        <fieldprevalence>
+          0 
+        </fieldprevalence>
+        <gamma>
+          1 
+        </gamma>
+        <timestretch>
+          25 25 
+        </timestretch>
+        <formatsProperties>
+          <formatProperties ext="tif">
+            <property name="Byte Ordering" type="enum" value="Mac">
+              <item value="IBM PC"/>
+              <item value="Mac"/>
+              </property>
+            <property name="Compression Type" type="enum" value="Lempel-Ziv and Welch encoding">
+              <item value="Lempel-Ziv and Welch encoding"/>
+              <item value="None"/>
+              <item value="Macintosh Run-length encoding"/>
+              <item value="ThunderScan Run-length encoding"/>
+              <item value="CCITT Group 3 fax encoding"/>
+              <item value="CCITT Group 4 fax encoding"/>
+              <item value="CCITT modified Huffman Run-length encoding"/>
+              <item value="JPEG compression"/>
+              <item value="JPEG compression 6.0"/>
+              <item value="SGILog"/>
+              <item value="SGILog24"/>
+              <item value="8"/>
+              <item value="zip"/>
+              <item value="Unknown"/>
+              </property>
+            <property name="Bits Per Pixel" type="enum" value="32(RGBM)">
+              <item value="24(RGB)"/>
+              <item value="48(RGB)"/>
+              <item value=" 1(BW)"/>
+              <item value=" 8(GREYTONES)"/>
+              <item value="32(RGBM)"/>
+              <item value="64(RGBM)"/>
+              </property>
+            <property name="Orientation" type="enum" value="Top Left">
+              <item value="Top Left"/>
+              <item value="Top Right"/>
+              <item value="Bottom Right"/>
+              <item value="Bottom Left"/>
+              <item value="Left Top"/>
+              <item value="Right Top"/>
+              <item value="Right Bottom"/>
+              <item value="Left Bottom"/>
+              </property>
+            </formatProperties>
+          </formatsProperties>
+        </output>
+      <output name="preview">
+        <range>
+          0 -1 
+        </range>
+        <step>
+          1 
+        </step>
+        <shrink>
+          1 
+        </shrink>
+        <applyShrinkToViewer>
+          0 
+        </applyShrinkToViewer>
+        <fps>
+          24 
+        </fps>
+        <path>
+          "+outputs/.tif"
+        </path>
+        <bpp>
+          32 
+        </bpp>
+        <syncColorSettings>
+          1 
+        </syncColorSettings>
+        <multimedia>
+          0 
+        </multimedia>
+        <threadsIndex>
+          2 
+        </threadsIndex>
+        <maxTileSizeIndex>
+          0 
+        </maxTileSizeIndex>
+        <subcameraPrev>
+          0 
+        </subcameraPrev>
+        <stereoscopic>
+          0 0.05 
+        </stereoscopic>
+        <resquality>
+          0 
+        </resquality>
+        <fieldprevalence>
+          0 
+        </fieldprevalence>
+        <gamma>
+          1 
+        </gamma>
+        <timestretch>
+          25 25 
+        </timestretch>
+        <formatsProperties>
+          <formatProperties ext="tif">
+            <property name="Byte Ordering" type="enum" value="Mac">
+              <item value="IBM PC"/>
+              <item value="Mac"/>
+              </property>
+            <property name="Compression Type" type="enum" value="Lempel-Ziv and Welch encoding">
+              <item value="Lempel-Ziv and Welch encoding"/>
+              <item value="None"/>
+              <item value="Macintosh Run-length encoding"/>
+              <item value="ThunderScan Run-length encoding"/>
+              <item value="CCITT Group 3 fax encoding"/>
+              <item value="CCITT Group 4 fax encoding"/>
+              <item value="CCITT modified Huffman Run-length encoding"/>
+              <item value="JPEG compression"/>
+              <item value="JPEG compression 6.0"/>
+              <item value="SGILog"/>
+              <item value="SGILog24"/>
+              <item value="8"/>
+              <item value="zip"/>
+              <item value="Unknown"/>
+              </property>
+            <property name="Bits Per Pixel" type="enum" value="32(RGBM)">
+              <item value="24(RGB)"/>
+              <item value="48(RGB)"/>
+              <item value=" 1(BW)"/>
+              <item value=" 8(GREYTONES)"/>
+              <item value="32(RGBM)"/>
+              <item value="64(RGBM)"/>
+              </property>
+            <property name="Orientation" type="enum" value="Top Left">
+              <item value="Top Left"/>
+              <item value="Top Right"/>
+              <item value="Bottom Right"/>
+              <item value="Bottom Left"/>
+              <item value="Left Top"/>
+              <item value="Right Top"/>
+              <item value="Right Bottom"/>
+              <item value="Left Bottom"/>
+              </property>
+            </formatProperties>
+          </formatsProperties>
+        </output>
+      </outputs>
+    <cleanupParameters>
+      <cleanupCamera>
+        <cameraSize>
+          16 9 
+        </cameraSize>
+        <cameraRes>
+          1920 1080 
+        </cameraRes>
+        <cameraXPrevalence>
+          1 
+        </cameraXPrevalence>
+        <interestRect>
+          0 0 -1 -1 
+        </interestRect>
+        </cleanupCamera>
+      <cleanupPalette>
+        <version>
+          71 0 
+        </version>
+        <styles>
+          <style>
+            color_0 3 255 255 255 0 
+          </style>
+          <style>
+            color_1 2002 0 0 0 255 0 0 0 255 0 50 70 10 
+          </style>
+          </styles>
+        <stylepages>
+          <page>
+            <name>
+              colors 
+            </name>
+            <indices>
+              0 1 
+            </indices>
+            </page>
+          </stylepages>
+        <shortcuts>
+          -1 0 1 -1 -1 -1 -1 -1 -1 -1 
+        </shortcuts>
+        </cleanupPalette>
+      <lineProcessing autoAdjust="0" mode="grey" sharpness="90.000000"/>
+      <despeckling value="2"/>
+      <aaValue value="70"/>
+      <closestField value="999.000000"/>
+      <fdg name=""/>
+      <altBrightnessContrast>
+        0 50 
+      </altBrightnessContrast>
+      <lpNoneFormat>
+        tif 
+      </lpNoneFormat>
+      </cleanupParameters>
+    <scanParameters>
+      <paper fmt=""/>
+      </scanParameters>
+    <vectorizerParameters>
+      <version>
+        71 0 
+      </version>
+      <outline>
+        0 
+      </outline>
+      <visibilityBits>
+        -1 
+      </visibilityBits>
+      <Centerline>
+        <threshold>
+          8 
+        </threshold>
+        <accuracy>
+          9 
+        </accuracy>
+        <despeckling>
+          5 
+        </despeckling>
+        <maxThickness>
+          200 
+        </maxThickness>
+        <thicknessRatioFirst>
+          100 
+        </thicknessRatioFirst>
+        <thicknessRatioLast>
+          100 
+        </thicknessRatioLast>
+        <makeFrame>
+          0 
+        </makeFrame>
+        <paintFill>
+          0 
+        </paintFill>
+        <alignBoundaryStrokesDirection>
+          0 
+        </alignBoundaryStrokesDirection>
+        <naaSource>
+          0 
+        </naaSource>
+        </Centerline>
+      <Outline>
+        <despeckling>
+          4 
+        </despeckling>
+        <accuracy>
+          8 
+        </accuracy>
+        <adherence>
+          50 
+        </adherence>
+        <angle>
+          45 
+        </angle>
+        <relative>
+          25 
+        </relative>
+        <maxColors>
+          50 
+        </maxColors>
+        <toneThreshold>
+          128 
+        </toneThreshold>
+        <transparentColor>
+          255 255 255 255 
+        </transparentColor>
+        <paintFill>
+          0 
+        </paintFill>
+        <alignBoundaryStrokesDirection>
+          0 
+        </alignBoundaryStrokesDirection>
+        </Outline>
+      </vectorizerParameters>
+    <bgColor>
+      255 255 255 0 
+    </bgColor>
+    <markers>
+      6 0 
+    </markers>
+    <subsampling>
+      1 1 
+    </subsampling>
+    <fieldguide>
+      16 1.77778 
+    </fieldguide>
+    <noteColors>
+      255 235 140 255 255 160 120 255 255 180 190 255 135 205 250 255 145 240 145 255 130 255 210 255 150 245 255 255 
+    </noteColors>
+    </properties>
+  <levelSet>
+    <levels>
+      <level id='1'>
+        card_main 
+        <info dpix="20.000000" dpiy="20.000000"/>
+        <path>
+          "+drawings/card_main..png"
+        </path>
+        
+      </level>
+      <level id='2'>
+        card_back 
+        <info dpix="20.000000" dpiy="20.000000"/>
+        <path>
+          "+drawings/card_back..png"
+        </path>
+        
+      </level>
+      <level id='3'>
+        card_ref 
+        <info dpix="20.000000" dpiy="20.000000"/>
+        <path>
+          "+drawings/card_ref..png"
+        </path>
+        
+      </level>
+      
+    </levels>
+    <folder name="Cast" type="default">
+      <levels>
+        <level id='3'/><level id='1'/><level id='2'/>
+      </levels>
+      </folder>
+    <folder name="Audio">
+      </folder>
+    </levelSet>
+  <xsheet>
+    <columns>
+      <levelColumn id='4'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            0 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='5'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='6'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            1 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='7'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='8'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            2 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='9'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='10'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            3 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='11'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='12'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            3 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='13'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='14'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            3 1 <level id='2'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='15'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='16'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            3 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='17'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='18'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            3 1 <level id='2'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='19'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='20'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            3 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='21'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='22'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            3 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='23'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='24'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            4 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='25'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='26'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            4 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='27'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='28'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            4 1 <level id='2'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='29'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='30'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            4 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='31'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='32'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            4 1 <level id='2'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='33'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='34'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            4 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='35'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='36'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            5 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='37'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='38'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            5 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='39'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='40'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            5 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='41'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <zeraryFxColumn id='42'>
+        <Toonz_zeraryColumnFx id='43'>
+          <STD_iwa_CorridorGradientFx id='44'>
+            
+            <params>
+              <top_left_in>
+                <x>
+                  <default>
+                    -50 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    50 
+                  </default>
+                  </y>
+                </top_left_in>
+              <top_right_in>
+                <x>
+                  <default>
+                    50 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    50 
+                  </default>
+                  </y>
+                </top_right_in>
+              <bottom_left_in>
+                <x>
+                  <default>
+                    -50 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    -50 
+                  </default>
+                  </y>
+                </bottom_left_in>
+              <bottom_right_in>
+                <x>
+                  <default>
+                    50 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    -50 
+                  </default>
+                  </y>
+                </bottom_right_in>
+              <top_left_out>
+                <x>
+                  <default>
+                    -400 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    400 
+                  </default>
+                  </y>
+                </top_left_out>
+              <top_right_out>
+                <x>
+                  <default>
+                    400 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    400 
+                  </default>
+                  </y>
+                </top_right_out>
+              <bottom_left_out>
+                <x>
+                  <default>
+                    -400 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    -400 
+                  </default>
+                  </y>
+                </bottom_left_out>
+              <bottom_right_out>
+                <x>
+                  <default>
+                    400 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    -400 
+                  </default>
+                  </y>
+                </bottom_right_out>
+              <shape>
+                0 
+              </shape>
+              <curveType>
+                1 
+              </curveType>
+              <inner_color>
+                <red>
+                  <default>
+                    1 
+                  </default>
+                  </red>
+                <green>
+                  <default>
+                    1 
+                  </default>
+                  </green>
+                <blue>
+                  <default>
+                    1 
+                  </default>
+                  </blue>
+                <matte>
+                  <default>
+                    1 
+                  </default>
+                  </matte>
+                </inner_color>
+              <outer_color>
+                <red>
+                  <default>
+                    0 
+                  </default>
+                  </red>
+                <green>
+                  <default>
+                    0 
+                  </default>
+                  </green>
+                <blue>
+                  <default>
+                    0 
+                  </default>
+                  </blue>
+                <matte>
+                  <default>
+                    1 
+                  </default>
+                  </matte>
+                </outer_color>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              CorridorGradientIwa01 
+            </name>
+            <fxId>
+              CorridorGradientIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_CorridorGradientFx>
+          
+          <params>
+            </params>
+          <ports>
+            </ports>
+          <numberId>
+            0 
+          </numberId>
+          <name>
+            ZeraryColumn 
+          </name>
+          <fxId>
+            "" 
+          </fxId>
+          <opened>
+            0 
+          </opened>
+          
+        </Toonz_zeraryColumnFx>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            6 1 
+          </cell>
+          </cells>
+        
+      </zeraryFxColumn>
+      <levelColumn id='45'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            7 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='46'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='47'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            7 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='48'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='49'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            8 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='50'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='51'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            8 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='52'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='53'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            8 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='54'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='55'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            9 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='56'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='57'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            9 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='58'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='59'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            9 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='60'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='61'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            10 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='62'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='63'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            10 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='64'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='65'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            10 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='66'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='67'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            10 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='68'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <zeraryFxColumn id='69'>
+        <Toonz_zeraryColumnFx id='70'>
+          <STD_iwa_FractalNoiseFx id='71'>
+            
+            <params>
+              <fractalType>
+                0 
+              </fractalType>
+              <noiseType>
+                1 
+              </noiseType>
+              <invert>
+                0 0 
+              </invert>
+              <rotation>
+                <default>
+                  0 
+                </default>
+                </rotation>
+              <uniformScaling>
+                1 1 
+              </uniformScaling>
+              <scale>
+                <default>
+                  100 
+                </default>
+                </scale>
+              <scaleW>
+                <default>
+                  100 
+                </default>
+                </scaleW>
+              <scaleH>
+                <default>
+                  100 
+                </default>
+                </scaleH>
+              <offsetTurbulence>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </offsetTurbulence>
+              <perspectiveOffset>
+                0 0 
+              </perspectiveOffset>
+              <complexity>
+                <default>
+                  6 
+                </default>
+                </complexity>
+              <subInfluence>
+                <default>
+                  70 
+                </default>
+                </subInfluence>
+              <subScaling>
+                <default>
+                  56 
+                </default>
+                </subScaling>
+              <subRotation>
+                <default>
+                  0 
+                </default>
+                </subRotation>
+              <subOffset>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </subOffset>
+              <evolution>
+                <default>
+                  0 
+                </default>
+                </evolution>
+              <cycleEvolution>
+                0 0 
+              </cycleEvolution>
+              <cycleEvolutionRange>
+                <default>
+                  1 
+                </default>
+                </cycleEvolutionRange>
+              <dynamicIntensity>
+                <default>
+                  1 
+                </default>
+                </dynamicIntensity>
+              <doConical>
+                0 0 
+              </doConical>
+              <conicalEvolution>
+                <default>
+                  0 
+                </default>
+                </conicalEvolution>
+              <conicalAngle>
+                <default>
+                  60 
+                </default>
+                </conicalAngle>
+              <cameraFov>
+                <default>
+                  60 
+                </default>
+                </cameraFov>
+              <zScale>
+                <default>
+                  2 
+                </default>
+                </zScale>
+              <alphaRendering>
+                0 0 
+              </alphaRendering>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              FractalNoiseIwa01 
+            </name>
+            <fxId>
+              FractalNoiseIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_FractalNoiseFx>
+          
+          <params>
+            </params>
+          <ports>
+            </ports>
+          <numberId>
+            0 
+          </numberId>
+          <name>
+            ZeraryColumn 
+          </name>
+          <fxId>
+            "" 
+          </fxId>
+          <opened>
+            0 
+          </opened>
+          
+        </Toonz_zeraryColumnFx>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            11 1 
+          </cell>
+          </cells>
+        
+      </zeraryFxColumn>
+      <levelColumn id='72'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            12 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='73'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='74'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            12 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='75'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='76'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            13 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='77'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='78'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            13 1 <level id='3'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='79'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <zeraryFxColumn id='80'>
+        <Toonz_zeraryColumnFx id='81'>
+          <STD_iwa_LinearGradientFx id='82'>
+            
+            <params>
+              <startPoint>
+                <x>
+                  <default>
+                    -50 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </startPoint>
+              <endPoint>
+                <x>
+                  <default>
+                    50 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </endPoint>
+              <curveType>
+                0 
+              </curveType>
+              <wave_amplitude>
+                <default>
+                  0 
+                </default>
+                </wave_amplitude>
+              <wave_frequency>
+                <default>
+                  0 
+                </default>
+                </wave_frequency>
+              <wave_phase>
+                <default>
+                  0 
+                </default>
+                </wave_phase>
+              <startColor>
+                <red>
+                  <default>
+                    0 
+                  </default>
+                  </red>
+                <green>
+                  <default>
+                    0 
+                  </default>
+                  </green>
+                <blue>
+                  <default>
+                    0 
+                  </default>
+                  </blue>
+                <matte>
+                  <default>
+                    1 
+                  </default>
+                  </matte>
+                </startColor>
+              <endColor>
+                <red>
+                  <default>
+                    1 
+                  </default>
+                  </red>
+                <green>
+                  <default>
+                    1 
+                  </default>
+                  </green>
+                <blue>
+                  <default>
+                    1 
+                  </default>
+                  </blue>
+                <matte>
+                  <default>
+                    1 
+                  </default>
+                  </matte>
+                </endColor>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              LinearGradient01 
+            </name>
+            <fxId>
+              LinearGradient01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_LinearGradientFx>
+          
+          <params>
+            </params>
+          <ports>
+            </ports>
+          <numberId>
+            0 
+          </numberId>
+          <name>
+            ZeraryColumn 
+          </name>
+          <fxId>
+            "" 
+          </fxId>
+          <opened>
+            0 
+          </opened>
+          
+        </Toonz_zeraryColumnFx>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            14 1 
+          </cell>
+          </cells>
+        
+      </zeraryFxColumn>
+      <levelColumn id='83'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            15 1 <level id='1'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='84'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      <levelColumn id='85'>
+        
+        <status>
+          0 
+        </status>
+        <cells>
+          <cell>
+            15 1 <level id='2'/>0001 0 
+          </cell>
+          </cells>
+        <fx>
+          <Toonz_columnFx id='86'>
+            
+            <params>
+              </params>
+            <ports>
+              </ports>
+            <numberId>
+              0 
+            </numberId>
+            <name>
+              LevelColumn 
+            </name>
+            <fxId>
+              "" 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </Toonz_columnFx>
+          
+        </fx>
+        
+      </levelColumn>
+      
+    </columns>
+    <pegbars>
+      <pegbar activeboth="yes" id="Camera1">
+        <parent handle="B" id="None" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        <camera>
+          <cameraSize>
+            16 9 
+          </cameraSize>
+          <cameraRes>
+            320 180 
+          </cameraRes>
+          <cameraXPrevalence>
+            1 
+          </cameraXPrevalence>
+          <interestRect>
+            0 0 -1 -1 
+          </interestRect>
+          </camera>
+        </pegbar>
+      <pegbar id="Table">
+        <parent handle="B" id="None" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col1">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col2">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col3">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col4">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col5">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col6">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col7">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col8">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col9">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col10">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col11">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col12">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col13">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col14">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col15">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col16">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col17">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col18">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col19">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col20">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col21">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col22">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col23">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col24">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col25">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col26">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col27">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col28">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col29">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col30">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col31">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col32">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col33">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col34">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col35">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col36">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col37">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col38">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <pegbar id="Col39">
+        <parent handle="B" id="Table" parentHandle="B">
+          </parent>
+        <isOpened>
+          0 
+        </isOpened>
+        <center>
+          0 0 0 0 
+        </center>
+        <status>
+          0 
+        </status>
+        <x>
+          <default>
+            0 
+          </default>
+          <keyframes>
+            <L>
+              14 -1.5 
+            </L>
+            <L>
+              <prev>
+                1.5 
+              </prev>
+              16 1.5 
+            </L>
+            </keyframes>
+          </x>
+        <sx>
+          <default>
+            1 
+          </default>
+          </sx>
+        <sy>
+          <default>
+            1 
+          </default>
+          </sy>
+        <sc>
+          <default>
+            1 
+          </default>
+          </sc>
+        <nodePos>
+          1.234e+09 5.678e+09 
+        </nodePos>
+        </pegbar>
+      <grid_dimension>
+        1 
+      </grid_dimension>
+      </pegbars>
+    <fxnodes>
+      <internal>
+        <fxnode>
+          <STD_iwa_AdjustExposureFx id='87'>
+            
+            <params>
+              <hardness>
+                <default>
+                  3.3 
+                </default>
+                </hardness>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <scale>
+                <default>
+                  1.5 
+                </default>
+                </scale>
+              <offset>
+                <default>
+                  0.05 
+                </default>
+                </offset>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='5'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              AdjustExposureIwa01 
+            </name>
+            <fxId>
+              AdjustExposureIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              3 
+            </fxVersion>
+            
+          </STD_iwa_AdjustExposureFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BokehRefFx id='88'>
+            
+            <params>
+              <on_focus_distance>
+                <default>
+                  0.5 
+                </default>
+                </on_focus_distance>
+              <bokeh_amount>
+                <default>
+                  30 
+                </default>
+                </bokeh_amount>
+              <hardness>
+                <default>
+                  0.3 
+                </default>
+                </hardness>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <distance_precision>
+                10 10 
+              </distance_precision>
+              <fill_gap>
+                1 1 
+              </fill_gap>
+              <fill_gap_with_median_filter>
+                1 1 
+              </fill_gap_with_median_filter>
+              <linearizeMode>
+                0 
+              </linearizeMode>
+              </params>
+            <ports>
+              <Iris>
+                <Toonz_columnFx id='37'/>
+              </Iris>
+              <Source>
+                <Toonz_columnFx id='39'/>
+              </Source>
+              <Depth>
+                <Toonz_columnFx id='41'/>
+              </Depth>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              BokehRefIwa01 
+            </name>
+            <fxId>
+              BokehRefIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              3 
+            </fxVersion>
+            
+          </STD_iwa_BokehRefFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FlowPaintBrushFx id='89'>
+            
+            <params>
+              <h_density>
+                <default>
+                  10 
+                </default>
+                </h_density>
+              <v_density>
+                <default>
+                  10 
+                </default>
+                </v_density>
+              <pos_randomness>
+                <default>
+                  1 
+                </default>
+                </pos_randomness>
+              <pos_wobble>
+                <default>
+                  0 
+                </default>
+                </pos_wobble>
+              <tip_width>
+                <min>
+                  <default>
+                    0.02 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    0.05 
+                  </default>
+                  </max>
+                </tip_width>
+              <tip_length>
+                <min>
+                  <default>
+                    0.08 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    0.2 
+                  </default>
+                  </max>
+                </tip_length>
+              <tip_alpha>
+                <min>
+                  <default>
+                    0.8 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    1 
+                  </default>
+                  </max>
+                </tip_alpha>
+              <tip_joints>
+                3 3 
+              </tip_joints>
+              <bidirectional>
+                1 1 
+              </bidirectional>
+              <width_randomness>
+                <default>
+                  0 
+                </default>
+                </width_randomness>
+              <length_randomness>
+                <default>
+                  0 
+                </default>
+                </length_randomness>
+              <angle_randomness>
+                <default>
+                  0 
+                </default>
+                </angle_randomness>
+              <sustain_width_to_skew>
+                <default>
+                  0 
+                </default>
+                </sustain_width_to_skew>
+              <anti_jaggy>
+                0 0 
+              </anti_jaggy>
+              <origin_pos>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </origin_pos>
+              <horizontal_pos>
+                <x>
+                  <default>
+                    100 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </horizontal_pos>
+              <vertical_pos>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    100 
+                  </default>
+                  </y>
+                </vertical_pos>
+              <curve_point>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </curve_point>
+              <fill_gap_size>
+                <default>
+                  0 
+                </default>
+                </fill_gap_size>
+              <reference_frame>
+                <default>
+                  0 
+                </default>
+                </reference_frame>
+              <reference_prevalence>
+                <default>
+                  0 
+                </default>
+                </reference_prevalence>
+              <random_seed>
+                1 1 
+              </random_seed>
+              <sort_by>
+                0 
+              </sort_by>
+              </params>
+            <ports>
+              <Brush>
+                <Toonz_columnFx id='62'/>
+              </Brush>
+              <Flow>
+                <Toonz_columnFx id='64'/>
+              </Flow>
+              <Area>
+                <Toonz_columnFx id='66'/>
+              </Area>
+              <Color>
+                <Toonz_columnFx id='68'/>
+              </Color>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              FlowPaintBrushIwa01 
+            </name>
+            <fxId>
+              FlowPaintBrushIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              2 
+            </fxVersion>
+            
+          </STD_iwa_FlowPaintBrushFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FlowBlurFx id='90'>
+            
+            <params>
+              <length>
+                <default>
+                  20 
+                </default>
+                </length>
+              <linear>
+                0 0 
+              </linear>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <filterType>
+                0 
+              </filterType>
+              <referenceMode>
+                0 
+              </referenceMode>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='56'/>
+              </Source>
+              <Flow>
+                <Toonz_columnFx id='58'/>
+              </Flow>
+              <Reference>
+                <Toonz_columnFx id='60'/>
+              </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              FlowBlurIwa01 
+            </name>
+            <fxId>
+              FlowBlurIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_FlowBlurFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BokehAdvancedFx id='91'>
+            
+            <params>
+              <on_focus_distance>
+                <default>
+                  0.5 
+                </default>
+                </on_focus_distance>
+              <bokeh_amount>
+                <default>
+                  30 
+                </default>
+                </bokeh_amount>
+              <masterHardness>
+                <default>
+                  0.3 
+                </default>
+                </masterHardness>
+              <masterGamma>
+                <default>
+                  2.2 
+                </default>
+                </masterGamma>
+              <masterGammaAdjust>
+                <default>
+                  0 
+                </default>
+                </masterGammaAdjust>
+              <hardnessPerSource>
+                0 0 
+              </hardnessPerSource>
+              <linearizeMode>
+                0 
+              </linearizeMode>
+              <distance1>
+                <default>
+                  0.5 
+                </default>
+                </distance1>
+              <bokeh_adjustment1>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment1>
+              <gamma1>
+                <default>
+                  2.2 
+                </default>
+                </gamma1>
+              <gammaAdjust1>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust1>
+              <hardness1>
+                <default>
+                  0.3 
+                </default>
+                </hardness1>
+              <depth_ref1>
+                0 0 
+              </depth_ref1>
+              <depthRange1>
+                <default>
+                  1 
+                </default>
+                </depthRange1>
+              <fillGap1>
+                1 1 
+              </fillGap1>
+              <doMedian1>
+                0 0 
+              </doMedian1>
+              <distance2>
+                <default>
+                  0.5 
+                </default>
+                </distance2>
+              <bokeh_adjustment2>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment2>
+              <gamma2>
+                <default>
+                  2.2 
+                </default>
+                </gamma2>
+              <gammaAdjust2>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust2>
+              <hardness2>
+                <default>
+                  0.3 
+                </default>
+                </hardness2>
+              <depth_ref2>
+                0 0 
+              </depth_ref2>
+              <depthRange2>
+                <default>
+                  1 
+                </default>
+                </depthRange2>
+              <fillGap2>
+                1 1 
+              </fillGap2>
+              <doMedian2>
+                0 0 
+              </doMedian2>
+              <distance3>
+                <default>
+                  0.5 
+                </default>
+                </distance3>
+              <bokeh_adjustment3>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment3>
+              <gamma3>
+                <default>
+                  2.2 
+                </default>
+                </gamma3>
+              <gammaAdjust3>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust3>
+              <hardness3>
+                <default>
+                  0.3 
+                </default>
+                </hardness3>
+              <depth_ref3>
+                0 0 
+              </depth_ref3>
+              <depthRange3>
+                <default>
+                  1 
+                </default>
+                </depthRange3>
+              <fillGap3>
+                1 1 
+              </fillGap3>
+              <doMedian3>
+                0 0 
+              </doMedian3>
+              <distance4>
+                <default>
+                  0.5 
+                </default>
+                </distance4>
+              <bokeh_adjustment4>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment4>
+              <gamma4>
+                <default>
+                  2.2 
+                </default>
+                </gamma4>
+              <gammaAdjust4>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust4>
+              <hardness4>
+                <default>
+                  0.3 
+                </default>
+                </hardness4>
+              <depth_ref4>
+                0 0 
+              </depth_ref4>
+              <depthRange4>
+                <default>
+                  1 
+                </default>
+                </depthRange4>
+              <fillGap4>
+                1 1 
+              </fillGap4>
+              <doMedian4>
+                0 0 
+              </doMedian4>
+              <distance5>
+                <default>
+                  0.5 
+                </default>
+                </distance5>
+              <bokeh_adjustment5>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment5>
+              <gamma5>
+                <default>
+                  2.2 
+                </default>
+                </gamma5>
+              <gammaAdjust5>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust5>
+              <hardness5>
+                <default>
+                  0.3 
+                </default>
+                </hardness5>
+              <depth_ref5>
+                0 0 
+              </depth_ref5>
+              <depthRange5>
+                <default>
+                  1 
+                </default>
+                </depthRange5>
+              <fillGap5>
+                1 1 
+              </fillGap5>
+              <doMedian5>
+                0 0 
+              </doMedian5>
+              </params>
+            <ports>
+              <Iris>
+                <Toonz_columnFx id='11'/>
+              </Iris>
+              <Source1>
+                <Toonz_columnFx id='13'/>
+              </Source1>
+              <Source2>
+                <Toonz_columnFx id='15'/>
+              </Source2>
+              <Source3>
+                <Toonz_columnFx id='17'/>
+              </Source3>
+              <Source4>
+                <Toonz_columnFx id='19'/>
+              </Source4>
+              <Source5>
+                <Toonz_columnFx id='21'/>
+              </Source5>
+              <Depth1>
+                <Toonz_columnFx id='23'/>
+              </Depth1>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              BokehAdvancedIwa01 
+            </name>
+            <fxId>
+              BokehAdvancedIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              3 
+            </fxVersion>
+            
+          </STD_iwa_BokehAdvancedFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BokehFx id='92'>
+            
+            <params>
+              <on_focus_distance>
+                <default>
+                  0.5 
+                </default>
+                </on_focus_distance>
+              <bokeh_amount>
+                <default>
+                  30 
+                </default>
+                </bokeh_amount>
+              <hardness>
+                <default>
+                  0.3 
+                </default>
+                </hardness>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <linearizeMode>
+                0 
+              </linearizeMode>
+              <distance1>
+                <default>
+                  0.5 
+                </default>
+                </distance1>
+              <bokeh_adjustment1>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment1>
+              <premultiply1>
+                0 0 
+              </premultiply1>
+              <distance2>
+                <default>
+                  0.5 
+                </default>
+                </distance2>
+              <bokeh_adjustment2>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment2>
+              <premultiply2>
+                0 0 
+              </premultiply2>
+              <distance3>
+                <default>
+                  0.5 
+                </default>
+                </distance3>
+              <bokeh_adjustment3>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment3>
+              <premultiply3>
+                0 0 
+              </premultiply3>
+              <distance4>
+                <default>
+                  0.5 
+                </default>
+                </distance4>
+              <bokeh_adjustment4>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment4>
+              <premultiply4>
+                0 0 
+              </premultiply4>
+              <distance5>
+                <default>
+                  0.5 
+                </default>
+                </distance5>
+              <bokeh_adjustment5>
+                <default>
+                  1 
+                </default>
+                </bokeh_adjustment5>
+              <premultiply5>
+                0 0 
+              </premultiply5>
+              </params>
+            <ports>
+              <Iris>
+                <Toonz_columnFx id='25'/>
+              </Iris>
+              <Source1>
+                <Toonz_columnFx id='27'/>
+              </Source1>
+              <Source2>
+                <Toonz_columnFx id='29'/>
+              </Source2>
+              <Source3>
+                <Toonz_columnFx id='31'/>
+              </Source3>
+              <Source4>
+                <Toonz_columnFx id='33'/>
+              </Source4>
+              <Source5>
+                <Toonz_columnFx id='35'/>
+              </Source5>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              BokehIwa01 
+            </name>
+            <fxId>
+              BokehIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              3 
+            </fxVersion>
+            
+          </STD_iwa_BokehFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BarrelDistortFx id='93'>
+            
+            <params>
+              <center>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </center>
+              <distortion>
+                <default>
+                  0.5 
+                </default>
+                </distortion>
+              <distortionAspect>
+                <default>
+                  1 
+                </default>
+                </distortionAspect>
+              <precision>
+                <default>
+                  1 
+                </default>
+                </precision>
+              <chromaticAberration>
+                <default>
+                  0.05 
+                </default>
+                </chromaticAberration>
+              <vignetteAmount>
+                <default>
+                  0.6 
+                </default>
+                </vignetteAmount>
+              <vignetteGamma>
+                <default>
+                  1 
+                </default>
+                </vignetteGamma>
+              <vignetteMidpoint>
+                <default>
+                  0.5 
+                </default>
+                </vignetteMidpoint>
+              <scale>
+                <default>
+                  1 
+                </default>
+                </scale>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='7'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              BarrelDistortIwa01 
+            </name>
+            <fxId>
+              BarrelDistortIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_BarrelDistortFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BloomFx id='94'>
+            
+            <params>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <auto_gain>
+                0 0 
+              </auto_gain>
+              <gain_adjust>
+                <default>
+                  0 
+                </default>
+                </gain_adjust>
+              <gain>
+                <default>
+                  2 
+                </default>
+                </gain>
+              <decay>
+                <default>
+                  1 
+                </default>
+                </decay>
+              <size>
+                <default>
+                  100 
+                </default>
+                </size>
+              <alpha_mode>
+                0 
+              </alpha_mode>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='9'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              BloomIwa01 
+            </name>
+            <fxId>
+              BloomIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              3 
+            </fxVersion>
+            
+          </STD_iwa_BloomFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FloorBumpFx id='95'>
+            
+            <params>
+              <renderMode>
+                0 
+              </renderMode>
+              <fov>
+                <default>
+                  30 
+                </default>
+                </fov>
+              <cameraAltitude>
+                <default>
+                  0 
+                </default>
+                </cameraAltitude>
+              <eyeLevel>
+                <default>
+                  0 
+                </default>
+                </eyeLevel>
+              <drawLevel>
+                <default>
+                  -50 
+                </default>
+                </drawLevel>
+              <waveHeight>
+                <default>
+                  10 
+                </default>
+                </waveHeight>
+              <differenceMode>
+                0 0 
+              </differenceMode>
+              <textureOffsetAmount>
+                <default>
+                  0 
+                </default>
+                </textureOffsetAmount>
+              <textureOffsetSpread>
+                <default>
+                  10 
+                </default>
+                </textureOffsetSpread>
+              <sourcePrecision>
+                <default>
+                  1.84615 
+                </default>
+                </sourcePrecision>
+              <souceMargin>
+                <default>
+                  0 
+                </default>
+                </souceMargin>
+              <displacement>
+                <default>
+                  0 
+                </default>
+                </displacement>
+              <lightAzimuth>
+                <default>
+                  -135 
+                </default>
+                </lightAzimuth>
+              <lightElevation>
+                <default>
+                  30 
+                </default>
+                </lightElevation>
+              <depth>
+                <default>
+                  30 
+                </default>
+                </depth>
+              <refractiveIndex>
+                <default>
+                  1.33333 
+                </default>
+                </refractiveIndex>
+              <distanceLevel>
+                <default>
+                  -100 
+                </default>
+                </distanceLevel>
+              </params>
+            <ports>
+              <Height>
+                <Toonz_columnFx id='50'/>
+              </Height>
+              <Texture>
+                <Toonz_columnFx id='52'/>
+              </Texture>
+              <Displacement>
+                <Toonz_columnFx id='54'/>
+              </Displacement>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              FloorBumpIwa01 
+            </name>
+            <fxId>
+              FloorBumpIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_FloorBumpFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_DirectionalBlurFx id='96'>
+            
+            <params>
+              <angle>
+                <default>
+                  0 
+                </default>
+                </angle>
+              <intensity>
+                <default>
+                  10 
+                </default>
+                </intensity>
+              <bidirectional>
+                0 0 
+              </bidirectional>
+              <filterType>
+                0 
+              </filterType>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='46'/>
+              </Source>
+              <Reference>
+                <Toonz_columnFx id='48'/>
+              </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              DirectionalBlurIwa01 
+            </name>
+            <fxId>
+              DirectionalBlurIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_DirectionalBlurFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_GlareFx id='97'>
+            
+            <params>
+              <renderMode>
+                0 
+              </renderMode>
+              <irisMode>
+                0 
+              </irisMode>
+              <irisScale>
+                <default>
+                  0.2 
+                </default>
+                </irisScale>
+              <irisGearEdgeCount>
+                <default>
+                  10 
+                </default>
+                </irisGearEdgeCount>
+              <irisRandomSeed>
+                0 0 
+              </irisRandomSeed>
+              <irisSymmetry>
+                <default>
+                  1 
+                </default>
+                </irisSymmetry>
+              <irisAppearance>
+                1 
+              </irisAppearance>
+              <intensity>
+                <default>
+                  0 
+                </default>
+                </intensity>
+              <size>
+                <default>
+                  100 
+                </default>
+                </size>
+              <rotation>
+                <default>
+                  0 
+                </default>
+                </rotation>
+              <aberration>
+                <default>
+                  1 
+                </default>
+                </aberration>
+              <noise_factor>
+                <default>
+                  0 
+                </default>
+                </noise_factor>
+              <noise_size>
+                <default>
+                  0.5 
+                </default>
+                </noise_size>
+              <noise_octave>
+                1 
+              </noise_octave>
+              <noise_evolution>
+                <default>
+                  0 
+                </default>
+                </noise_evolution>
+              <noise_offset>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </noise_offset>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='73'/>
+              </Source>
+              <Iris>
+                <Toonz_columnFx id='75'/>
+              </Iris>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              GlareIwa01 
+            </name>
+            <fxId>
+              GlareIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              3 
+            </fxVersion>
+            
+          </STD_iwa_GlareFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_GradientWarpFx id='98'>
+            
+            <params>
+              <h_maxlen>
+                <default>
+                  120 
+                </default>
+                </h_maxlen>
+              <v_maxlen>
+                <default>
+                  120 
+                </default>
+                </v_maxlen>
+              <scale>
+                <default>
+                  1 
+                </default>
+                </scale>
+              <sampling_size>
+                <default>
+                  1 
+                </default>
+                </sampling_size>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='77'/>
+              </Source>
+              <Warper>
+                <Toonz_columnFx id='79'/>
+              </Warper>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              GradientWarpIwa01 
+            </name>
+            <fxId>
+              GradientWarpIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              2 
+            </fxVersion>
+            
+          </STD_iwa_GradientWarpFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_MotionBlurCompFx id='99'>
+            
+            <params>
+              <hardness>
+                <default>
+                  0.3 
+                </default>
+                </hardness>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <shutterStart>
+                <default>
+                  0.05 
+                </default>
+                </shutterStart>
+              <shutterEnd>
+                <default>
+                  0.05 
+                </default>
+                </shutterEnd>
+              <traceResolution>
+                4 4 
+              </traceResolution>
+              <motionObjectType>
+                0 
+              </motionObjectType>
+              <motionObjectIndex>
+                1 1 
+              </motionObjectIndex>
+              <startValue>
+                <default>
+                  1 
+                </default>
+                </startValue>
+              <startCurve>
+                <default>
+                  1 
+                </default>
+                </startCurve>
+              <endValue>
+                <default>
+                  1 
+                </default>
+                </endValue>
+              <endCurve>
+                <default>
+                  1 
+                </default>
+                </endCurve>
+              <zanzoMode>
+                0 0 
+              </zanzoMode>
+              <premultiType>
+                0 
+              </premultiType>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='84'/>
+              </Source>
+              <Back>
+                <Toonz_columnFx id='86'/>
+              </Back>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              MotionBlurIwa01 
+            </name>
+            <fxId>
+              MotionBlurIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              3 
+            </fxVersion>
+            
+          </STD_iwa_MotionBlurCompFx>
+          
+        </fxnode>
+        </internal>
+      <terminal>
+        <fxnode>
+          <STD_iwa_AdjustExposureFx id='87'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BokehRefFx id='88'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FlowPaintBrushFx id='89'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FlowBlurFx id='90'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BokehAdvancedFx id='91'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BokehFx id='92'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BarrelDistortFx id='93'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BloomFx id='94'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FloorBumpFx id='95'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_zeraryColumnFx id='43'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_DirectionalBlurFx id='96'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_zeraryColumnFx id='70'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_GlareFx id='97'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_GradientWarpFx id='98'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_zeraryColumnFx id='81'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_MotionBlurCompFx id='99'/>
+        </fxnode>
+        </terminal>
+      <xsheet>
+        <Toonz_xsheetFx id='100'>
+          
+          <params>
+            </params>
+          <ports>
+            </ports>
+          <numberId>
+            0 
+          </numberId>
+          <name>
+            Xsheet 
+          </name>
+          <fxId>
+            "" 
+          </fxId>
+          <opened>
+            0 
+          </opened>
+          
+        </Toonz_xsheetFx>
+        
+      </xsheet>
+      <output>
+        <Toonz_outputFx id='101'>
+          
+          <params>
+            </params>
+          <ports>
+            <source>
+              <Toonz_xsheetFx id='100'/>
+            </source>
+            </ports>
+          <numberId>
+            0 
+          </numberId>
+          <name>
+            Output 
+          </name>
+          <fxId>
+            "" 
+          </fxId>
+          <opened>
+            0 
+          </opened>
+          
+        </Toonz_outputFx>
+        
+      </output>
+      <grid_dimension>
+        1 
+      </grid_dimension>
+      </fxnodes>
+    </xsheet>
+  </tnz>
