@@ -4,7 +4,7 @@
 
 每条决策都附依据和"翻盘条件"。翻盘条件是指：出现什么证据时应当重新审议这条决策。这是为了让决策可以被推翻，而不是被遗忘。
 
-调查基线：`naco-siren/opentoonz` 分支 `claude/busy-ptolemy-sulcsi`，HEAD `0f7b24a`，与上游 `opentoonz/opentoonz` master 同步。所有路径相对于仓库根目录，`toonz/sources/` 以下的路径省略该前缀。
+调查基线：`naco-siren/opentoonz` 分支 `claude/busy-ptolemy-sulcsi`，HEAD `0f7b24a`，与上游 `opentoonz/opentoonz` master 同步。实施在分支 `nexttoonz/phase0` 上进行，2026-11-04 又合并了一次上游 master（84 个提交）。文中标着“实测”的段落是 Phase 0 实施后补记的，写的是做出来的结果而不是当初的打算。所有路径相对于仓库根目录，`toonz/sources/` 以下的路径省略该前缀。
 
 ---
 
@@ -97,7 +97,7 @@
 GL 耦合最深的三处：
 
 1. **矢量样式系统本身就是渲染器。** `TColorStyle` 子类的 `drawStroke`/`drawRegion` 直接发 GL 立即模式。colorfx 注册了 45 个样式类，其中 57 个 `drawStroke`/`drawRegion` 实现手写 `glBegin`，`strokestyles.cpp` 一个文件 220 处 GL 调用。区域填充走 GLU 细分器（`common/tvrender/ttessellator.cpp`），回调直接接 `glBegin`/`glVertex3dv`，三角形从不被捕获。
-2. **矢量层的最终渲染没有 CPU 路径。** `TLevelColumnFx::doCompute` 的矢量分支（`toonzlib/tcolumnfx.cpp` 约 1036 到 1084 行）每帧通过 `TOfflineGL` 离屏绘制再 `glReadPixels`。`TOfflineGL` 的后端在 Windows 上是 WGL 加 `PFD_DRAW_TO_BITMAP`，即微软 GDI 软件 OpenGL 1.1；在 Linux 和 macOS 上是 `QOpenGLContext` 加 `QOffscreenSurface` 加 FBO。同一场景在不同平台的像素结果因此几乎必然不一致，尚未实测，Phase 0 的分平台基线会量化。
+2. **矢量层的最终渲染没有 CPU 路径。** `TLevelColumnFx::doCompute` 的矢量分支（`toonzlib/tcolumnfx.cpp` 约 1036 到 1084 行）每帧通过 `TOfflineGL` 离屏绘制再 `glReadPixels`。`TOfflineGL` 的后端在 Windows 上是 WGL 加 `PFD_DRAW_TO_BITMAP`，即微软 GDI 软件 OpenGL 1.1；在 Linux 和 macOS 上是 `QOpenGLContext` 加 `QOffscreenSurface` 加 FBO。同一场景在不同平台的像素结果因此几乎必然不一致。实测（Phase 0）：Linux 的 Mesa llvmpipe、macOS arm64 和 x86_64 托管 runner 之间，普通矢量层和 154 个 CPU 特效的差异都在 golden 容差之内；超出容差的只有用 OpenGL 的线、纹理和平滑绘制的特殊颜色样式（每个样式格中位数 3.4%、最多 28% 的像素不同）和 GLSL shader 特效（已知问题第 18 条），以及真实显卡上的 plastic 网格边缘。
 3. **工具层靠 GL 状态机。** 37 个工具重载 `draw()`，通过 `glGetDoublev` 回读矩阵来计算像素大小，拾取用 `GL_SELECT` 名字栈。`TToolViewer` 继承 `GLWidgetForHighDpi`，后者是 `QOpenGLWidget` 的子类。
 
 需要 GL 上下文的渲染路径：矢量层渲染、`vectorToToonzImage`、图标生成、PlasticDeformerFx、ShaderFx、iwa_FlowPaintBrushFx、粒子特效的默认精灵、tconverter 的 pli 光栅化。因此 tcomposer 批量渲染在多数场景下需要一个 GL 上下文。
@@ -303,8 +303,10 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 决策：
 
 - 测试框架 GoogleTest，经 CTest 接入 CMake，CI 阻塞。核心单测开 ASan 和 UBSan。
+  实测（Phase 0）：清洁剂 CI 除单测外也用清洁剂构建的 tcomposer 跑全部 golden 场景。“CI 阻塞”目前只是约定：仓库没有分支保护，直接推分支时没有任何东西拦着（见待定事项）。
 - 三类测试：
   1. **golden 渲染**：用 tcomposer 渲染自建的 reference project，输出 PNG 与基线比较。比较用容差：差异像素比例加峰值误差，必要时加 SSIM，不做逐位。基线按平台分开，直到 Phase 1 完成后才能合并为一份。
+     实测（Phase 0）：没有按平台分基线。全部场景共用一份基线，取自 Ubuntu clang 的 CI job；容差是“与基线相差超过 2 的像素不多于 0.5%”。Linux（gcc、clang）、macOS arm64 和 x86_64 都拿它比较并通过。依赖系统字体、C 库 `rand()`、GLSL 驱动或 OpenGL 样式绘制的场景（`fx_sweep_font_*`、`fx_sweep_rand_*`、`fx_sweep_gpu*_*`、`vector_styles`）只在 Linux 上比较。基线不能在开发机上生成：真实显卡的光栅化与 CI 的软件渲染不同，`plastic_basic` 在 AMD 显卡上有约 0.8% 的边缘像素超差。
   2. **格式 round-trip**：.tnz、.pli、.tlv、.tpl 的加载、保存、再加载，比较结构化输出。tconverter 可做 pli 到光栅、光栅到 tlv 的转换测试。
   3. **纯算法单测**：tgeometry、trop（resample、quickput、over）、tvectorimage（outline、region、autoclose）、tstream、TFilePath、tparam 与表达式、txsheet 操作。
 - reference project 自建，提交到仓库。每种层类型、每族特效、子场景、pegbar 层级、相机动画、声音列、plastic、粒子、shader fx 各至少一个场景；小尺寸、短帧数以控制 golden 体积。生成器类特效（colorCard、checkboard、gradients、noise）可做无素材场景。
@@ -363,6 +365,13 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 - CI 跑 golden、round-trip、单测三类测试且阻塞合并。
 - reference project 覆盖 D7 列出的全部场景类型。
 
+进展（2026-11-05）：
+
+- 第一条已达成。
+- 第二条：三类测试都在 Linux、macOS 双架构和清洁剂 CI 上跑（Linux 235 个、macOS 230 个）；“阻塞合并”没有落实，见待定事项。
+- 第三条：参考工程有 29 个场景。除 D7 列出的类型各有一个单一功能的场景外，还有按特效族逐帧扫过 167 个特效的场景、覆盖全部 53 个颜色样式类的场景，和一个集中了舞台与 xsheet 功能的场景。尚未覆盖的列在 `toonz/sources/tests/README.md` 的 “Not covered yet”：几个特效、遮罩列、景深与立体摄像机、调色板动画、png 和 tlv 以外的栅格格式、输出设置。
+- 计划外做掉的：tcomposer 在 macOS 上的随机启动崩溃（Qt 5.15 把被拒绝的本地连接报告为已连接，随后在套接字通知回调里读已释放的内存）；tcomposer 和 tcleanupper 崩溃后下次启动卡在“重新打开窗口”模态框上；Intel Mac 上 Homebrew 的 libtiff 头文件盖住仓库里打过补丁的版本导致构建失败。测试发现的库问题记在 `doc/nexttoonz_known_issues.md`。
+
 ### Phase 1 离线渲染去 GL
 
 工作项：
@@ -379,7 +388,7 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 
 - tcomposer 在 `QT_QPA_PLATFORM=offscreen` 且无 GL 的环境下完成 reference project 全部场景（ShaderFx 场景除外）。
 - tnzcore、toonzlib、colorfx、tnzext 不再链接 GL、GLU、GLUT（ShaderFx 所在的 stdfx 除外，受编译选项控制）。
-- golden 在 macOS arm64 与 x86_64 上一致，基线合并为一份。
+- golden 在 macOS arm64 与 x86_64 上一致，基线合并为一份。（Phase 0 已经是一份基线；留给 Phase 1 的是去掉“只在 Linux 上比较”的那几类场景，并让开发机上的真实显卡也在容差内。）
 - 人工审图确认矢量外观变化可接受，并发布说明。
 
 ### Phase 2 核心去 Qt 与抽出
@@ -445,6 +454,7 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 | toonzfarm 的去留 | 暂不处理 | Phase 2 |
 | 扫描仪 twain、Canon SDK、stopmotion 的去留 | 暂不处理 | Phase 2 |
 | 本文档的英文版 | 未定 | 有外部贡献者时 |
+| “CI 阻塞合并”的落实方式 | 给 `nexttoonz/*` 分支加保护并改走 PR；单人项目下也可以维持现状，靠推送前看 CI | 所有者决定 |
 
 ---
 
@@ -457,6 +467,7 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 - **单人项目的阶段跨度。** Phase 2 与 Phase 3 并列最长，各 6 到 9 人月，且 Phase 2 全程用户不可见。缓解：每个子项（线程、路径、模型、命令搬迁）独立合并，每次合并后 golden 必须通过。
 - **x86-64 与 arm64 对未定义行为的不同结果。** 代码里大量 `(int)double` 转换在越界或 NaN 时是未定义行为，两种架构给出不同结果；Phase 0 已遇到一例让 arm64 macOS 的每一帧渲染变成空白（已知问题第 14 条）。缓解：清洁剂 CI 用 UBSan 跑全部 golden 场景并阻塞，macOS arm64 与 x86_64 的 golden 都阻塞合并。
 - **GPU 相关 golden 在 CI 上不可验证。** 托管 runner 的 Metal 可用性未验证。缓解：golden 只走 CPU 路径，GPU 后端用本地截图人工审查。
+- **基线只能来自 CI。** 开发机的真实显卡与 CI 的软件渲染结果不同，本机既不能生成基线，也有个别场景过不了比较。新场景的基线要先把分支推上去、从 Linux job 的产物里取，一轮半小时以上。缓解：Phase 1 的 CPU 光栅化完成后本机渲染即可作基线。
 
 ---
 
