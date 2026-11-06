@@ -1604,15 +1604,16 @@ void sceneFxSweep(const TFilePath &projectFolder, const std::string &name,
   saveScene(b, projectFolder, name);
 }
 
-// Builds the fx_sweep_* scenes: base compositing fxs, then the standard fxs
-// by family, 16 per scene. Fxs whose output depends on more than the code
+// Builds the fx_sweep_* scenes: the CPU fxs by family (fx_sweep_base_*,
+// fx_sweep_std_*, fx_sweep_ino_*, fx_sweep_iwa_*), 16 per scene. Fxs whose output depends on more than the code
 // get scenes of their own, so that the golden tests can treat them per
-// platform: text fxs (fx_sweep_font_*, system fonts) and GPU shader fxs
-// (fx_sweep_gpu_*, fx_sweep_gpuin_*, the driver).
+// platform: text fxs (fx_sweep_font_*, system fonts), fxs that call rand()
+// (fx_sweep_rand_*, the C library) and GPU shader fxs (fx_sweep_gpu_*,
+// fx_sweep_gpuin_*, the driver).
 void scenesFxSweep(const TFilePath &projectFolder) {
   std::vector<TFxInfo> infos;
   TFx::listFxs(infos);
-  std::vector<std::string> cpu, font, gpu, gpuWithInputs;
+  std::vector<std::string> cpu, font, rnd, gpu, gpuWithInputs;
   std::vector<std::pair<std::string, std::string>> excluded;
   for (const TFxInfo &info : infos) {
     if (const char *why = sweepExclusion(info))
@@ -1623,22 +1624,30 @@ void scenesFxSweep(const TFilePath &projectFolder) {
     else if (info.m_name == "STD_iwa_TextFx" ||
              info.m_name == "STD_iwa_TimeCodeFx")
       font.push_back(info.m_name);
+    else if (info.m_name == "STD_artContourFx" ||
+             info.m_name == "STD_iwa_SoapBubbleFx")
+      rnd.push_back(info.m_name);
     else
       cpu.push_back(info.m_name);
   }
-  // Base fxs first, then STD_ classic, STD_ino*, STD_iwa_*; alphabetical
-  // within each group, so that adding an fx moves as few frames as possible.
-  auto family = [](const std::string &id) {
-    if (id.compare(0, 4, "STD_") != 0) return 0;
-    if (id.compare(0, 7, "STD_ino") == 0) return 2;
-    if (id.compare(0, 8, "STD_iwa_") == 0) return 3;
-    return 1;
-  };
-  auto byFamily = [&](const std::string &a, const std::string &b) {
-    return std::make_pair(family(a), a) < std::make_pair(family(b), b);
-  };
-  std::sort(cpu.begin(), cpu.end(), byFamily);
+  // The CPU fxs go by family, alphabetically within each: base compositing
+  // fxs, the classic STD_ fxs, STD_ino* and STD_iwa_*. Each family has its
+  // own scenes, so that a new fx only moves the frames after it in its
+  // family.
+  std::vector<std::string> families[4];
+  for (const std::string &id : cpu) {
+    int family = 1;
+    if (id.compare(0, 4, "STD_") != 0)
+      family = 0;
+    else if (id.compare(0, 7, "STD_ino") == 0)
+      family = 2;
+    else if (id.compare(0, 8, "STD_iwa_") == 0)
+      family = 3;
+    families[family].push_back(id);
+  }
+  for (auto &ids : families) std::sort(ids.begin(), ids.end());
   std::sort(font.begin(), font.end());
+  std::sort(rnd.begin(), rnd.end());
   std::sort(gpu.begin(), gpu.end());
   std::sort(gpuWithInputs.begin(), gpuWithInputs.end());
 
@@ -1655,9 +1664,15 @@ void scenesFxSweep(const TFilePath &projectFolder) {
       sceneFxSweep(projectFolder, sceneName, chunk, manifest);
     }
   };
-  emitScenes(cpu, "fx_sweep");
+  emitScenes(families[0], "fx_sweep_base");
+  emitScenes(families[1], "fx_sweep_std");
+  emitScenes(families[2], "fx_sweep_ino");
+  emitScenes(families[3], "fx_sweep_iwa");
   // Fxs that draw text render with whatever font the system provides.
   emitScenes(font, "fx_sweep_font");
+  // Fxs that draw their randomness from the C library's rand(), whose
+  // sequence differs between platforms.
+  emitScenes(rnd, "fx_sweep_rand");
   emitScenes(gpu, "fx_sweep_gpu");
   // Shader fxs with input ports take a different path (a second program with
   // transform feedback computes the input areas), so they are kept apart.

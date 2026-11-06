@@ -385,7 +385,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='1'/><level id='2'/><level id='3'/>
+        <level id='3'/><level id='1'/><level id='2'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -1104,16 +1104,16 @@
           <Toonz_zeraryColumnFx id='11'/>
         </fxnode>
         <fxnode>
-          <Toonz_zeraryColumnFx id='5'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_zeraryColumnFx id='14'/>
-        </fxnode>
-        <fxnode>
           <Toonz_zeraryColumnFx id='8'/>
         </fxnode>
         <fxnode>
+          <Toonz_zeraryColumnFx id='5'/>
+        </fxnode>
+        <fxnode>
           <Toonz_zeraryColumnFx id='17'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_zeraryColumnFx id='14'/>
         </fxnode>
         </terminal>
       <xsheet>

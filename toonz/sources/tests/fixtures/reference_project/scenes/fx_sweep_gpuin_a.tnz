@@ -385,7 +385,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='3'/><level id='1'/><level id='2'/>
+        <level id='2'/><level id='3'/><level id='1'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -654,7 +654,55 @@
     <fxnodes>
       <internal>
         <fxnode>
-          <SHADER_HSLBlendGPU id='14'>
+          <SHADER_radialblurGPU id='14'>
+            
+            <params>
+              <center>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </center>
+              <radius>
+                <default>
+                  3 
+                </default>
+                </radius>
+              <blur>
+                <default>
+                  0.3 
+                </default>
+                </blur>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='11'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              GPURadialBlur01 
+            </name>
+            <fxId>
+              GPURadialBlur01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </SHADER_radialblurGPU>
+          
+        </fxnode>
+        <fxnode>
+          <SHADER_HSLBlendGPU id='15'>
             
             <params>
               <bhue>
@@ -700,7 +748,55 @@
           
         </fxnode>
         <fxnode>
-          <SHADER_glitter id='15'>
+          <SHADER_spinblurGPU id='16'>
+            
+            <params>
+              <center>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </center>
+              <radius>
+                <default>
+                  3 
+                </default>
+                </radius>
+              <blur>
+                <default>
+                  1 
+                </default>
+                </blur>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='13'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              GPUSpinBlur01 
+            </name>
+            <fxId>
+              GPUSpinBlur01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </SHADER_spinblurGPU>
+          
+        </fxnode>
+        <fxnode>
+          <SHADER_glitter id='17'>
             
             <params>
               <threshold>
@@ -750,115 +846,19 @@
           </SHADER_glitter>
           
         </fxnode>
-        <fxnode>
-          <SHADER_radialblurGPU id='16'>
-            
-            <params>
-              <center>
-                <x>
-                  <default>
-                    0 
-                  </default>
-                  </x>
-                <y>
-                  <default>
-                    0 
-                  </default>
-                  </y>
-                </center>
-              <radius>
-                <default>
-                  3 
-                </default>
-                </radius>
-              <blur>
-                <default>
-                  0.3 
-                </default>
-                </blur>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='11'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              GPURadialBlur01 
-            </name>
-            <fxId>
-              GPURadialBlur01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </SHADER_radialblurGPU>
-          
-        </fxnode>
-        <fxnode>
-          <SHADER_spinblurGPU id='17'>
-            
-            <params>
-              <center>
-                <x>
-                  <default>
-                    0 
-                  </default>
-                  </x>
-                <y>
-                  <default>
-                    0 
-                  </default>
-                  </y>
-                </center>
-              <radius>
-                <default>
-                  3 
-                </default>
-                </radius>
-              <blur>
-                <default>
-                  1 
-                </default>
-                </blur>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='13'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              GPUSpinBlur01 
-            </name>
-            <fxId>
-              GPUSpinBlur01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </SHADER_spinblurGPU>
-          
-        </fxnode>
         </internal>
       <terminal>
         <fxnode>
-          <SHADER_HSLBlendGPU id='14'/>
+          <SHADER_radialblurGPU id='14'/>
         </fxnode>
         <fxnode>
-          <SHADER_glitter id='15'/>
+          <SHADER_HSLBlendGPU id='15'/>
         </fxnode>
         <fxnode>
-          <SHADER_radialblurGPU id='16'/>
+          <SHADER_spinblurGPU id='16'/>
         </fxnode>
         <fxnode>
-          <SHADER_spinblurGPU id='17'/>
+          <SHADER_glitter id='17'/>
         </fxnode>
         </terminal>
       <xsheet>

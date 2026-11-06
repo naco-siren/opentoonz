@@ -135,12 +135,18 @@ every frame, so that a regression anywhere shows up somewhere.
 
 | Scene | Frames | Covers |
 |---|---|---|
-| `fx_sweep_a` ... `fx_sweep_j` | 16 each | every registered fx that renders on the CPU, one per frame, applied to the test cards |
-| `fx_sweep_font_a` | 2 | the fxs that draw text (system fonts; compared on Linux only) |
+| `fx_sweep_base_a`, `fx_sweep_std_a`..`e`, `fx_sweep_ino_a`..`c`, `fx_sweep_iwa_a`..`b` | up to 16 each | every registered fx that renders on the CPU, by family, one per frame, applied to the test cards |
+| `fx_sweep_font_a` | 2 | the fxs that draw text (system fonts) |
+| `fx_sweep_rand_a` | 2 | the fxs that take random numbers from the C library's `rand()` |
 | `fx_sweep_gpu_a` | 5 | GLSL shader fxs without inputs |
-| `fx_sweep_gpuin_a` | 4 | GLSL shader fxs with inputs (disabled on macOS, known issue 15) |
+| `fx_sweep_gpuin_a` | 4 | GLSL shader fxs with inputs (they crash tcomposer on macOS, known issue 15) |
 | `vector_styles` | 7 | every registered colour style class, eight per frame, on a stroke and a region |
 | `stage_showcase` | 12 | keyframe interpolation types, rotation, non-uniform scale, shear, a two-level pegbar hierarchy, a motion path, stacking order, column opacity, colour filter and visibility, cell timing |
+
+`fx_sweep_font_*`, `fx_sweep_rand_*`, `fx_sweep_gpu*_*` and `vector_styles`
+depend on the system's fonts, C library or OpenGL driver (known issue 18),
+so they are compared on Linux only, where the goldens come from. The other
+scenes are compared on every platform.
 
 The sweeps are built from the fx registry (`TFx::listFxs`), so a new fx
 gets a frame the next time the project is regenerated. Their inputs are

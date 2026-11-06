@@ -377,7 +377,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='2'/><level id='1'/>
+        <level id='1'/><level id='2'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -843,13 +843,13 @@
         </internal>
       <terminal>
         <fxnode>
+          <Toonz_zeraryColumnFx id='4'/>
+        </fxnode>
+        <fxnode>
           <STD_inoBlurFx id='11'/>
         </fxnode>
         <fxnode>
           <STD_radialBlurFx id='12'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_zeraryColumnFx id='4'/>
         </fxnode>
         </terminal>
       <xsheet>

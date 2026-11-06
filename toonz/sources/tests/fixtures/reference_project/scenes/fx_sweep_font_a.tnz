@@ -385,7 +385,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='2'/><level id='3'/><level id='1'/>
+        <level id='1'/><level id='3'/><level id='2'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -802,10 +802,10 @@
     <fxnodes>
       <terminal>
         <fxnode>
-          <Toonz_zeraryColumnFx id='8'/>
+          <Toonz_zeraryColumnFx id='5'/>
         </fxnode>
         <fxnode>
-          <Toonz_zeraryColumnFx id='5'/>
+          <Toonz_zeraryColumnFx id='8'/>
         </fxnode>
         </terminal>
       <xsheet>
