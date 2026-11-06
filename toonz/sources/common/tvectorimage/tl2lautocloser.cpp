@@ -259,6 +259,9 @@ public:
   std::map<TStroke *, StrokePointSet *> m_strokes;
   std::map<std::pair<TStroke *, TStroke *>, StrokesIntersection *>
       m_intersections;
+  // Intersections of a stroke with itself, as first computed (see
+  // getIntersection).
+  std::vector<StrokesIntersection *> m_selfIntersections;
 
   // debug
   std::pair<StrokePointSet *, StrokePointSet *> m_lastStrokePair;
@@ -286,6 +289,11 @@ public:
     StrokesIntersection *si =
         new StrokesIntersection(strokea, strokeb, intersection);
     m_intersections[std::make_pair(strokea, strokeb)] = si;
+    // For a stroke against itself both orders are the same key, so the
+    // swapped copy replaces si in the map: this caller gets si, later ones the
+    // swapped copy. That is kept as it is, since the links found depend on
+    // it; si only needs another owner to be freed.
+    if (strokea == strokeb) m_selfIntersections.push_back(si);
     m_intersections[std::make_pair(strokeb, strokea)] = si->swapped();
     return si;
   }
@@ -306,6 +314,7 @@ TL2LAutocloser::Imp::~Imp() {
   std::map<std::pair<TStroke *, TStroke *>, StrokesIntersection *>::iterator j;
   for (j = m_intersections.begin(); j != m_intersections.end(); ++j)
     delete j->second;
+  for (StrokesIntersection *si : m_selfIntersections) delete si;
   m_strokes.clear();
   m_intersections.clear();
 }
