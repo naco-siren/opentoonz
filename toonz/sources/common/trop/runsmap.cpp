@@ -2,6 +2,8 @@
 
 #include "runsmap.h"
 
+#include <cstring>
+
 //---------------------------------------------------------------------------------------------
 
 void RunsMap::setRunLength(TPixelGR8 *pix, TUINT32 length) {
@@ -21,8 +23,8 @@ void RunsMap::setRunLength(TPixelGR8 *pix, TUINT32 length) {
     else {
       pix->value = pixRev->value = 255;
       ++pix, pixRev -= 4;
-      TUINT32 *l = (TUINT32 *)pix;
-      *l         = length;
+      // The 32-bit length sits at an arbitrary offset in the byte buffer.
+      memcpy(pix, &length, sizeof(length));
     }
   }
 
@@ -37,7 +39,9 @@ TUINT32 RunsMap::runLength(const TPixelGR8 *pix, bool reversed) const {
     pix += (reversed) ? -1 : 1, length = pix->value;
     if (length >= 255) {
       pix += (reversed) ? -4 : 1;
-      length = *(TUINT32 *)pix;
+      TUINT32 stored;
+      memcpy(&stored, pix, sizeof(stored));
+      length = stored;
     }
   }
 
