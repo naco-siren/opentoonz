@@ -1,4 +1,4 @@
-<tnz framecount="14" version="71.1">
+<tnz framecount="13" version="71.1">
   <generator>
     "OpenToonz 1.8"
   </generator>
@@ -22,7 +22,7 @@
     <outputs>
       <output name="main">
         <range>
-          0 13 
+          0 12 
         </range>
         <step>
           1 
@@ -385,7 +385,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='1'/><level id='3'/><level id='2'/>
+        <level id='2'/><level id='1'/><level id='3'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -435,7 +435,7 @@
         </status>
         <cells>
           <cell>
-            0 1 <level id='3'/>0001 0 
+            0 1 <level id='2'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -575,7 +575,7 @@
         </status>
         <cells>
           <cell>
-            2 1 <level id='2'/>0001 0 
+            2 1 <level id='3'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -645,7 +645,7 @@
         </status>
         <cells>
           <cell>
-            3 1 <level id='3'/>0001 0 
+            3 1 <level id='2'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -785,7 +785,7 @@
         </status>
         <cells>
           <cell>
-            5 1 <level id='2'/>0001 0 
+            5 1 <level id='3'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -820,7 +820,7 @@
         </status>
         <cells>
           <cell>
-            6 1 <level id='1'/>0001 0 
+            5 1 <level id='3'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -855,7 +855,7 @@
         </status>
         <cells>
           <cell>
-            6 1 <level id='3'/>0001 0 
+            6 1 <level id='1'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -925,7 +925,7 @@
         </status>
         <cells>
           <cell>
-            7 1 <level id='1'/>0001 0 
+            6 1 <level id='3'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -960,7 +960,7 @@
         </status>
         <cells>
           <cell>
-            7 1 <level id='3'/>0001 0 
+            7 1 <level id='1'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -1170,7 +1170,7 @@
         </status>
         <cells>
           <cell>
-            10 1 <level id='1'/>0001 0 
+            9 1 <level id='3'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -1205,7 +1205,7 @@
         </status>
         <cells>
           <cell>
-            10 1 <level id='3'/>0001 0 
+            10 1 <level id='1'/>0001 0 
           </cell>
           </cells>
         <fx>
@@ -1338,79 +1338,9 @@
         </fx>
         
       </levelColumn>
-      <levelColumn id='58'>
-        
-        <status>
-          0 
-        </status>
-        <cells>
-          <cell>
-            12 1 <level id='1'/>0001 0 
-          </cell>
-          </cells>
-        <fx>
-          <Toonz_columnFx id='59'>
-            
-            <params>
-              </params>
-            <ports>
-              </ports>
-            <numberId>
-              0 
-            </numberId>
-            <name>
-              LevelColumn 
-            </name>
-            <fxId>
-              "" 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </Toonz_columnFx>
-          
-        </fx>
-        
-      </levelColumn>
-      <levelColumn id='60'>
-        
-        <status>
-          0 
-        </status>
-        <cells>
-          <cell>
-            12 1 <level id='3'/>0001 0 
-          </cell>
-          </cells>
-        <fx>
-          <Toonz_columnFx id='61'>
-            
-            <params>
-              </params>
-            <ports>
-              </ports>
-            <numberId>
-              0 
-            </numberId>
-            <name>
-              LevelColumn 
-            </name>
-            <fxId>
-              "" 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </Toonz_columnFx>
-          
-        </fx>
-        
-      </levelColumn>
-      <zeraryFxColumn id='62'>
-        <Toonz_zeraryColumnFx id='63'>
-          <STD_inopnCloudsFx id='64'>
+      <zeraryFxColumn id='58'>
+        <Toonz_zeraryColumnFx id='59'>
+          <STD_inopnCloudsFx id='60'>
             
             <params>
               <size>
@@ -1476,7 +1406,7 @@
         </status>
         <cells>
           <cell>
-            13 1 
+            12 1 
           </cell>
           </cells>
         
@@ -2428,68 +2358,6 @@
           1.234e+09 5.678e+09 
         </nodePos>
         </pegbar>
-      <pegbar id="Col29">
-        <parent handle="B" id="Table" parentHandle="B">
-          </parent>
-        <isOpened>
-          0 
-        </isOpened>
-        <center>
-          0 0 0 0 
-        </center>
-        <status>
-          0 
-        </status>
-        <sx>
-          <default>
-            1 
-          </default>
-          </sx>
-        <sy>
-          <default>
-            1 
-          </default>
-          </sy>
-        <sc>
-          <default>
-            1 
-          </default>
-          </sc>
-        <nodePos>
-          1.234e+09 5.678e+09 
-        </nodePos>
-        </pegbar>
-      <pegbar id="Col30">
-        <parent handle="B" id="Table" parentHandle="B">
-          </parent>
-        <isOpened>
-          0 
-        </isOpened>
-        <center>
-          0 0 0 0 
-        </center>
-        <status>
-          0 
-        </status>
-        <sx>
-          <default>
-            1 
-          </default>
-          </sx>
-        <sy>
-          <default>
-            1 
-          </default>
-          </sy>
-        <sc>
-          <default>
-            1 
-          </default>
-          </sc>
-        <nodePos>
-          1.234e+09 5.678e+09 
-        </nodePos>
-        </pegbar>
       <grid_dimension>
         1 
       </grid_dimension>
@@ -2497,148 +2365,7 @@
     <fxnodes>
       <internal>
         <fxnode>
-          <STD_inohsvAdjustFx id='65'>
-            
-            <params>
-              <globalIntensity>
-                <default>
-                  1 
-                </default>
-                </globalIntensity>
-              <pivot_hue>
-                <default>
-                  0 
-                </default>
-                </pivot_hue>
-              <pivot_saturation>
-                <default>
-                  0 
-                </default>
-                </pivot_saturation>
-              <pivot_value>
-                <default>
-                  0 
-                </default>
-                </pivot_value>
-              <scale_hue>
-                <default>
-                  1 
-                </default>
-                </scale_hue>
-              <scale_saturation>
-                <default>
-                  1 
-                </default>
-                </scale_saturation>
-              <scale_value>
-                <default>
-                  0.7 
-                </default>
-                </scale_value>
-              <shift_hue>
-                <default>
-                  120 
-                </default>
-                </shift_hue>
-              <shift_saturation>
-                <default>
-                  0 
-                </default>
-                </shift_saturation>
-              <shift_value>
-                <default>
-                  0 
-                </default>
-                </shift_value>
-              <anti_alias>
-                1 1 
-              </anti_alias>
-              <reference>
-                0 
-              </reference>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='55'/>
-              </Source>
-              <Reference>
-                <Toonz_columnFx id='57'/>
-              </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              HSVAdjustIno01 
-            </name>
-            <fxId>
-              HSVAdjustIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_inohsvAdjustFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoSoftLightFx id='66'>
-            
-            <params>
-              <opacity>
-                <default>
-                  1 
-                </default>
-                </opacity>
-              <clipping_mask>
-                1 1 
-              </clipping_mask>
-              <colorSpaceMode>
-                0 
-              </colorSpaceMode>
-              <gamma>
-                <default>
-                  2.2 
-                </default>
-                </gamma>
-              <gammaAdjust>
-                <default>
-                  0 
-                </default>
-                </gammaAdjust>
-              <premultiplied>
-                1 1 
-              </premultiplied>
-              </params>
-            <ports>
-              <Fore>
-                <Toonz_columnFx id='13'/>
-              </Fore>
-              <Back>
-                <Toonz_columnFx id='15'/>
-              </Back>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              SoftLightIno01 
-            </name>
-            <fxId>
-              SoftLightIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            <fxVersion>
-              2 
-            </fxVersion>
-            
-          </STD_inoSoftLightFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoSpinBlurFx id='67'>
+          <STD_inoSpinBlurFx id='61'>
             
             <params>
               <center>
@@ -2688,10 +2415,10 @@
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='17'/>
+                <Toonz_columnFx id='13'/>
               </Source>
               <Reference>
-                <Toonz_columnFx id='19'/>
+                <Toonz_columnFx id='15'/>
               </Reference>
               </ports>
             <numberId>
@@ -2711,146 +2438,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoRadialBlurFx id='68'>
-            
-            <params>
-              <center>
-                <x>
-                  <default>
-                    0 
-                  </default>
-                  </x>
-                <y>
-                  <default>
-                    0 
-                  </default>
-                  </y>
-                </center>
-              <blur>
-                <default>
-                  1 
-                </default>
-                </blur>
-              <radius>
-                <default>
-                  0 
-                </default>
-                </radius>
-              <twist>
-                <default>
-                  0 
-                </default>
-                </twist>
-              <alpha_rendering>
-                1 1 
-              </alpha_rendering>
-              <anti_alias>
-                0 0 
-              </anti_alias>
-              <reference>
-                0 
-              </reference>
-              <type>
-                0 
-              </type>
-              <ellipse_aspect_ratio>
-                <default>
-                  1 
-                </default>
-                </ellipse_aspect_ratio>
-              <ellipse_angle>
-                <default>
-                  0 
-                </default>
-                </ellipse_angle>
-              <intensity_correlation_with_ellipse>
-                <default>
-                  0 
-                </default>
-                </intensity_correlation_with_ellipse>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='5'/>
-              </Source>
-              <Reference>
-                <Toonz_columnFx id='7'/>
-              </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              RadialBlurIno01 
-            </name>
-            <fxId>
-              RadialBlurIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_inoRadialBlurFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoScreenFx id='69'>
-            
-            <params>
-              <opacity>
-                <default>
-                  1 
-                </default>
-                </opacity>
-              <clipping_mask>
-                1 1 
-              </clipping_mask>
-              <colorSpaceMode>
-                0 
-              </colorSpaceMode>
-              <gamma>
-                <default>
-                  2.2 
-                </default>
-                </gamma>
-              <gammaAdjust>
-                <default>
-                  0 
-                </default>
-                </gammaAdjust>
-              <premultiplied>
-                1 1 
-              </premultiplied>
-              </params>
-            <ports>
-              <Fore>
-                <Toonz_columnFx id='9'/>
-              </Fore>
-              <Back>
-                <Toonz_columnFx id='11'/>
-              </Back>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              ScreenIno01 
-            </name>
-            <fxId>
-              ScreenIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            <fxVersion>
-              2 
-            </fxVersion>
-            
-          </STD_inoScreenFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoSubtractFx id='70'>
+          <STD_inoSubtractFx id='62'>
             
             <params>
               <opacity>
@@ -2883,10 +2471,10 @@
               </params>
             <ports>
               <Fore>
-                <Toonz_columnFx id='21'/>
+                <Toonz_columnFx id='17'/>
               </Fore>
               <Back>
-                <Toonz_columnFx id='23'/>
+                <Toonz_columnFx id='19'/>
               </Back>
               </ports>
             <numberId>
@@ -2909,200 +2497,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inohsvNoiseFx id='71'>
-            
-            <params>
-              <globalIntensity>
-                <default>
-                  1 
-                </default>
-                </globalIntensity>
-              <hue>
-                <default>
-                  0.3 
-                </default>
-                </hue>
-              <saturation>
-                <default>
-                  0 
-                </default>
-                </saturation>
-              <value>
-                <default>
-                  0.6 
-                </default>
-                </value>
-              <alpha>
-                <default>
-                  0 
-                </default>
-                </alpha>
-              <seed>
-                <default>
-                  1 
-                </default>
-                </seed>
-              <nblur>
-                <default>
-                  1 
-                </default>
-                </nblur>
-              <effective>
-                <default>
-                  0 
-                </default>
-                </effective>
-              <center>
-                <default>
-                  0.5 
-                </default>
-                </center>
-              <type>
-                0 
-              </type>
-              <anti_alias>
-                1 1 
-              </anti_alias>
-              <reference>
-                0 
-              </reference>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='59'/>
-              </Source>
-              <Reference>
-                <Toonz_columnFx id='61'/>
-              </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              HSVNoiseIno01 
-            </name>
-            <fxId>
-              HSVNoiseIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_inohsvNoiseFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoVividLightFx id='72'>
-            
-            <params>
-              <opacity>
-                <default>
-                  1 
-                </default>
-                </opacity>
-              <clipping_mask>
-                1 1 
-              </clipping_mask>
-              <colorSpaceMode>
-                0 
-              </colorSpaceMode>
-              <gamma>
-                <default>
-                  2.2 
-                </default>
-                </gamma>
-              <gammaAdjust>
-                <default>
-                  0 
-                </default>
-                </gammaAdjust>
-              <premultiplied>
-                1 1 
-              </premultiplied>
-              </params>
-            <ports>
-              <Fore>
-                <Toonz_columnFx id='25'/>
-              </Fore>
-              <Back>
-                <Toonz_columnFx id='27'/>
-              </Back>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              VividLightIno01 
-            </name>
-            <fxId>
-              VividLightIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            <fxVersion>
-              2 
-            </fxVersion>
-            
-          </STD_inoVividLightFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoWarphvFx id='73'>
-            
-            <params>
-              <h_maxlen>
-                <default>
-                  20 
-                </default>
-                </h_maxlen>
-              <v_maxlen>
-                <default>
-                  15 
-                </default>
-                </v_maxlen>
-              <h_ref_mode>
-                2 
-              </h_ref_mode>
-              <v_ref_mode>
-                2 
-              </v_ref_mode>
-              <alpha_rendering>
-                1 1 
-              </alpha_rendering>
-              <anti_aliasing>
-                1 1 
-              </anti_aliasing>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='29'/>
-              </Source>
-              <Hori>
-                <Toonz_columnFx id='31'/>
-              </Hori>
-              <Vert>
-                <Toonz_columnFx id='33'/>
-              </Vert>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              WarpHVIno01 
-            </name>
-            <fxId>
-              WarpHVIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_inoWarphvFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inohlsAddFx id='74'>
+          <STD_inohlsAddFx id='63'>
             
             <params>
               <globalIntensity>
@@ -3147,13 +2542,13 @@
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='35'/>
+                <Toonz_columnFx id='31'/>
               </Source>
               <Noise>
-                <Toonz_columnFx id='37'/>
+                <Toonz_columnFx id='33'/>
               </Noise>
               <Reference>
-                <Toonz_columnFx id='39'/>
+                <Toonz_columnFx id='35'/>
               </Reference>
               </ports>
             <numberId>
@@ -3173,7 +2568,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inohlsAdjustFx id='75'>
+          <STD_inohlsAdjustFx id='64'>
             
             <params>
               <globalIntensity>
@@ -3235,10 +2630,10 @@
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='41'/>
+                <Toonz_columnFx id='37'/>
               </Source>
               <Reference>
-                <Toonz_columnFx id='43'/>
+                <Toonz_columnFx id='39'/>
               </Reference>
               </ports>
             <numberId>
@@ -3258,7 +2653,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inohlsNoiseFx id='76'>
+          <STD_inohlsNoiseFx id='65'>
             
             <params>
               <globalIntensity>
@@ -3318,10 +2713,10 @@
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='45'/>
+                <Toonz_columnFx id='41'/>
               </Source>
               <Reference>
-                <Toonz_columnFx id='47'/>
+                <Toonz_columnFx id='43'/>
               </Reference>
               </ports>
             <numberId>
@@ -3341,7 +2736,202 @@
           
         </fxnode>
         <fxnode>
-          <STD_inohsvAddFx id='77'>
+          <STD_inoWarphvFx id='66'>
+            
+            <params>
+              <h_maxlen>
+                <default>
+                  20 
+                </default>
+                </h_maxlen>
+              <v_maxlen>
+                <default>
+                  15 
+                </default>
+                </v_maxlen>
+              <h_ref_mode>
+                2 
+              </h_ref_mode>
+              <v_ref_mode>
+                2 
+              </v_ref_mode>
+              <alpha_rendering>
+                1 1 
+              </alpha_rendering>
+              <anti_aliasing>
+                1 1 
+              </anti_aliasing>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='25'/>
+              </Source>
+              <Hori>
+                <Toonz_columnFx id='27'/>
+              </Hori>
+              <Vert>
+                <Toonz_columnFx id='29'/>
+              </Vert>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              WarpHVIno01 
+            </name>
+            <fxId>
+              WarpHVIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_inoWarphvFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_inoScreenFx id='67'>
+            
+            <params>
+              <opacity>
+                <default>
+                  1 
+                </default>
+                </opacity>
+              <clipping_mask>
+                1 1 
+              </clipping_mask>
+              <colorSpaceMode>
+                0 
+              </colorSpaceMode>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <premultiplied>
+                1 1 
+              </premultiplied>
+              </params>
+            <ports>
+              <Fore>
+                <Toonz_columnFx id='5'/>
+              </Fore>
+              <Back>
+                <Toonz_columnFx id='7'/>
+              </Back>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              ScreenIno01 
+            </name>
+            <fxId>
+              ScreenIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              2 
+            </fxVersion>
+            
+          </STD_inoScreenFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_inohsvAdjustFx id='68'>
+            
+            <params>
+              <globalIntensity>
+                <default>
+                  1 
+                </default>
+                </globalIntensity>
+              <pivot_hue>
+                <default>
+                  0 
+                </default>
+                </pivot_hue>
+              <pivot_saturation>
+                <default>
+                  0 
+                </default>
+                </pivot_saturation>
+              <pivot_value>
+                <default>
+                  0 
+                </default>
+                </pivot_value>
+              <scale_hue>
+                <default>
+                  1 
+                </default>
+                </scale_hue>
+              <scale_saturation>
+                <default>
+                  1 
+                </default>
+                </scale_saturation>
+              <scale_value>
+                <default>
+                  0.7 
+                </default>
+                </scale_value>
+              <shift_hue>
+                <default>
+                  120 
+                </default>
+                </shift_hue>
+              <shift_saturation>
+                <default>
+                  0 
+                </default>
+                </shift_saturation>
+              <shift_value>
+                <default>
+                  0 
+                </default>
+                </shift_value>
+              <anti_alias>
+                1 1 
+              </anti_alias>
+              <reference>
+                0 
+              </reference>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='51'/>
+              </Source>
+              <Reference>
+                <Toonz_columnFx id='53'/>
+              </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              HSVAdjustIno01 
+            </name>
+            <fxId>
+              HSVAdjustIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_inohsvAdjustFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_inohsvAddFx id='69'>
             
             <params>
               <globalIntensity>
@@ -3386,13 +2976,13 @@
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='49'/>
+                <Toonz_columnFx id='45'/>
               </Source>
               <Noise>
-                <Toonz_columnFx id='51'/>
+                <Toonz_columnFx id='47'/>
               </Noise>
               <Reference>
-                <Toonz_columnFx id='53'/>
+                <Toonz_columnFx id='49'/>
               </Reference>
               </ports>
             <numberId>
@@ -3411,53 +3001,245 @@
           </STD_inohsvAddFx>
           
         </fxnode>
+        <fxnode>
+          <STD_inohsvNoiseFx id='70'>
+            
+            <params>
+              <globalIntensity>
+                <default>
+                  1 
+                </default>
+                </globalIntensity>
+              <hue>
+                <default>
+                  0.3 
+                </default>
+                </hue>
+              <saturation>
+                <default>
+                  0 
+                </default>
+                </saturation>
+              <value>
+                <default>
+                  0.6 
+                </default>
+                </value>
+              <alpha>
+                <default>
+                  0 
+                </default>
+                </alpha>
+              <seed>
+                <default>
+                  1 
+                </default>
+                </seed>
+              <nblur>
+                <default>
+                  1 
+                </default>
+                </nblur>
+              <effective>
+                <default>
+                  0 
+                </default>
+                </effective>
+              <center>
+                <default>
+                  0.5 
+                </default>
+                </center>
+              <type>
+                0 
+              </type>
+              <anti_alias>
+                1 1 
+              </anti_alias>
+              <reference>
+                0 
+              </reference>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='55'/>
+              </Source>
+              <Reference>
+                <Toonz_columnFx id='57'/>
+              </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              HSVNoiseIno01 
+            </name>
+            <fxId>
+              HSVNoiseIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_inohsvNoiseFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_inoVividLightFx id='71'>
+            
+            <params>
+              <opacity>
+                <default>
+                  1 
+                </default>
+                </opacity>
+              <clipping_mask>
+                1 1 
+              </clipping_mask>
+              <colorSpaceMode>
+                0 
+              </colorSpaceMode>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <premultiplied>
+                1 1 
+              </premultiplied>
+              </params>
+            <ports>
+              <Fore>
+                <Toonz_columnFx id='21'/>
+              </Fore>
+              <Back>
+                <Toonz_columnFx id='23'/>
+              </Back>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              VividLightIno01 
+            </name>
+            <fxId>
+              VividLightIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              2 
+            </fxVersion>
+            
+          </STD_inoVividLightFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_inoSoftLightFx id='72'>
+            
+            <params>
+              <opacity>
+                <default>
+                  1 
+                </default>
+                </opacity>
+              <clipping_mask>
+                1 1 
+              </clipping_mask>
+              <colorSpaceMode>
+                0 
+              </colorSpaceMode>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <premultiplied>
+                1 1 
+              </premultiplied>
+              </params>
+            <ports>
+              <Fore>
+                <Toonz_columnFx id='9'/>
+              </Fore>
+              <Back>
+                <Toonz_columnFx id='11'/>
+              </Back>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              SoftLightIno01 
+            </name>
+            <fxId>
+              SoftLightIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              2 
+            </fxVersion>
+            
+          </STD_inoSoftLightFx>
+          
+        </fxnode>
         </internal>
       <terminal>
         <fxnode>
-          <STD_inohsvAdjustFx id='65'/>
+          <STD_inoSpinBlurFx id='61'/>
         </fxnode>
         <fxnode>
-          <STD_inoSoftLightFx id='66'/>
+          <STD_inoSubtractFx id='62'/>
         </fxnode>
         <fxnode>
-          <STD_inoSpinBlurFx id='67'/>
+          <STD_inohlsAddFx id='63'/>
         </fxnode>
         <fxnode>
-          <STD_inoRadialBlurFx id='68'/>
+          <STD_inohlsAdjustFx id='64'/>
         </fxnode>
         <fxnode>
-          <STD_inoScreenFx id='69'/>
+          <STD_inohlsNoiseFx id='65'/>
         </fxnode>
         <fxnode>
-          <STD_inoSubtractFx id='70'/>
+          <STD_inoWarphvFx id='66'/>
         </fxnode>
         <fxnode>
-          <STD_inohsvNoiseFx id='71'/>
+          <STD_inoScreenFx id='67'/>
         </fxnode>
         <fxnode>
-          <STD_inoVividLightFx id='72'/>
+          <STD_inohsvAdjustFx id='68'/>
         </fxnode>
         <fxnode>
-          <STD_inoWarphvFx id='73'/>
+          <STD_inohsvAddFx id='69'/>
         </fxnode>
         <fxnode>
-          <STD_inohlsAddFx id='74'/>
+          <STD_inohsvNoiseFx id='70'/>
         </fxnode>
         <fxnode>
-          <Toonz_zeraryColumnFx id='63'/>
+          <STD_inoVividLightFx id='71'/>
         </fxnode>
         <fxnode>
-          <STD_inohlsAdjustFx id='75'/>
+          <STD_inoSoftLightFx id='72'/>
         </fxnode>
         <fxnode>
-          <STD_inohlsNoiseFx id='76'/>
-        </fxnode>
-        <fxnode>
-          <STD_inohsvAddFx id='77'/>
+          <Toonz_zeraryColumnFx id='59'/>
         </fxnode>
         </terminal>
       <xsheet>
-        <Toonz_xsheetFx id='78'>
+        <Toonz_xsheetFx id='73'>
           
           <params>
             </params>
@@ -3480,13 +3262,13 @@
         
       </xsheet>
       <output>
-        <Toonz_outputFx id='79'>
+        <Toonz_outputFx id='74'>
           
           <params>
             </params>
           <ports>
             <source>
-              <Toonz_xsheetFx id='78'/>
+              <Toonz_xsheetFx id='73'/>
             </source>
             </ports>
           <numberId>

@@ -393,7 +393,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='2'/><level id='1'/><level id='3'/><level id='4'/>
+        <level id='3'/><level id='2'/><level id='1'/><level id='4'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -1725,388 +1725,7 @@
     <fxnodes>
       <internal>
         <fxnode>
-          <STD_premultiplyFx id='45'>
-            
-            <params>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='42'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              Premultiply01 
-            </name>
-            <fxId>
-              Premultiply01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_premultiplyFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_naru_LazyBrushFx id='46'>
-            
-            <params>
-              <mode>
-                0 
-              </mode>
-              <blend_mode>
-                0 
-              </blend_mode>
-              <enable_auto_scribble>
-                1 1 
-              </enable_auto_scribble>
-              <auto_scribble_color>
-                <red>
-                  <default>
-                    0.784314 
-                  </default>
-                  </red>
-                <green>
-                  <default>
-                    0.784314 
-                  </default>
-                  </green>
-                <blue>
-                  <default>
-                    0.784314 
-                  </default>
-                  </blue>
-                <matte>
-                  <default>
-                    1 
-                  </default>
-                  </matte>
-                </auto_scribble_color>
-              <enable_auto_bg_scribble>
-                1 1 
-              </enable_auto_bg_scribble>
-              <ref_bgcolor>
-                <red>
-                  <default>
-                    0 
-                  </default>
-                  </red>
-                <green>
-                  <default>
-                    0 
-                  </default>
-                  </green>
-                <blue>
-                  <default>
-                    1 
-                  </default>
-                  </blue>
-                <matte>
-                  <default>
-                    1 
-                  </default>
-                  </matte>
-                </ref_bgcolor>
-              <auto_scribble_threshold>
-                <default>
-                  0.5 
-                </default>
-                </auto_scribble_threshold>
-              <scr_type>
-                0 
-              </scr_type>
-              <log_scale>
-                <default>
-                  10 
-                </default>
-                </log_scale>
-              <lambda>
-                <default>
-                  0.05 
-                </default>
-                </lambda>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='26'/>
-              </Source>
-              <Reference>
-                <Toonz_columnFx id='28'/>
-              </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              LazyBrushNaru01 
-            </name>
-            <fxId>
-              LazyBrushNaru01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            <fxVersion>
-              2 
-            </fxVersion>
-            
-          </STD_naru_LazyBrushFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_posterizeFx id='47'>
-            
-            <params>
-              <levels>
-                <default>
-                  7 
-                </default>
-                </levels>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='40'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              Posterize01 
-            </name>
-            <fxId>
-              Posterize01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_posterizeFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_nothingFx id='48'>
-            
-            <params>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='32'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              PassThrough01 
-            </name>
-            <fxId>
-              PassThrough01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_nothingFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_outBorderFx id='49'>
-            
-            <params>
-              <Thickness>
-                <default>
-                  30 
-                </default>
-                </Thickness>
-              <Accuracy>
-                <default>
-                  50 
-                </default>
-                </Accuracy>
-              <Noise>
-                <default>
-                  0 
-                </default>
-                </Noise>
-              <Horizontal>
-                <default>
-                  100 
-                </default>
-                </Horizontal>
-              <upWDiagonal>
-                <default>
-                  100 
-                </default>
-                </upWDiagonal>
-              <Vertical>
-                <default>
-                  100 
-                </default>
-                </Vertical>
-              <doWDiagonal>
-                <default>
-                  100 
-                </default>
-                </doWDiagonal>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='34'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              Outline01 
-            </name>
-            <fxId>
-              Outline01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_outBorderFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_paletteFilterFx id='50'>
-            
-            <params>
-              <globalIntensity>
-                <default>
-                  1 
-                </default>
-                </globalIntensity>
-              <indexes>
-                "1,2,3""3,5"
-              </indexes>
-              <keep>
-                0 
-              </keep>
-              <type>
-                0 
-              </type>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='36'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              PaletteFilter01 
-            </name>
-            <fxId>
-              PaletteFilter01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_paletteFilterFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_perlinNoiseFx id='51'>
-            
-            <params>
-              <type>
-                0 
-              </type>
-              <size>
-                <default>
-                  100 
-                </default>
-                </size>
-              <evolution>
-                <default>
-                  0 
-                </default>
-                </evolution>
-              <intensity>
-                <default>
-                  40 
-                </default>
-                </intensity>
-              <offsetx>
-                <default>
-                  0 
-                </default>
-                </offsetx>
-              <offsety>
-                <default>
-                  0 
-                </default>
-                </offsety>
-              <matte>
-                1 1 
-              </matte>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='38'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              PerlinNoise01 
-            </name>
-            <fxId>
-              PerlinNoise01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_perlinNoiseFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_localBlurFx id='52'>
-            
-            <params>
-              <value>
-                <default>
-                  20 
-                </default>
-                </value>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='6'/>
-              </Source>
-              <Reference>
-                <Toonz_columnFx id='8'/>
-              </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              LocalBlur01 
-            </name>
-            <fxId>
-              LocalBlur01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_localBlurFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_localTransparencyFx id='53'>
+          <STD_localTransparencyFx id='45'>
             
             <params>
               <value>
@@ -2140,7 +1759,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_mosaicFx id='54'>
+          <STD_mosaicFx id='46'>
             
             <params>
               <size>
@@ -2201,7 +1820,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_motionBlurFx id='55'>
+          <STD_motionBlurFx id='47'>
             
             <params>
               <intensity>
@@ -2238,7 +1857,41 @@
           
         </fxnode>
         <fxnode>
-          <STD_multiToneFx id='56'>
+          <STD_localBlurFx id='48'>
+            
+            <params>
+              <value>
+                <default>
+                  20 
+                </default>
+                </value>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='6'/>
+              </Source>
+              <Reference>
+                <Toonz_columnFx id='8'/>
+              </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              LocalBlur01 
+            </name>
+            <fxId>
+              LocalBlur01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_localBlurFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_multiToneFx id='49'>
             
             <params>
               <globalIntensity>
@@ -2354,7 +2007,139 @@
           
         </fxnode>
         <fxnode>
-          <STD_noiseFx id='57'>
+          <STD_premultiplyFx id='50'>
+            
+            <params>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='42'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              Premultiply01 
+            </name>
+            <fxId>
+              Premultiply01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_premultiplyFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_naru_LazyBrushFx id='51'>
+            
+            <params>
+              <mode>
+                0 
+              </mode>
+              <blend_mode>
+                0 
+              </blend_mode>
+              <enable_auto_scribble>
+                1 1 
+              </enable_auto_scribble>
+              <auto_scribble_color>
+                <red>
+                  <default>
+                    0.784314 
+                  </default>
+                  </red>
+                <green>
+                  <default>
+                    0.784314 
+                  </default>
+                  </green>
+                <blue>
+                  <default>
+                    0.784314 
+                  </default>
+                  </blue>
+                <matte>
+                  <default>
+                    1 
+                  </default>
+                  </matte>
+                </auto_scribble_color>
+              <enable_auto_bg_scribble>
+                1 1 
+              </enable_auto_bg_scribble>
+              <ref_bgcolor>
+                <red>
+                  <default>
+                    0 
+                  </default>
+                  </red>
+                <green>
+                  <default>
+                    0 
+                  </default>
+                  </green>
+                <blue>
+                  <default>
+                    1 
+                  </default>
+                  </blue>
+                <matte>
+                  <default>
+                    1 
+                  </default>
+                  </matte>
+                </ref_bgcolor>
+              <auto_scribble_threshold>
+                <default>
+                  0.5 
+                </default>
+                </auto_scribble_threshold>
+              <scr_type>
+                0 
+              </scr_type>
+              <log_scale>
+                <default>
+                  10 
+                </default>
+                </log_scale>
+              <lambda>
+                <default>
+                  0.05 
+                </default>
+                </lambda>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='26'/>
+              </Source>
+              <Reference>
+                <Toonz_columnFx id='28'/>
+              </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              LazyBrushNaru01 
+            </name>
+            <fxId>
+              LazyBrushNaru01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              2 
+            </fxVersion>
+            
+          </STD_naru_LazyBrushFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_noiseFx id='52'>
             
             <params>
               <Intensity>
@@ -2397,6 +2182,221 @@
             </opened>
             
           </STD_noiseFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_outBorderFx id='53'>
+            
+            <params>
+              <Thickness>
+                <default>
+                  30 
+                </default>
+                </Thickness>
+              <Accuracy>
+                <default>
+                  50 
+                </default>
+                </Accuracy>
+              <Noise>
+                <default>
+                  0 
+                </default>
+                </Noise>
+              <Horizontal>
+                <default>
+                  100 
+                </default>
+                </Horizontal>
+              <upWDiagonal>
+                <default>
+                  100 
+                </default>
+                </upWDiagonal>
+              <Vertical>
+                <default>
+                  100 
+                </default>
+                </Vertical>
+              <doWDiagonal>
+                <default>
+                  100 
+                </default>
+                </doWDiagonal>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='34'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              Outline01 
+            </name>
+            <fxId>
+              Outline01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_outBorderFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_paletteFilterFx id='54'>
+            
+            <params>
+              <globalIntensity>
+                <default>
+                  1 
+                </default>
+                </globalIntensity>
+              <indexes>
+                "1,2,3""3,5"
+              </indexes>
+              <keep>
+                0 
+              </keep>
+              <type>
+                0 
+              </type>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='36'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              PaletteFilter01 
+            </name>
+            <fxId>
+              PaletteFilter01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_paletteFilterFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_perlinNoiseFx id='55'>
+            
+            <params>
+              <type>
+                0 
+              </type>
+              <size>
+                <default>
+                  100 
+                </default>
+                </size>
+              <evolution>
+                <default>
+                  0 
+                </default>
+                </evolution>
+              <intensity>
+                <default>
+                  40 
+                </default>
+                </intensity>
+              <offsetx>
+                <default>
+                  0 
+                </default>
+                </offsetx>
+              <offsety>
+                <default>
+                  0 
+                </default>
+                </offsety>
+              <matte>
+                1 1 
+              </matte>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='38'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              PerlinNoise01 
+            </name>
+            <fxId>
+              PerlinNoise01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_perlinNoiseFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_nothingFx id='56'>
+            
+            <params>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='32'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              PassThrough01 
+            </name>
+            <fxId>
+              PassThrough01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_nothingFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_posterizeFx id='57'>
+            
+            <params>
+              <levels>
+                <default>
+                  7 
+                </default>
+                </levels>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='40'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              Posterize01 
+            </name>
+            <fxId>
+              Posterize01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_posterizeFx>
           
         </fxnode>
         <fxnode>
@@ -2450,37 +2450,25 @@
         </internal>
       <terminal>
         <fxnode>
-          <STD_premultiplyFx id='45'/>
+          <STD_localTransparencyFx id='45'/>
         </fxnode>
         <fxnode>
-          <STD_naru_LazyBrushFx id='46'/>
+          <STD_mosaicFx id='46'/>
         </fxnode>
         <fxnode>
-          <STD_posterizeFx id='47'/>
+          <STD_motionBlurFx id='47'/>
         </fxnode>
         <fxnode>
-          <STD_nothingFx id='48'/>
+          <STD_localBlurFx id='48'/>
         </fxnode>
         <fxnode>
-          <STD_outBorderFx id='49'/>
+          <STD_multiToneFx id='49'/>
         </fxnode>
         <fxnode>
-          <STD_paletteFilterFx id='50'/>
+          <STD_premultiplyFx id='50'/>
         </fxnode>
         <fxnode>
-          <STD_perlinNoiseFx id='51'/>
-        </fxnode>
-        <fxnode>
-          <STD_localBlurFx id='52'/>
-        </fxnode>
-        <fxnode>
-          <STD_localTransparencyFx id='53'/>
-        </fxnode>
-        <fxnode>
-          <STD_mosaicFx id='54'/>
-        </fxnode>
-        <fxnode>
-          <STD_motionBlurFx id='55'/>
+          <STD_naru_LazyBrushFx id='51'/>
         </fxnode>
         <fxnode>
           <Toonz_zeraryColumnFx id='18'/>
@@ -2489,10 +2477,22 @@
           <Toonz_zeraryColumnFx id='21'/>
         </fxnode>
         <fxnode>
-          <STD_multiToneFx id='56'/>
+          <STD_noiseFx id='52'/>
         </fxnode>
         <fxnode>
-          <STD_noiseFx id='57'/>
+          <STD_outBorderFx id='53'/>
+        </fxnode>
+        <fxnode>
+          <STD_paletteFilterFx id='54'/>
+        </fxnode>
+        <fxnode>
+          <STD_perlinNoiseFx id='55'/>
+        </fxnode>
+        <fxnode>
+          <STD_nothingFx id='56'/>
+        </fxnode>
+        <fxnode>
+          <STD_posterizeFx id='57'/>
         </fxnode>
         <fxnode>
           <STD_radialBlurFx id='58'/>

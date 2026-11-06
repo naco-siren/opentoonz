@@ -1599,159 +1599,7 @@
     <fxnodes>
       <internal>
         <fxnode>
-          <STD_inoAddFx id='68'>
-            
-            <params>
-              <opacity>
-                <default>
-                  1 
-                </default>
-                </opacity>
-              <clipping_mask>
-                1 1 
-              </clipping_mask>
-              <colorSpaceMode>
-                0 
-              </colorSpaceMode>
-              <gamma>
-                <default>
-                  2.2 
-                </default>
-                </gamma>
-              <gammaAdjust>
-                <default>
-                  0 
-                </default>
-                </gammaAdjust>
-              <premultiplied>
-                1 1 
-              </premultiplied>
-              </params>
-            <ports>
-              <Fore>
-                <Toonz_columnFx id='5'/>
-              </Fore>
-              <Back>
-                <Toonz_columnFx id='7'/>
-              </Back>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              AddIno01 
-            </name>
-            <fxId>
-              AddIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            <fxVersion>
-              2 
-            </fxVersion>
-            
-          </STD_inoAddFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoBlurFx id='69'>
-            
-            <params>
-              <radius>
-                <default>
-                  8 
-                </default>
-                </radius>
-              <reference>
-                0 
-              </reference>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='9'/>
-              </Source>
-              <Reference>
-                <Toonz_columnFx id='11'/>
-              </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              BlurIno01 
-            </name>
-            <fxId>
-              BlurIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_inoBlurFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoChannelSelectorFx id='70'>
-            
-            <params>
-              <red_source>
-                1 1 
-              </red_source>
-              <green_source>
-                1 1 
-              </green_source>
-              <blue_source>
-                1 1 
-              </blue_source>
-              <alpha_source>
-                1 1 
-              </alpha_source>
-              <red_channel>
-                2 
-              </red_channel>
-              <green_channel>
-                1 
-              </green_channel>
-              <blue_channel>
-                2 
-              </blue_channel>
-              <alpha_channel>
-                3 
-              </alpha_channel>
-              </params>
-            <ports>
-              <Source1>
-                <Toonz_columnFx id='13'/>
-              </Source1>
-              <Source2>
-                <Toonz_columnFx id='15'/>
-              </Source2>
-              <Source3>
-                <Toonz_columnFx id='17'/>
-              </Source3>
-              <Source4>
-                <Toonz_columnFx id='19'/>
-              </Source4>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              ChannelSelectorIno01 
-            </name>
-            <fxId>
-              ChannelSelectorIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_inoChannelSelectorFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoColorBurnFx id='71'>
+          <STD_inoColorBurnFx id='68'>
             
             <params>
               <opacity>
@@ -1807,7 +1655,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoColorDodgeFx id='72'>
+          <STD_inoAddFx id='69'>
             
             <params>
               <opacity>
@@ -1837,20 +1685,20 @@
               </params>
             <ports>
               <Fore>
-                <Toonz_columnFx id='25'/>
+                <Toonz_columnFx id='5'/>
               </Fore>
               <Back>
-                <Toonz_columnFx id='27'/>
+                <Toonz_columnFx id='7'/>
               </Back>
               </ports>
             <numberId>
               1 
             </numberId>
             <name>
-              ColorDodgeIno01 
+              AddIno01 
             </name>
             <fxId>
-              ColorDodgeIno01 
+              AddIno01 
             </fxId>
             <opened>
               0 
@@ -1859,11 +1707,11 @@
               2 
             </fxVersion>
             
-          </STD_inoColorDodgeFx>
+          </STD_inoAddFx>
           
         </fxnode>
         <fxnode>
-          <STD_inoCrossDissolveFx id='73'>
+          <STD_inoCrossDissolveFx id='70'>
             
             <params>
               <opacity>
@@ -1919,63 +1767,44 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoDarkenFx id='74'>
+          <STD_inoDensityFx id='71'>
             
             <params>
-              <opacity>
+              <density>
                 <default>
-                  1 
+                  2.5 
                 </default>
-                </opacity>
-              <clipping_mask>
-                0 0 
-              </clipping_mask>
-              <colorSpaceMode>
+                </density>
+              <reference>
                 0 
-              </colorSpaceMode>
-              <gamma>
-                <default>
-                  2.2 
-                </default>
-                </gamma>
-              <gammaAdjust>
-                <default>
-                  0 
-                </default>
-                </gammaAdjust>
-              <premultiplied>
-                1 1 
-              </premultiplied>
+              </reference>
               </params>
             <ports>
-              <Fore>
-                <Toonz_columnFx id='33'/>
-              </Fore>
-              <Back>
-                <Toonz_columnFx id='35'/>
-              </Back>
+              <Source>
+                <Toonz_columnFx id='41'/>
+              </Source>
+              <Reference>
+                <Toonz_columnFx id='43'/>
+              </Reference>
               </ports>
             <numberId>
               1 
             </numberId>
             <name>
-              DarkenIno01 
+              DensityIno01 
             </name>
             <fxId>
-              DarkenIno01 
+              DensityIno01 
             </fxId>
             <opened>
               0 
             </opened>
-            <fxVersion>
-              2 
-            </fxVersion>
             
-          </STD_inoDarkenFx>
+          </STD_inoDensityFx>
           
         </fxnode>
         <fxnode>
-          <STD_inoDarkerColorFx id='75'>
+          <STD_inoDarkerColorFx id='72'>
             
             <params>
               <opacity>
@@ -2031,44 +1860,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoDensityFx id='76'>
-            
-            <params>
-              <density>
-                <default>
-                  2.5 
-                </default>
-                </density>
-              <reference>
-                0 
-              </reference>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='41'/>
-              </Source>
-              <Reference>
-                <Toonz_columnFx id='43'/>
-              </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              DensityIno01 
-            </name>
-            <fxId>
-              DensityIno01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_inoDensityFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_inoDivideFx id='77'>
+          <STD_inoDivideFx id='73'>
             
             <params>
               <opacity>
@@ -2124,7 +1916,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoFogFx id='78'>
+          <STD_inoFogFx id='74'>
             
             <params>
               <radius>
@@ -2178,7 +1970,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoHardLightFx id='79'>
+          <STD_inoHardLightFx id='75'>
             
             <params>
               <opacity>
@@ -2234,7 +2026,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoHardMixFx id='80'>
+          <STD_inoHardMixFx id='76'>
             
             <params>
               <opacity>
@@ -2290,7 +2082,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoLevelAutoFx id='81'>
+          <STD_inoLevelAutoFx id='77'>
             
             <params>
               <globalIntensity>
@@ -2346,7 +2138,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoLevelMasterFx id='82'>
+          <STD_inoLevelMasterFx id='78'>
             
             <params>
               <globalIntensity>
@@ -2418,7 +2210,44 @@
           
         </fxnode>
         <fxnode>
-          <STD_inoLevelrgbaFx id='83'>
+          <STD_inoBlurFx id='79'>
+            
+            <params>
+              <radius>
+                <default>
+                  8 
+                </default>
+                </radius>
+              <reference>
+                0 
+              </reference>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='9'/>
+              </Source>
+              <Reference>
+                <Toonz_columnFx id='11'/>
+              </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              BlurIno01 
+            </name>
+            <fxId>
+              BlurIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_inoBlurFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_inoLevelrgbaFx id='80'>
             
             <params>
               <globalIntensity>
@@ -2573,55 +2402,226 @@
           </STD_inoLevelrgbaFx>
           
         </fxnode>
+        <fxnode>
+          <STD_inoDarkenFx id='81'>
+            
+            <params>
+              <opacity>
+                <default>
+                  1 
+                </default>
+                </opacity>
+              <clipping_mask>
+                0 0 
+              </clipping_mask>
+              <colorSpaceMode>
+                0 
+              </colorSpaceMode>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <premultiplied>
+                1 1 
+              </premultiplied>
+              </params>
+            <ports>
+              <Fore>
+                <Toonz_columnFx id='33'/>
+              </Fore>
+              <Back>
+                <Toonz_columnFx id='35'/>
+              </Back>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              DarkenIno01 
+            </name>
+            <fxId>
+              DarkenIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              2 
+            </fxVersion>
+            
+          </STD_inoDarkenFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_inoChannelSelectorFx id='82'>
+            
+            <params>
+              <red_source>
+                1 1 
+              </red_source>
+              <green_source>
+                1 1 
+              </green_source>
+              <blue_source>
+                1 1 
+              </blue_source>
+              <alpha_source>
+                1 1 
+              </alpha_source>
+              <red_channel>
+                2 
+              </red_channel>
+              <green_channel>
+                1 
+              </green_channel>
+              <blue_channel>
+                2 
+              </blue_channel>
+              <alpha_channel>
+                3 
+              </alpha_channel>
+              </params>
+            <ports>
+              <Source1>
+                <Toonz_columnFx id='13'/>
+              </Source1>
+              <Source2>
+                <Toonz_columnFx id='15'/>
+              </Source2>
+              <Source3>
+                <Toonz_columnFx id='17'/>
+              </Source3>
+              <Source4>
+                <Toonz_columnFx id='19'/>
+              </Source4>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              ChannelSelectorIno01 
+            </name>
+            <fxId>
+              ChannelSelectorIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_inoChannelSelectorFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_inoColorDodgeFx id='83'>
+            
+            <params>
+              <opacity>
+                <default>
+                  1 
+                </default>
+                </opacity>
+              <clipping_mask>
+                1 1 
+              </clipping_mask>
+              <colorSpaceMode>
+                0 
+              </colorSpaceMode>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <premultiplied>
+                1 1 
+              </premultiplied>
+              </params>
+            <ports>
+              <Fore>
+                <Toonz_columnFx id='25'/>
+              </Fore>
+              <Back>
+                <Toonz_columnFx id='27'/>
+              </Back>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              ColorDodgeIno01 
+            </name>
+            <fxId>
+              ColorDodgeIno01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              2 
+            </fxVersion>
+            
+          </STD_inoColorDodgeFx>
+          
+        </fxnode>
         </internal>
       <terminal>
         <fxnode>
-          <STD_inoAddFx id='68'/>
+          <STD_inoColorBurnFx id='68'/>
         </fxnode>
         <fxnode>
-          <STD_inoBlurFx id='69'/>
+          <STD_inoAddFx id='69'/>
         </fxnode>
         <fxnode>
-          <STD_inoChannelSelectorFx id='70'/>
+          <STD_inoCrossDissolveFx id='70'/>
         </fxnode>
         <fxnode>
-          <STD_inoColorBurnFx id='71'/>
+          <STD_inoDensityFx id='71'/>
         </fxnode>
         <fxnode>
-          <STD_inoColorDodgeFx id='72'/>
+          <STD_inoDarkerColorFx id='72'/>
         </fxnode>
         <fxnode>
-          <STD_inoCrossDissolveFx id='73'/>
+          <STD_inoDivideFx id='73'/>
         </fxnode>
         <fxnode>
-          <STD_inoDarkenFx id='74'/>
+          <STD_inoFogFx id='74'/>
         </fxnode>
         <fxnode>
-          <STD_inoDarkerColorFx id='75'/>
+          <STD_inoHardLightFx id='75'/>
         </fxnode>
         <fxnode>
-          <STD_inoDensityFx id='76'/>
+          <STD_inoHardMixFx id='76'/>
         </fxnode>
         <fxnode>
-          <STD_inoDivideFx id='77'/>
+          <STD_inoLevelAutoFx id='77'/>
         </fxnode>
         <fxnode>
-          <STD_inoFogFx id='78'/>
+          <STD_inoLevelMasterFx id='78'/>
         </fxnode>
         <fxnode>
-          <STD_inoHardLightFx id='79'/>
+          <STD_inoBlurFx id='79'/>
         </fxnode>
         <fxnode>
-          <STD_inoHardMixFx id='80'/>
+          <STD_inoLevelrgbaFx id='80'/>
         </fxnode>
         <fxnode>
-          <STD_inoLevelAutoFx id='81'/>
+          <STD_inoDarkenFx id='81'/>
         </fxnode>
         <fxnode>
-          <STD_inoLevelMasterFx id='82'/>
+          <STD_inoChannelSelectorFx id='82'/>
         </fxnode>
         <fxnode>
-          <STD_inoLevelrgbaFx id='83'/>
+          <STD_inoColorDodgeFx id='83'/>
         </fxnode>
         </terminal>
       <xsheet>

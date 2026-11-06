@@ -101,34 +101,33 @@ fx_sweep_ino_a 0015 STD_inoLevelMasterFx Source=main Reference=ref
 fx_sweep_ino_a 0016 STD_inoLevelrgbaFx Source=main Reference=ref
 fx_sweep_ino_b 0001 STD_inoLightenFx Fore=main Back=back
 fx_sweep_ino_b 0002 STD_inoLighterColorFx Fore=main Back=back
-fx_sweep_ino_b 0003 STD_inoLineBlurFx Source=main
-fx_sweep_ino_b 0004 STD_inoLinearBurnFx Fore=main Back=back
-fx_sweep_ino_b 0005 STD_inoLinearDodgeFx Fore=main Back=back
-fx_sweep_ino_b 0006 STD_inoLinearLightFx Fore=main Back=back
-fx_sweep_ino_b 0007 STD_inoMaxMinFx Source=main Reference=ref
-fx_sweep_ino_b 0008 STD_inoMedianFilterFx Source=main Reference=ref
-fx_sweep_ino_b 0009 STD_inoMedianFx Source=main Reference=ref
-fx_sweep_ino_b 0010 STD_inoMotionBlurFx Source=main
-fx_sweep_ino_b 0011 STD_inoMotionWindFx Source=main Reference=ref
-fx_sweep_ino_b 0012 STD_inoMultiplyFx Fore=main Back=back
-fx_sweep_ino_b 0013 STD_inoNegateFx Source=main
-fx_sweep_ino_b 0014 STD_inoOverFx Fore=main Back=back
-fx_sweep_ino_b 0015 STD_inoOverlayFx Fore=main Back=back
-fx_sweep_ino_b 0016 STD_inoPinLightFx Fore=main Back=back
-fx_sweep_ino_c 0001 STD_inoRadialBlurFx Source=main Reference=ref
-fx_sweep_ino_c 0002 STD_inoScreenFx Fore=main Back=back
-fx_sweep_ino_c 0003 STD_inoSoftLightFx Fore=main Back=back
-fx_sweep_ino_c 0004 STD_inoSpinBlurFx Source=main Reference=ref
-fx_sweep_ino_c 0005 STD_inoSubtractFx Fore=main Back=back
-fx_sweep_ino_c 0006 STD_inoVividLightFx Fore=main Back=back
-fx_sweep_ino_c 0007 STD_inoWarphvFx Source=main Hori=ref Vert=ref
-fx_sweep_ino_c 0008 STD_inohlsAddFx Source=main Noise=ref Reference=ref
-fx_sweep_ino_c 0009 STD_inohlsAdjustFx Source=main Reference=ref
-fx_sweep_ino_c 0010 STD_inohlsNoiseFx Source=main Reference=ref
-fx_sweep_ino_c 0011 STD_inohsvAddFx Source=main Noise=ref Reference=ref
-fx_sweep_ino_c 0012 STD_inohsvAdjustFx Source=main Reference=ref
-fx_sweep_ino_c 0013 STD_inohsvNoiseFx Source=main Reference=ref
-fx_sweep_ino_c 0014 STD_inopnCloudsFx 
+fx_sweep_ino_b 0003 STD_inoLinearBurnFx Fore=main Back=back
+fx_sweep_ino_b 0004 STD_inoLinearDodgeFx Fore=main Back=back
+fx_sweep_ino_b 0005 STD_inoLinearLightFx Fore=main Back=back
+fx_sweep_ino_b 0006 STD_inoMaxMinFx Source=main Reference=ref
+fx_sweep_ino_b 0007 STD_inoMedianFilterFx Source=main Reference=ref
+fx_sweep_ino_b 0008 STD_inoMedianFx Source=main Reference=ref
+fx_sweep_ino_b 0009 STD_inoMotionBlurFx Source=main
+fx_sweep_ino_b 0010 STD_inoMotionWindFx Source=main Reference=ref
+fx_sweep_ino_b 0011 STD_inoMultiplyFx Fore=main Back=back
+fx_sweep_ino_b 0012 STD_inoNegateFx Source=main
+fx_sweep_ino_b 0013 STD_inoOverFx Fore=main Back=back
+fx_sweep_ino_b 0014 STD_inoOverlayFx Fore=main Back=back
+fx_sweep_ino_b 0015 STD_inoPinLightFx Fore=main Back=back
+fx_sweep_ino_b 0016 STD_inoRadialBlurFx Source=main Reference=ref
+fx_sweep_ino_c 0001 STD_inoScreenFx Fore=main Back=back
+fx_sweep_ino_c 0002 STD_inoSoftLightFx Fore=main Back=back
+fx_sweep_ino_c 0003 STD_inoSpinBlurFx Source=main Reference=ref
+fx_sweep_ino_c 0004 STD_inoSubtractFx Fore=main Back=back
+fx_sweep_ino_c 0005 STD_inoVividLightFx Fore=main Back=back
+fx_sweep_ino_c 0006 STD_inoWarphvFx Source=main Hori=ref Vert=ref
+fx_sweep_ino_c 0007 STD_inohlsAddFx Source=main Noise=ref Reference=ref
+fx_sweep_ino_c 0008 STD_inohlsAdjustFx Source=main Reference=ref
+fx_sweep_ino_c 0009 STD_inohlsNoiseFx Source=main Reference=ref
+fx_sweep_ino_c 0010 STD_inohsvAddFx Source=main Noise=ref Reference=ref
+fx_sweep_ino_c 0011 STD_inohsvAdjustFx Source=main Reference=ref
+fx_sweep_ino_c 0012 STD_inohsvNoiseFx Source=main Reference=ref
+fx_sweep_ino_c 0013 STD_inopnCloudsFx 
 fx_sweep_iwa_a 0001 STD_iwa_AdjustExposureFx Source=main
 fx_sweep_iwa_a 0002 STD_iwa_BarrelDistortFx Source=main
 fx_sweep_iwa_a 0003 STD_iwa_BloomFx Source=main
@@ -168,6 +167,7 @@ fx_sweep_gpuin_a 0002 SHADER_glitter Source=main
 fx_sweep_gpuin_a 0003 SHADER_radialblurGPU Source=main
 fx_sweep_gpuin_a 0004 SHADER_spinblurGPU Source=main
 # not swept: STD_externalPaletteFx (needs a palette column, not built yet)
+# not swept: STD_inoLineBlurFx (missing from debug builds, where a scene with it does not load)
 # not swept: STD_iwa_TiledParticlesFx (needs its texture on the earlier frames too, not built yet)
 # not swept: STD_particlesFx (in particles_basic; its default sprite needs OpenGL)
 # not swept: Toonz_columnFx (internal fx)

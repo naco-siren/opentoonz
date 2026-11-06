@@ -393,7 +393,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='3'/><level id='2'/><level id='1'/><level id='4'/>
+        <level id='2'/><level id='1'/><level id='3'/><level id='4'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -1934,7 +1934,86 @@
     <fxnodes>
       <internal>
         <fxnode>
-          <STD_randomWaveFx id='43'>
+          <STD_rgbmCutFx id='43'>
+            
+            <params>
+              <globalIntensity>
+                <default>
+                  1 
+                </default>
+                </globalIntensity>
+              <r_range>
+                <min>
+                  <default>
+                    60 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    200 
+                  </default>
+                  </max>
+                </r_range>
+              <g_range>
+                <min>
+                  <default>
+                    30 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    220 
+                  </default>
+                  </max>
+                </g_range>
+              <b_range>
+                <min>
+                  <default>
+                    0 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    255 
+                  </default>
+                  </max>
+                </b_range>
+              <m_range>
+                <min>
+                  <default>
+                    0 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    255 
+                  </default>
+                  </max>
+                </m_range>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='15'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              RGBACut01 
+            </name>
+            <fxId>
+              RGBACut01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_rgbmCutFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_randomWaveFx id='44'>
             
             <params>
               <intensity>
@@ -1985,77 +2064,6 @@
             </opened>
             
           </STD_randomWaveFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_rgbKeyFx id='44'>
-            
-            <params>
-              <globalIntensity>
-                <default>
-                  1 
-                </default>
-                </globalIntensity>
-              <color>
-                <red>
-                  <default>
-                    0 
-                  </default>
-                  </red>
-                <green>
-                  <default>
-                    0 
-                  </default>
-                  </green>
-                <blue>
-                  <default>
-                    0 
-                  </default>
-                  </blue>
-                <matte>
-                  <default>
-                    1 
-                  </default>
-                  </matte>
-                </color>
-              <r_range>
-                <default>
-                  0 
-                </default>
-                </r_range>
-              <g_range>
-                <default>
-                  0 
-                </default>
-                </g_range>
-              <b_range>
-                <default>
-                  0 
-                </default>
-                </b_range>
-              <invert>
-                0 0 
-              </invert>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='13'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              RGBKey01 
-            </name>
-            <fxId>
-              RGBKey01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_rgbKeyFx>
           
         </fxnode>
         <fxnode>
@@ -2150,41 +2158,182 @@
           
         </fxnode>
         <fxnode>
-          <STD_saltpepperNoiseFx id='46'>
+          <STD_rgbKeyFx id='46'>
             
             <params>
-              <Intensity>
+              <globalIntensity>
                 <default>
-                  30 
+                  1 
                 </default>
-                </Intensity>
-              <Animate>
+                </globalIntensity>
+              <color>
+                <red>
+                  <default>
+                    0 
+                  </default>
+                  </red>
+                <green>
+                  <default>
+                    0 
+                  </default>
+                  </green>
+                <blue>
+                  <default>
+                    0 
+                  </default>
+                  </blue>
+                <matte>
+                  <default>
+                    1 
+                  </default>
+                  </matte>
+                </color>
+              <r_range>
+                <default>
+                  0 
+                </default>
+                </r_range>
+              <g_range>
+                <default>
+                  0 
+                </default>
+                </g_range>
+              <b_range>
+                <default>
+                  0 
+                </default>
+                </b_range>
+              <invert>
                 0 0 
-              </Animate>
+              </invert>
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='25'/>
+                <Toonz_columnFx id='13'/>
               </Source>
               </ports>
             <numberId>
               1 
             </numberId>
             <name>
-              SaltPepperNoise01 
+              RGBKey01 
             </name>
             <fxId>
-              SaltPepperNoise01 
+              RGBKey01 
             </fxId>
             <opened>
               0 
             </opened>
             
-          </STD_saltpepperNoiseFx>
+          </STD_rgbKeyFx>
           
         </fxnode>
         <fxnode>
-          <STD_rippleFx id='47'>
+          <STD_rgbmFadeFx id='47'>
+            
+            <params>
+              <color>
+                <red>
+                  <default>
+                    0 
+                  </default>
+                  </red>
+                <green>
+                  <default>
+                    0 
+                  </default>
+                  </green>
+                <blue>
+                  <default>
+                    0 
+                  </default>
+                  </blue>
+                <matte>
+                  <default>
+                    255 
+                  </default>
+                  </matte>
+                </color>
+              <intensity>
+                <default>
+                  50 
+                </default>
+                </intensity>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='17'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              RGBFade01 
+            </name>
+            <fxId>
+              RGBFade01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_rgbmFadeFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_rgbmScaleFx id='48'>
+            
+            <params>
+              <globalIntensity>
+                <default>
+                  1 
+                </default>
+                </globalIntensity>
+              <red>
+                <default>
+                  40 
+                </default>
+                </red>
+              <green>
+                <default>
+                  100 
+                </default>
+                </green>
+              <blue>
+                <default>
+                  160 
+                </default>
+                </blue>
+              <matte>
+                <default>
+                  100 
+                </default>
+                </matte>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='19'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              RGBAScale01 
+            </name>
+            <fxId>
+              RGBAScale01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_rgbmScaleFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_rippleFx id='49'>
             
             <params>
               <period>
@@ -2265,38 +2414,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_sharpenFx id='48'>
-            
-            <params>
-              <intensity>
-                <default>
-                  50 
-                </default>
-                </intensity>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='27'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              Sharpen01 
-            </name>
-            <fxId>
-              Sharpen01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_sharpenFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_rotationalBlurFx id='49'>
+          <STD_rotationalBlurFx id='50'>
             
             <params>
               <point>
@@ -2344,161 +2462,43 @@
           
         </fxnode>
         <fxnode>
-          <STD_rgbmScaleFx id='50'>
+          <STD_saltpepperNoiseFx id='51'>
             
             <params>
-              <globalIntensity>
+              <Intensity>
                 <default>
-                  1 
+                  30 
                 </default>
-                </globalIntensity>
-              <red>
-                <default>
-                  40 
-                </default>
-                </red>
-              <green>
-                <default>
-                  100 
-                </default>
-                </green>
-              <blue>
-                <default>
-                  160 
-                </default>
-                </blue>
-              <matte>
-                <default>
-                  100 
-                </default>
-                </matte>
+                </Intensity>
+              <Animate>
+                0 0 
+              </Animate>
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='19'/>
+                <Toonz_columnFx id='25'/>
               </Source>
               </ports>
             <numberId>
               1 
             </numberId>
             <name>
-              RGBAScale01 
+              SaltPepperNoise01 
             </name>
             <fxId>
-              RGBAScale01 
+              SaltPepperNoise01 
             </fxId>
             <opened>
               0 
             </opened>
             
-          </STD_rgbmScaleFx>
+          </STD_saltpepperNoiseFx>
           
         </fxnode>
         <fxnode>
-          <STD_rgbmCutFx id='51'>
+          <STD_sharpenFx id='52'>
             
             <params>
-              <globalIntensity>
-                <default>
-                  1 
-                </default>
-                </globalIntensity>
-              <r_range>
-                <min>
-                  <default>
-                    60 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    200 
-                  </default>
-                  </max>
-                </r_range>
-              <g_range>
-                <min>
-                  <default>
-                    30 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    220 
-                  </default>
-                  </max>
-                </g_range>
-              <b_range>
-                <min>
-                  <default>
-                    0 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    255 
-                  </default>
-                  </max>
-                </b_range>
-              <m_range>
-                <min>
-                  <default>
-                    0 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    255 
-                  </default>
-                  </max>
-                </m_range>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='15'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              RGBACut01 
-            </name>
-            <fxId>
-              RGBACut01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_rgbmCutFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_rgbmFadeFx id='52'>
-            
-            <params>
-              <color>
-                <red>
-                  <default>
-                    0 
-                  </default>
-                  </red>
-                <green>
-                  <default>
-                    0 
-                  </default>
-                  </green>
-                <blue>
-                  <default>
-                    0 
-                  </default>
-                  </blue>
-                <matte>
-                  <default>
-                    255 
-                  </default>
-                  </matte>
-                </color>
               <intensity>
                 <default>
                   50 
@@ -2507,23 +2507,23 @@
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='17'/>
+                <Toonz_columnFx id='27'/>
               </Source>
               </ports>
             <numberId>
               1 
             </numberId>
             <name>
-              RGBFade01 
+              Sharpen01 
             </name>
             <fxId>
-              RGBFade01 
+              Sharpen01 
             </fxId>
             <opened>
               0 
             </opened>
             
-          </STD_rgbmFadeFx>
+          </STD_sharpenFx>
           
         </fxnode>
         <fxnode>
@@ -2608,37 +2608,37 @@
         </internal>
       <terminal>
         <fxnode>
-          <STD_randomWaveFx id='43'/>
-        </fxnode>
-        <fxnode>
-          <STD_rgbKeyFx id='44'/>
-        </fxnode>
-        <fxnode>
-          <STD_raylitFx id='45'/>
-        </fxnode>
-        <fxnode>
-          <STD_saltpepperNoiseFx id='46'/>
-        </fxnode>
-        <fxnode>
-          <STD_rippleFx id='47'/>
-        </fxnode>
-        <fxnode>
-          <STD_sharpenFx id='48'/>
-        </fxnode>
-        <fxnode>
-          <STD_rotationalBlurFx id='49'/>
-        </fxnode>
-        <fxnode>
-          <STD_rgbmScaleFx id='50'/>
-        </fxnode>
-        <fxnode>
-          <STD_rgbmCutFx id='51'/>
+          <STD_rgbmCutFx id='43'/>
         </fxnode>
         <fxnode>
           <Toonz_zeraryColumnFx id='6'/>
         </fxnode>
         <fxnode>
-          <STD_rgbmFadeFx id='52'/>
+          <STD_randomWaveFx id='44'/>
+        </fxnode>
+        <fxnode>
+          <STD_raylitFx id='45'/>
+        </fxnode>
+        <fxnode>
+          <STD_rgbKeyFx id='46'/>
+        </fxnode>
+        <fxnode>
+          <STD_rgbmFadeFx id='47'/>
+        </fxnode>
+        <fxnode>
+          <STD_rgbmScaleFx id='48'/>
+        </fxnode>
+        <fxnode>
+          <STD_rippleFx id='49'/>
+        </fxnode>
+        <fxnode>
+          <STD_rotationalBlurFx id='50'/>
+        </fxnode>
+        <fxnode>
+          <STD_saltpepperNoiseFx id='51'/>
+        </fxnode>
+        <fxnode>
+          <STD_sharpenFx id='52'/>
         </fxnode>
         <fxnode>
           <STD_solarizeFx id='53'/>

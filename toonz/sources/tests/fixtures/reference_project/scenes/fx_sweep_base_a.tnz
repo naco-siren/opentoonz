@@ -385,7 +385,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='1'/><level id='2'/><level id='3'/>
+        <level id='3'/><level id='1'/><level id='2'/>
       </levels>
       </folder>
     <folder name="Audio">

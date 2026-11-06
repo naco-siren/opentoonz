@@ -28,6 +28,7 @@ Phase 0 的测试在编写过程中发现了下面这些库行为。它们目前
 | 16 | `common/tvrender/tvectorbrushstyle.cpp`，`TVectorBrushStyle::saveData` | 没有笔刷的矢量笔刷样式（默认构造）一保存就解引用空指针崩溃。生成器给它配了 `stuff/library/vector brushes` 里的笔刷来绕开。 | `tests/fixtures/gen_reference_project.cpp`（矢量样式场景） |
 | 17 | `common/tparam/ttonecurveparam.cpp`，`TToneCurveParam::setDefaultValue` | 传入的控制点个数与参数已有的不同就解引用空指针崩溃，没有任何检查。生成器只移动已有的控制点。 | `tests/fixtures/gen_reference_project.cpp`（特效扫场） |
 | 18 | `stdfx/iwa_soapbubblefx.cpp`，`toonzlib/sandor_fxs/`（artContourFx 等），以及矢量样式的 OpenGL 绘制 | 渲染结果随平台变化的三个来源，都已实测：(a) `iwa_SoapBubbleFx` 和 `artContourFx` 用 C 库的 `rand()` 取随机数，序列因平台而异，同一场景在 Linux 和 macOS 上图案不同；(b) GLSL shader 特效的结果取决于驱动，连默认参数下的 sunflare 光芒条数都不同；(c) 特殊颜色样式用 OpenGL 的线、纹理和平滑绘制，Mesa llvmpipe 与 AMD 显卡之间每个样式格有中位数 3.4%、最多 28% 的像素不同。其余 156 个 CPU 特效在两个平台上的差异都在容差内。Phase 1 换成确定性的 CPU 光栅化并统一随机数来源后应当消失；在那之前这些场景只在 Linux 上比较。 | macOS 本机与 Linux CI 渲染结果的对比 |
+| 19 | `stdfx/ino_line_blur.cpp` | 整个文件包在 `#ifdef NDEBUG` 里，Debug 构建里没有 `inoLineBlurFx` 这个特效：含它的场景在 Debug 构建下加载失败（"unable to create a persistent 'STD_inoLineBlurFx'"）。原因不明。特效扫场因此不包含它。 | 清洁剂 CI（Debug 构建）加载 `fx_sweep_ino_b` |
 | 5 | `tnzext/ttexturemesh` 与 `plasticdeformer.cpp` | `TTextureMesh::faceContains` 用严格符号判断，正好落在网格边上的骨骼句柄不属于任何面，`PlasticDeformer::compile()` 会静默丢掉它，网格只做刚体旋转。 | `tests/fixtures/gen_reference_project.cpp`（生成器把关节放在 y=3.3 避开边） |
 
 清洁剂 CI（`workflow_sanitizers.yml`）目前关闭了泄漏检测（`detect_leaks=0`），修掉第 10 到 12 条后可以打开。它除单测外也用清洁剂构建的 tcomposer 跑全部 golden 场景并以 `halt_on_error=1` 阻塞，第 14 条这类“只在另一种架构上出错”的未定义行为因此会先在 Linux x86-64 上被 UBSan 抓住。

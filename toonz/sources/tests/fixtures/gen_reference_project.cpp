@@ -1520,6 +1520,8 @@ const char *sweepExclusion(const TFxInfo &info) {
   if (info.m_name == "externalProgramFx") return "runs an external program";
   if (info.m_name == "STD_particlesFx")
     return "in particles_basic; its default sprite needs OpenGL";
+  if (info.m_name == "STD_inoLineBlurFx")
+    return "missing from debug builds, where a scene with it does not load";
   if (info.m_name == "STD_iwa_TiledParticlesFx")
     return "needs its texture on the earlier frames too, not built yet";
   if (info.m_name == "STD_externalPaletteFx")

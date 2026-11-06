@@ -385,7 +385,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='2'/><level id='3'/><level id='1'/>
+        <level id='3'/><level id='1'/><level id='2'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -3510,54 +3510,14 @@
     <fxnodes>
       <internal>
         <fxnode>
-          <STD_iwa_DirectionalBlurFx id='87'>
+          <STD_iwa_AdjustExposureFx id='87'>
             
             <params>
-              <angle>
+              <hardness>
                 <default>
-                  0 
+                  3.3 
                 </default>
-                </angle>
-              <intensity>
-                <default>
-                  10 
-                </default>
-                </intensity>
-              <bidirectional>
-                0 0 
-              </bidirectional>
-              <filterType>
-                0 
-              </filterType>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='46'/>
-              </Source>
-              <Reference>
-                <Toonz_columnFx id='48'/>
-              </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              DirectionalBlurIwa01 
-            </name>
-            <fxId>
-              DirectionalBlurIwa01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_iwa_DirectionalBlurFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_iwa_BloomFx id='88'>
-            
-            <params>
+                </hardness>
               <gamma>
                 <default>
                   2.2 
@@ -3568,46 +3528,30 @@
                   0 
                 </default>
                 </gammaAdjust>
-              <auto_gain>
-                0 0 
-              </auto_gain>
-              <gain_adjust>
+              <scale>
                 <default>
-                  0 
+                  1.5 
                 </default>
-                </gain_adjust>
-              <gain>
+                </scale>
+              <offset>
                 <default>
-                  2 
+                  0.05 
                 </default>
-                </gain>
-              <decay>
-                <default>
-                  1 
-                </default>
-                </decay>
-              <size>
-                <default>
-                  100 
-                </default>
-                </size>
-              <alpha_mode>
-                0 
-              </alpha_mode>
+                </offset>
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='9'/>
+                <Toonz_columnFx id='5'/>
               </Source>
               </ports>
             <numberId>
               1 
             </numberId>
             <name>
-              BloomIwa01 
+              AdjustExposureIwa01 
             </name>
             <fxId>
-              BloomIwa01 
+              AdjustExposureIwa01 
             </fxId>
             <opened>
               0 
@@ -3616,11 +3560,326 @@
               3 
             </fxVersion>
             
-          </STD_iwa_BloomFx>
+          </STD_iwa_AdjustExposureFx>
           
         </fxnode>
         <fxnode>
-          <STD_iwa_BokehAdvancedFx id='89'>
+          <STD_iwa_BokehRefFx id='88'>
+            
+            <params>
+              <on_focus_distance>
+                <default>
+                  0.5 
+                </default>
+                </on_focus_distance>
+              <bokeh_amount>
+                <default>
+                  30 
+                </default>
+                </bokeh_amount>
+              <hardness>
+                <default>
+                  0.3 
+                </default>
+                </hardness>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <gammaAdjust>
+                <default>
+                  0 
+                </default>
+                </gammaAdjust>
+              <distance_precision>
+                10 10 
+              </distance_precision>
+              <fill_gap>
+                1 1 
+              </fill_gap>
+              <fill_gap_with_median_filter>
+                1 1 
+              </fill_gap_with_median_filter>
+              <linearizeMode>
+                0 
+              </linearizeMode>
+              </params>
+            <ports>
+              <Iris>
+                <Toonz_columnFx id='37'/>
+              </Iris>
+              <Source>
+                <Toonz_columnFx id='39'/>
+              </Source>
+              <Depth>
+                <Toonz_columnFx id='41'/>
+              </Depth>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              BokehRefIwa01 
+            </name>
+            <fxId>
+              BokehRefIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              3 
+            </fxVersion>
+            
+          </STD_iwa_BokehRefFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FlowPaintBrushFx id='89'>
+            
+            <params>
+              <h_density>
+                <default>
+                  10 
+                </default>
+                </h_density>
+              <v_density>
+                <default>
+                  10 
+                </default>
+                </v_density>
+              <pos_randomness>
+                <default>
+                  1 
+                </default>
+                </pos_randomness>
+              <pos_wobble>
+                <default>
+                  0 
+                </default>
+                </pos_wobble>
+              <tip_width>
+                <min>
+                  <default>
+                    0.02 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    0.05 
+                  </default>
+                  </max>
+                </tip_width>
+              <tip_length>
+                <min>
+                  <default>
+                    0.08 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    0.2 
+                  </default>
+                  </max>
+                </tip_length>
+              <tip_alpha>
+                <min>
+                  <default>
+                    0.8 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    1 
+                  </default>
+                  </max>
+                </tip_alpha>
+              <tip_joints>
+                3 3 
+              </tip_joints>
+              <bidirectional>
+                1 1 
+              </bidirectional>
+              <width_randomness>
+                <default>
+                  0 
+                </default>
+                </width_randomness>
+              <length_randomness>
+                <default>
+                  0 
+                </default>
+                </length_randomness>
+              <angle_randomness>
+                <default>
+                  0 
+                </default>
+                </angle_randomness>
+              <sustain_width_to_skew>
+                <default>
+                  0 
+                </default>
+                </sustain_width_to_skew>
+              <anti_jaggy>
+                0 0 
+              </anti_jaggy>
+              <origin_pos>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </origin_pos>
+              <horizontal_pos>
+                <x>
+                  <default>
+                    100 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </horizontal_pos>
+              <vertical_pos>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    100 
+                  </default>
+                  </y>
+                </vertical_pos>
+              <curve_point>
+                <x>
+                  <default>
+                    0 
+                  </default>
+                  </x>
+                <y>
+                  <default>
+                    0 
+                  </default>
+                  </y>
+                </curve_point>
+              <fill_gap_size>
+                <default>
+                  0 
+                </default>
+                </fill_gap_size>
+              <reference_frame>
+                <default>
+                  0 
+                </default>
+                </reference_frame>
+              <reference_prevalence>
+                <default>
+                  0 
+                </default>
+                </reference_prevalence>
+              <random_seed>
+                1 1 
+              </random_seed>
+              <sort_by>
+                0 
+              </sort_by>
+              </params>
+            <ports>
+              <Brush>
+                <Toonz_columnFx id='62'/>
+              </Brush>
+              <Flow>
+                <Toonz_columnFx id='64'/>
+              </Flow>
+              <Area>
+                <Toonz_columnFx id='66'/>
+              </Area>
+              <Color>
+                <Toonz_columnFx id='68'/>
+              </Color>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              FlowPaintBrushIwa01 
+            </name>
+            <fxId>
+              FlowPaintBrushIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            <fxVersion>
+              2 
+            </fxVersion>
+            
+          </STD_iwa_FlowPaintBrushFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FlowBlurFx id='90'>
+            
+            <params>
+              <length>
+                <default>
+                  20 
+                </default>
+                </length>
+              <linear>
+                0 0 
+              </linear>
+              <gamma>
+                <default>
+                  2.2 
+                </default>
+                </gamma>
+              <filterType>
+                0 
+              </filterType>
+              <referenceMode>
+                0 
+              </referenceMode>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='56'/>
+              </Source>
+              <Flow>
+                <Toonz_columnFx id='58'/>
+              </Flow>
+              <Reference>
+                <Toonz_columnFx id='60'/>
+              </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              FlowBlurIwa01 
+            </name>
+            <fxId>
+              FlowBlurIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_FlowBlurFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BokehAdvancedFx id='91'>
             
             <params>
               <on_focus_distance>
@@ -3893,252 +4152,7 @@
           
         </fxnode>
         <fxnode>
-          <STD_iwa_AdjustExposureFx id='90'>
-            
-            <params>
-              <hardness>
-                <default>
-                  3.3 
-                </default>
-                </hardness>
-              <gamma>
-                <default>
-                  2.2 
-                </default>
-                </gamma>
-              <gammaAdjust>
-                <default>
-                  0 
-                </default>
-                </gammaAdjust>
-              <scale>
-                <default>
-                  1.5 
-                </default>
-                </scale>
-              <offset>
-                <default>
-                  0.05 
-                </default>
-                </offset>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='5'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              AdjustExposureIwa01 
-            </name>
-            <fxId>
-              AdjustExposureIwa01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            <fxVersion>
-              3 
-            </fxVersion>
-            
-          </STD_iwa_AdjustExposureFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_iwa_FloorBumpFx id='91'>
-            
-            <params>
-              <renderMode>
-                0 
-              </renderMode>
-              <fov>
-                <default>
-                  30 
-                </default>
-                </fov>
-              <cameraAltitude>
-                <default>
-                  0 
-                </default>
-                </cameraAltitude>
-              <eyeLevel>
-                <default>
-                  0 
-                </default>
-                </eyeLevel>
-              <drawLevel>
-                <default>
-                  -50 
-                </default>
-                </drawLevel>
-              <waveHeight>
-                <default>
-                  10 
-                </default>
-                </waveHeight>
-              <differenceMode>
-                0 0 
-              </differenceMode>
-              <textureOffsetAmount>
-                <default>
-                  0 
-                </default>
-                </textureOffsetAmount>
-              <textureOffsetSpread>
-                <default>
-                  10 
-                </default>
-                </textureOffsetSpread>
-              <sourcePrecision>
-                <default>
-                  1.84615 
-                </default>
-                </sourcePrecision>
-              <souceMargin>
-                <default>
-                  0 
-                </default>
-                </souceMargin>
-              <displacement>
-                <default>
-                  0 
-                </default>
-                </displacement>
-              <lightAzimuth>
-                <default>
-                  -135 
-                </default>
-                </lightAzimuth>
-              <lightElevation>
-                <default>
-                  30 
-                </default>
-                </lightElevation>
-              <depth>
-                <default>
-                  30 
-                </default>
-                </depth>
-              <refractiveIndex>
-                <default>
-                  1.33333 
-                </default>
-                </refractiveIndex>
-              <distanceLevel>
-                <default>
-                  -100 
-                </default>
-                </distanceLevel>
-              </params>
-            <ports>
-              <Height>
-                <Toonz_columnFx id='50'/>
-              </Height>
-              <Texture>
-                <Toonz_columnFx id='52'/>
-              </Texture>
-              <Displacement>
-                <Toonz_columnFx id='54'/>
-              </Displacement>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              FloorBumpIwa01 
-            </name>
-            <fxId>
-              FloorBumpIwa01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_iwa_FloorBumpFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_iwa_BarrelDistortFx id='92'>
-            
-            <params>
-              <center>
-                <x>
-                  <default>
-                    0 
-                  </default>
-                  </x>
-                <y>
-                  <default>
-                    0 
-                  </default>
-                  </y>
-                </center>
-              <distortion>
-                <default>
-                  0.5 
-                </default>
-                </distortion>
-              <distortionAspect>
-                <default>
-                  1 
-                </default>
-                </distortionAspect>
-              <precision>
-                <default>
-                  1 
-                </default>
-                </precision>
-              <chromaticAberration>
-                <default>
-                  0.05 
-                </default>
-                </chromaticAberration>
-              <vignetteAmount>
-                <default>
-                  0.6 
-                </default>
-                </vignetteAmount>
-              <vignetteGamma>
-                <default>
-                  1 
-                </default>
-                </vignetteGamma>
-              <vignetteMidpoint>
-                <default>
-                  0.5 
-                </default>
-                </vignetteMidpoint>
-              <scale>
-                <default>
-                  1 
-                </default>
-                </scale>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='7'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              BarrelDistortIwa01 
-            </name>
-            <fxId>
-              BarrelDistortIwa01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_iwa_BarrelDistortFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_iwa_BokehFx id='93'>
+          <STD_iwa_BokehFx id='92'>
             
             <params>
               <on_focus_distance>
@@ -4275,146 +4289,10 @@
           
         </fxnode>
         <fxnode>
-          <STD_iwa_FlowBlurFx id='94'>
+          <STD_iwa_BarrelDistortFx id='93'>
             
             <params>
-              <length>
-                <default>
-                  20 
-                </default>
-                </length>
-              <linear>
-                0 0 
-              </linear>
-              <gamma>
-                <default>
-                  2.2 
-                </default>
-                </gamma>
-              <filterType>
-                0 
-              </filterType>
-              <referenceMode>
-                0 
-              </referenceMode>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='56'/>
-              </Source>
-              <Flow>
-                <Toonz_columnFx id='58'/>
-              </Flow>
-              <Reference>
-                <Toonz_columnFx id='60'/>
-              </Reference>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              FlowBlurIwa01 
-            </name>
-            <fxId>
-              FlowBlurIwa01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_iwa_FlowBlurFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_iwa_FlowPaintBrushFx id='95'>
-            
-            <params>
-              <h_density>
-                <default>
-                  10 
-                </default>
-                </h_density>
-              <v_density>
-                <default>
-                  10 
-                </default>
-                </v_density>
-              <pos_randomness>
-                <default>
-                  1 
-                </default>
-                </pos_randomness>
-              <pos_wobble>
-                <default>
-                  0 
-                </default>
-                </pos_wobble>
-              <tip_width>
-                <min>
-                  <default>
-                    0.02 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    0.05 
-                  </default>
-                  </max>
-                </tip_width>
-              <tip_length>
-                <min>
-                  <default>
-                    0.08 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    0.2 
-                  </default>
-                  </max>
-                </tip_length>
-              <tip_alpha>
-                <min>
-                  <default>
-                    0.8 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    1 
-                  </default>
-                  </max>
-                </tip_alpha>
-              <tip_joints>
-                3 3 
-              </tip_joints>
-              <bidirectional>
-                1 1 
-              </bidirectional>
-              <width_randomness>
-                <default>
-                  0 
-                </default>
-                </width_randomness>
-              <length_randomness>
-                <default>
-                  0 
-                </default>
-                </length_randomness>
-              <angle_randomness>
-                <default>
-                  0 
-                </default>
-                </angle_randomness>
-              <sustain_width_to_skew>
-                <default>
-                  0 
-                </default>
-                </sustain_width_to_skew>
-              <anti_jaggy>
-                0 0 
-              </anti_jaggy>
-              <origin_pos>
+              <center>
                 <x>
                   <default>
                     0 
@@ -4425,117 +4303,73 @@
                     0 
                   </default>
                   </y>
-                </origin_pos>
-              <horizontal_pos>
-                <x>
-                  <default>
-                    100 
-                  </default>
-                  </x>
-                <y>
-                  <default>
-                    0 
-                  </default>
-                  </y>
-                </horizontal_pos>
-              <vertical_pos>
-                <x>
-                  <default>
-                    0 
-                  </default>
-                  </x>
-                <y>
-                  <default>
-                    100 
-                  </default>
-                  </y>
-                </vertical_pos>
-              <curve_point>
-                <x>
-                  <default>
-                    0 
-                  </default>
-                  </x>
-                <y>
-                  <default>
-                    0 
-                  </default>
-                  </y>
-                </curve_point>
-              <fill_gap_size>
-                <default>
-                  0 
-                </default>
-                </fill_gap_size>
-              <reference_frame>
-                <default>
-                  0 
-                </default>
-                </reference_frame>
-              <reference_prevalence>
-                <default>
-                  0 
-                </default>
-                </reference_prevalence>
-              <random_seed>
-                1 1 
-              </random_seed>
-              <sort_by>
-                0 
-              </sort_by>
-              </params>
-            <ports>
-              <Brush>
-                <Toonz_columnFx id='62'/>
-              </Brush>
-              <Flow>
-                <Toonz_columnFx id='64'/>
-              </Flow>
-              <Area>
-                <Toonz_columnFx id='66'/>
-              </Area>
-              <Color>
-                <Toonz_columnFx id='68'/>
-              </Color>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              FlowPaintBrushIwa01 
-            </name>
-            <fxId>
-              FlowPaintBrushIwa01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            <fxVersion>
-              2 
-            </fxVersion>
-            
-          </STD_iwa_FlowPaintBrushFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_iwa_BokehRefFx id='96'>
-            
-            <params>
-              <on_focus_distance>
+                </center>
+              <distortion>
                 <default>
                   0.5 
                 </default>
-                </on_focus_distance>
-              <bokeh_amount>
+                </distortion>
+              <distortionAspect>
                 <default>
-                  30 
+                  1 
                 </default>
-                </bokeh_amount>
-              <hardness>
+                </distortionAspect>
+              <precision>
                 <default>
-                  0.3 
+                  1 
                 </default>
-                </hardness>
+                </precision>
+              <chromaticAberration>
+                <default>
+                  0.05 
+                </default>
+                </chromaticAberration>
+              <vignetteAmount>
+                <default>
+                  0.6 
+                </default>
+                </vignetteAmount>
+              <vignetteGamma>
+                <default>
+                  1 
+                </default>
+                </vignetteGamma>
+              <vignetteMidpoint>
+                <default>
+                  0.5 
+                </default>
+                </vignetteMidpoint>
+              <scale>
+                <default>
+                  1 
+                </default>
+                </scale>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='7'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              BarrelDistortIwa01 
+            </name>
+            <fxId>
+              BarrelDistortIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_BarrelDistortFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BloomFx id='94'>
+            
+            <params>
               <gamma>
                 <default>
                   2.2 
@@ -4546,38 +4380,46 @@
                   0 
                 </default>
                 </gammaAdjust>
-              <distance_precision>
-                10 10 
-              </distance_precision>
-              <fill_gap>
-                1 1 
-              </fill_gap>
-              <fill_gap_with_median_filter>
-                1 1 
-              </fill_gap_with_median_filter>
-              <linearizeMode>
+              <auto_gain>
+                0 0 
+              </auto_gain>
+              <gain_adjust>
+                <default>
+                  0 
+                </default>
+                </gain_adjust>
+              <gain>
+                <default>
+                  2 
+                </default>
+                </gain>
+              <decay>
+                <default>
+                  1 
+                </default>
+                </decay>
+              <size>
+                <default>
+                  100 
+                </default>
+                </size>
+              <alpha_mode>
                 0 
-              </linearizeMode>
+              </alpha_mode>
               </params>
             <ports>
-              <Iris>
-                <Toonz_columnFx id='37'/>
-              </Iris>
               <Source>
-                <Toonz_columnFx id='39'/>
+                <Toonz_columnFx id='9'/>
               </Source>
-              <Depth>
-                <Toonz_columnFx id='41'/>
-              </Depth>
               </ports>
             <numberId>
               1 
             </numberId>
             <name>
-              BokehRefIwa01 
+              BloomIwa01 
             </name>
             <fxId>
-              BokehRefIwa01 
+              BloomIwa01 
             </fxId>
             <opened>
               0 
@@ -4586,7 +4428,165 @@
               3 
             </fxVersion>
             
-          </STD_iwa_BokehRefFx>
+          </STD_iwa_BloomFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FloorBumpFx id='95'>
+            
+            <params>
+              <renderMode>
+                0 
+              </renderMode>
+              <fov>
+                <default>
+                  30 
+                </default>
+                </fov>
+              <cameraAltitude>
+                <default>
+                  0 
+                </default>
+                </cameraAltitude>
+              <eyeLevel>
+                <default>
+                  0 
+                </default>
+                </eyeLevel>
+              <drawLevel>
+                <default>
+                  -50 
+                </default>
+                </drawLevel>
+              <waveHeight>
+                <default>
+                  10 
+                </default>
+                </waveHeight>
+              <differenceMode>
+                0 0 
+              </differenceMode>
+              <textureOffsetAmount>
+                <default>
+                  0 
+                </default>
+                </textureOffsetAmount>
+              <textureOffsetSpread>
+                <default>
+                  10 
+                </default>
+                </textureOffsetSpread>
+              <sourcePrecision>
+                <default>
+                  1.84615 
+                </default>
+                </sourcePrecision>
+              <souceMargin>
+                <default>
+                  0 
+                </default>
+                </souceMargin>
+              <displacement>
+                <default>
+                  0 
+                </default>
+                </displacement>
+              <lightAzimuth>
+                <default>
+                  -135 
+                </default>
+                </lightAzimuth>
+              <lightElevation>
+                <default>
+                  30 
+                </default>
+                </lightElevation>
+              <depth>
+                <default>
+                  30 
+                </default>
+                </depth>
+              <refractiveIndex>
+                <default>
+                  1.33333 
+                </default>
+                </refractiveIndex>
+              <distanceLevel>
+                <default>
+                  -100 
+                </default>
+                </distanceLevel>
+              </params>
+            <ports>
+              <Height>
+                <Toonz_columnFx id='50'/>
+              </Height>
+              <Texture>
+                <Toonz_columnFx id='52'/>
+              </Texture>
+              <Displacement>
+                <Toonz_columnFx id='54'/>
+              </Displacement>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              FloorBumpIwa01 
+            </name>
+            <fxId>
+              FloorBumpIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_FloorBumpFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_iwa_DirectionalBlurFx id='96'>
+            
+            <params>
+              <angle>
+                <default>
+                  0 
+                </default>
+                </angle>
+              <intensity>
+                <default>
+                  10 
+                </default>
+                </intensity>
+              <bidirectional>
+                0 0 
+              </bidirectional>
+              <filterType>
+                0 
+              </filterType>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='46'/>
+              </Source>
+              <Reference>
+                <Toonz_columnFx id='48'/>
+              </Reference>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              DirectionalBlurIwa01 
+            </name>
+            <fxId>
+              DirectionalBlurIwa01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_iwa_DirectionalBlurFx>
           
         </fxnode>
         <fxnode>
@@ -4845,37 +4845,37 @@
         </internal>
       <terminal>
         <fxnode>
-          <STD_iwa_DirectionalBlurFx id='87'/>
+          <STD_iwa_AdjustExposureFx id='87'/>
         </fxnode>
         <fxnode>
-          <STD_iwa_BloomFx id='88'/>
+          <STD_iwa_BokehRefFx id='88'/>
         </fxnode>
         <fxnode>
-          <STD_iwa_BokehAdvancedFx id='89'/>
+          <STD_iwa_FlowPaintBrushFx id='89'/>
         </fxnode>
         <fxnode>
-          <STD_iwa_AdjustExposureFx id='90'/>
+          <STD_iwa_FlowBlurFx id='90'/>
         </fxnode>
         <fxnode>
-          <STD_iwa_FloorBumpFx id='91'/>
+          <STD_iwa_BokehAdvancedFx id='91'/>
         </fxnode>
         <fxnode>
-          <STD_iwa_BarrelDistortFx id='92'/>
+          <STD_iwa_BokehFx id='92'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BarrelDistortFx id='93'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_BloomFx id='94'/>
+        </fxnode>
+        <fxnode>
+          <STD_iwa_FloorBumpFx id='95'/>
         </fxnode>
         <fxnode>
           <Toonz_zeraryColumnFx id='43'/>
         </fxnode>
         <fxnode>
-          <STD_iwa_BokehFx id='93'/>
-        </fxnode>
-        <fxnode>
-          <STD_iwa_FlowBlurFx id='94'/>
-        </fxnode>
-        <fxnode>
-          <STD_iwa_FlowPaintBrushFx id='95'/>
-        </fxnode>
-        <fxnode>
-          <STD_iwa_BokehRefFx id='96'/>
+          <STD_iwa_DirectionalBlurFx id='96'/>
         </fxnode>
         <fxnode>
           <Toonz_zeraryColumnFx id='70'/>

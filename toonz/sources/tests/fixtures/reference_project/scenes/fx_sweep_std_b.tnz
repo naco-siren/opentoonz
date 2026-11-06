@@ -385,7 +385,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='3'/><level id='1'/><level id='2'/>
+        <level id='1'/><level id='2'/><level id='3'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -1861,80 +1861,41 @@
     <fxnodes>
       <internal>
         <fxnode>
-          <STD_directionalBlurFx id='41'>
+          <STD_erodeDilateFx id='41'>
             
             <params>
-              <intensity>
+              <type>
+                0 
+              </type>
+              <radius>
                 <default>
-                  10 
+                  3 
                 </default>
-                </intensity>
-              <bidirectional>
-                0 0 
-              </bidirectional>
-              <spread>
-                1 1 
-              </spread>
-              <angle>
-                <default>
-                  0 
-                </default>
-                </angle>
+                </radius>
               </params>
             <ports>
               <Source>
-                <Toonz_columnFx id='5'/>
+                <Toonz_columnFx id='13'/>
               </Source>
               </ports>
             <numberId>
               1 
             </numberId>
             <name>
-              DirectionalBlur01 
+              ErodeDilate01 
             </name>
             <fxId>
-              DirectionalBlur01 
+              ErodeDilate01 
             </fxId>
             <opened>
               0 
             </opened>
             
-          </STD_directionalBlurFx>
+          </STD_erodeDilateFx>
           
         </fxnode>
         <fxnode>
-          <STD_dissolveFx id='42'>
-            
-            <params>
-              <intensity>
-                <default>
-                  30 
-                </default>
-                </intensity>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='7'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              Dissolve01 
-            </name>
-            <fxId>
-              Dissolve01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_dissolveFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_dropShadowFx id='43'>
+          <STD_dropShadowFx id='42'>
             
             <params>
               <color>
@@ -2019,7 +1980,111 @@
           
         </fxnode>
         <fxnode>
-          <STD_embossFx id='44'>
+          <STD_fadeFx id='43'>
+            
+            <params>
+              <value>
+                <default>
+                  50 
+                </default>
+                </value>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='15'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              Transparency01 
+            </name>
+            <fxId>
+              Transparency01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_fadeFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_directionalBlurFx id='44'>
+            
+            <params>
+              <intensity>
+                <default>
+                  10 
+                </default>
+                </intensity>
+              <bidirectional>
+                0 0 
+              </bidirectional>
+              <spread>
+                1 1 
+              </spread>
+              <angle>
+                <default>
+                  0 
+                </default>
+                </angle>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='5'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              DirectionalBlur01 
+            </name>
+            <fxId>
+              DirectionalBlur01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_directionalBlurFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_dissolveFx id='45'>
+            
+            <params>
+              <intensity>
+                <default>
+                  30 
+                </default>
+                </intensity>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='7'/>
+              </Source>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              Dissolve01 
+            </name>
+            <fxId>
+              Dissolve01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_dissolveFx>
+          
+        </fxnode>
+        <fxnode>
+          <STD_embossFx id='46'>
             
             <params>
               <intensity>
@@ -2062,71 +2127,6 @@
             </opened>
             
           </STD_embossFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_erodeDilateFx id='45'>
-            
-            <params>
-              <type>
-                0 
-              </type>
-              <radius>
-                <default>
-                  3 
-                </default>
-                </radius>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='13'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              ErodeDilate01 
-            </name>
-            <fxId>
-              ErodeDilate01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_erodeDilateFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_fadeFx id='46'>
-            
-            <params>
-              <value>
-                <default>
-                  50 
-                </default>
-                </value>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='15'/>
-              </Source>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              Transparency01 
-            </name>
-            <fxId>
-              Transparency01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_fadeFx>
           
         </fxnode>
         <fxnode>
@@ -2602,22 +2602,22 @@
         </internal>
       <terminal>
         <fxnode>
-          <STD_directionalBlurFx id='41'/>
+          <STD_erodeDilateFx id='41'/>
         </fxnode>
         <fxnode>
-          <STD_dissolveFx id='42'/>
+          <STD_dropShadowFx id='42'/>
         </fxnode>
         <fxnode>
-          <STD_dropShadowFx id='43'/>
+          <STD_fadeFx id='43'/>
         </fxnode>
         <fxnode>
-          <STD_embossFx id='44'/>
+          <STD_directionalBlurFx id='44'/>
         </fxnode>
         <fxnode>
-          <STD_erodeDilateFx id='45'/>
+          <STD_dissolveFx id='45'/>
         </fxnode>
         <fxnode>
-          <STD_fadeFx id='46'/>
+          <STD_embossFx id='46'/>
         </fxnode>
         <fxnode>
           <Toonz_zeraryColumnFx id='17'/>

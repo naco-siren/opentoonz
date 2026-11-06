@@ -385,7 +385,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='2'/><level id='3'/><level id='1'/>
+        <level id='1'/><level id='2'/><level id='3'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -702,53 +702,7 @@
           
         </fxnode>
         <fxnode>
-          <SHADER_HSLBlendGPU id='15'>
-            
-            <params>
-              <bhue>
-                1 1 
-              </bhue>
-              <bsat>
-                1 1 
-              </bsat>
-              <blum>
-                0 0 
-              </blum>
-              <balpha>
-                <default>
-                  1 
-                </default>
-                </balpha>
-              <bmask>
-                0 0 
-              </bmask>
-              </params>
-            <ports>
-              <BlendSrc>
-                <Toonz_columnFx id='5'/>
-              </BlendSrc>
-              <BaseSrc>
-                <Toonz_columnFx id='7'/>
-              </BaseSrc>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              GPUHSLBlend01 
-            </name>
-            <fxId>
-              GPUHSLBlend01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </SHADER_HSLBlendGPU>
-          
-        </fxnode>
-        <fxnode>
-          <SHADER_spinblurGPU id='16'>
+          <SHADER_spinblurGPU id='15'>
             
             <params>
               <center>
@@ -793,6 +747,52 @@
             </opened>
             
           </SHADER_spinblurGPU>
+          
+        </fxnode>
+        <fxnode>
+          <SHADER_HSLBlendGPU id='16'>
+            
+            <params>
+              <bhue>
+                1 1 
+              </bhue>
+              <bsat>
+                1 1 
+              </bsat>
+              <blum>
+                0 0 
+              </blum>
+              <balpha>
+                <default>
+                  1 
+                </default>
+                </balpha>
+              <bmask>
+                0 0 
+              </bmask>
+              </params>
+            <ports>
+              <BlendSrc>
+                <Toonz_columnFx id='5'/>
+              </BlendSrc>
+              <BaseSrc>
+                <Toonz_columnFx id='7'/>
+              </BaseSrc>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              GPUHSLBlend01 
+            </name>
+            <fxId>
+              GPUHSLBlend01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </SHADER_HSLBlendGPU>
           
         </fxnode>
         <fxnode>
@@ -852,10 +852,10 @@
           <SHADER_radialblurGPU id='14'/>
         </fxnode>
         <fxnode>
-          <SHADER_HSLBlendGPU id='15'/>
+          <SHADER_spinblurGPU id='15'/>
         </fxnode>
         <fxnode>
-          <SHADER_spinblurGPU id='16'/>
+          <SHADER_HSLBlendGPU id='16'/>
         </fxnode>
         <fxnode>
           <SHADER_glitter id='17'/>

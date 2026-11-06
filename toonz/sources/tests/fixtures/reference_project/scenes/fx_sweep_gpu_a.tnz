@@ -1101,19 +1101,19 @@
     <fxnodes>
       <terminal>
         <fxnode>
-          <Toonz_zeraryColumnFx id='11'/>
-        </fxnode>
-        <fxnode>
           <Toonz_zeraryColumnFx id='8'/>
         </fxnode>
         <fxnode>
-          <Toonz_zeraryColumnFx id='5'/>
+          <Toonz_zeraryColumnFx id='11'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_zeraryColumnFx id='14'/>
         </fxnode>
         <fxnode>
           <Toonz_zeraryColumnFx id='17'/>
         </fxnode>
         <fxnode>
-          <Toonz_zeraryColumnFx id='14'/>
+          <Toonz_zeraryColumnFx id='5'/>
         </fxnode>
         </terminal>
       <xsheet>

@@ -2434,37 +2434,34 @@
     <fxnodes>
       <terminal>
         <fxnode>
+          <Toonz_zeraryColumnFx id='3'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_columnFx id='6'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_columnFx id='8'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_columnFx id='10'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_columnFx id='12'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_columnFx id='14'/>
+        </fxnode>
+        <fxnode>
           <Toonz_columnFx id='16'/>
         </fxnode>
         <fxnode>
           <Toonz_columnFx id='18'/>
         </fxnode>
         <fxnode>
-          <Toonz_zeraryColumnFx id='3'/>
-        </fxnode>
-        <fxnode>
           <Toonz_columnFx id='20'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='38'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_columnFx id='10'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_columnFx id='40'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_columnFx id='36'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_columnFx id='34'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_columnFx id='30'/>
-        </fxnode>
-        <fxnode>
-          <Toonz_columnFx id='32'/>
+          <Toonz_columnFx id='22'/>
         </fxnode>
         <fxnode>
           <Toonz_columnFx id='24'/>
@@ -2476,19 +2473,22 @@
           <Toonz_columnFx id='28'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='6'/>
+          <Toonz_columnFx id='30'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='22'/>
+          <Toonz_columnFx id='32'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='8'/>
+          <Toonz_columnFx id='34'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='14'/>
+          <Toonz_columnFx id='36'/>
         </fxnode>
         <fxnode>
-          <Toonz_columnFx id='12'/>
+          <Toonz_columnFx id='38'/>
+        </fxnode>
+        <fxnode>
+          <Toonz_columnFx id='40'/>
         </fxnode>
         </terminal>
       <xsheet>

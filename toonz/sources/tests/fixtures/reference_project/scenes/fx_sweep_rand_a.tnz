@@ -393,7 +393,7 @@
     </levels>
     <folder name="Cast" type="default">
       <levels>
-        <level id='1'/><level id='3'/><level id='2'/><level id='4'/>
+        <level id='4'/><level id='3'/><level id='1'/><level id='2'/>
       </levels>
       </folder>
     <folder name="Audio">
@@ -662,92 +662,7 @@
     <fxnodes>
       <internal>
         <fxnode>
-          <STD_artContourFx id='15'>
-            
-            <params>
-              <Color_Index>
-                "1,2,3""2,3"
-              </Color_Index>
-              <Keep_color>
-                0 0 
-              </Keep_color>
-              <Keep_Line>
-                0 0 
-              </Keep_Line>
-              <Include_Alpha>
-                1 1 
-              </Include_Alpha>
-              <Density>
-                <default>
-                  0 
-                </default>
-                </Density>
-              <Distance>
-                <min>
-                  <default>
-                    30 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    30 
-                  </default>
-                  </max>
-                </Distance>
-              <Randomness>
-                1 1 
-              </Randomness>
-              <Orientation>
-                <min>
-                  <default>
-                    0 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    180 
-                  </default>
-                  </max>
-                </Orientation>
-              <Size>
-                <min>
-                  <default>
-                    30 
-                  </default>
-                  </min>
-                <max>
-                  <default>
-                    30 
-                  </default>
-                  </max>
-                </Size>
-              </params>
-            <ports>
-              <Source>
-                <Toonz_columnFx id='6'/>
-              </Source>
-              <Controller>
-                <Toonz_columnFx id='8'/>
-              </Controller>
-              </ports>
-            <numberId>
-              1 
-            </numberId>
-            <name>
-              ArtContour01 
-            </name>
-            <fxId>
-              ArtContour01 
-            </fxId>
-            <opened>
-              0 
-            </opened>
-            
-          </STD_artContourFx>
-          
-        </fxnode>
-        <fxnode>
-          <STD_iwa_SoapBubbleFx id='16'>
+          <STD_iwa_SoapBubbleFx id='15'>
             
             <params>
               <intensity>
@@ -911,13 +826,98 @@
           </STD_iwa_SoapBubbleFx>
           
         </fxnode>
+        <fxnode>
+          <STD_artContourFx id='16'>
+            
+            <params>
+              <Color_Index>
+                "1,2,3""2,3"
+              </Color_Index>
+              <Keep_color>
+                0 0 
+              </Keep_color>
+              <Keep_Line>
+                0 0 
+              </Keep_Line>
+              <Include_Alpha>
+                1 1 
+              </Include_Alpha>
+              <Density>
+                <default>
+                  0 
+                </default>
+                </Density>
+              <Distance>
+                <min>
+                  <default>
+                    30 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    30 
+                  </default>
+                  </max>
+                </Distance>
+              <Randomness>
+                1 1 
+              </Randomness>
+              <Orientation>
+                <min>
+                  <default>
+                    0 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    180 
+                  </default>
+                  </max>
+                </Orientation>
+              <Size>
+                <min>
+                  <default>
+                    30 
+                  </default>
+                  </min>
+                <max>
+                  <default>
+                    30 
+                  </default>
+                  </max>
+                </Size>
+              </params>
+            <ports>
+              <Source>
+                <Toonz_columnFx id='6'/>
+              </Source>
+              <Controller>
+                <Toonz_columnFx id='8'/>
+              </Controller>
+              </ports>
+            <numberId>
+              1 
+            </numberId>
+            <name>
+              ArtContour01 
+            </name>
+            <fxId>
+              ArtContour01 
+            </fxId>
+            <opened>
+              0 
+            </opened>
+            
+          </STD_artContourFx>
+          
+        </fxnode>
         </internal>
       <terminal>
         <fxnode>
-          <STD_artContourFx id='15'/>
+          <STD_iwa_SoapBubbleFx id='15'/>
         </fxnode>
         <fxnode>
-          <STD_iwa_SoapBubbleFx id='16'/>
+          <STD_artContourFx id='16'/>
         </fxnode>
         </terminal>
       <xsheet>
