@@ -242,7 +242,9 @@ inline void Graph2<Cap, Term, Flow, ArcIdx, NodeIdx>::add_half_edge(
 
   // Create new arc.
   ai = arcs.size();
-  arcs.emplace_back(to, nodes[from].first, cap, rev_cap == 0);
+  // Node is packed: copy the member before passing it by reference.
+  const ArcIdx sister = nodes[from].first;
+  arcs.emplace_back(to, sister, cap, rev_cap == 0);
   nodes[from].first = ai;
 }
 
