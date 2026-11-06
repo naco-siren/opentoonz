@@ -132,10 +132,14 @@ endif()
 message("subdir: image")
 message("Bin: " ${CMAKE_CURRENT_BINARY_DIR})
 
-include_directories(
-    SYSTEM
-    ${TIFF_INCLUDE_DIR}
-)
+# Not SYSTEM on Apple: see the note on TIFF_INCLUDE_DIR in the top-level
+# CMakeLists.txt.
+if(NOT BUILD_ENV_APPLE)
+    include_directories(
+        SYSTEM
+        ${TIFF_INCLUDE_DIR}
+    )
+endif()
 
 if(NOT BUILD_TARGET_BSD)
     include_directories(

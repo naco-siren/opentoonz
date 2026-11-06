@@ -62,6 +62,8 @@ cd ../tiff-4.0.3
 ./configure --disable-lzma && make
 ```
 
+The libtiff in `thirdparty/tiff-4.0.3` is patched for OpenToonz and is linked statically from where it was built: do not `make install` it. It can coexist with a libtiff installed by Homebrew (many formulae pull one in); the build picks the bundled headers.
+
 If you downloaded and installed boost from https://boost.org instead of homebrew, move the package under `thirdparty/boost` as follows: 
 ```sh
 cd thirdparty/boost
@@ -80,14 +82,16 @@ cd build
 2. Include libjpeg-turbo path to PKG_CONFIG_PATH
 
 ```sh
-export PKG_CONFIG_PATH="/opt/homebrew/opt/jpeg-turbo/lib/pkgconfig:$PKG_CONFIG_PATH"
+export PKG_CONFIG_PATH="$(brew --prefix jpeg-turbo)/lib/pkgconfig:$PKG_CONFIG_PATH"
 ```
+
+`brew --prefix` gives the right location on both kinds of Mac: Homebrew lives under `/opt/homebrew` on Apple Silicon and under `/usr/local` on Intel.
 
 3. Set up build environment
 
 To build from command line, do the following:
 ```sh
-cmake ../sources -DQT_PATH='/opt/homebrew/opt/qt@5/lib'  #replace QT path with your installed QT version#
+cmake ../sources -DQT_PATH="$(brew --prefix qt@5)/lib"  #replace QT path with your installed QT version#
 make
 ```
 - Apple Silicon (arm64) builds natively. SuperLU is compiled from the sources vendored in `thirdparty/superlu/SuperLU_4.1` on both arm64 and x86_64, so no Homebrew `superlu` is needed; pass `-DWITH_SYSTEM_SUPERLU=ON` only if you want to link a system SuperLU instead.
@@ -97,7 +101,7 @@ make
 To build using Xcode, do the following:
 ```sh
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-cmake -G Xcode ../sources -B. -DQT_PATH='/opt/homebrew/opt/qt@5/lib' -DWITH_TRANSLATION=OFF   #replace QT path with your installed QT version#
+cmake -G Xcode ../sources -B. -DQT_PATH="$(brew --prefix qt@5)/lib" -DWITH_TRANSLATION=OFF   #replace QT path with your installed QT version#
 ```
 - Note that the option `-DWITH_TRANSLATION=OFF` is needed to avoid error when using XCode 12+ which does not allow to add the same source to multiple targets.
 - Open Xcode app and open project /Users/yourlogin/Documents/opentoonz/toonz/build/OpenToonz.xcodeproj

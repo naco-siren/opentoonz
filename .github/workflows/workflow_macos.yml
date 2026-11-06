@@ -96,7 +96,9 @@ jobs:
           cd thirdparty/tiff-4.0.3
           CFLAGS='-fPIC' CXXFLAGS='-fPIC' ./configure --disable-lzma
           make -j $(sysctl -n hw.ncpu)
-          sudo make install  # Ensures CMake finds the installed lib (avoid linking issues)
+          # Not installed: the build takes the headers and the static library
+          # from thirdparty. Installing it used to hide that a Homebrew libtiff
+          # in /usr/local/include shadowed the bundled headers on Intel Macs.
       - name: Build
         env:
           CCACHE_DIR: /Users/runner/.ccache

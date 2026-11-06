@@ -584,12 +584,23 @@ if(CMAKE_COMPILER_IS_GNUCC)
 endif()
 
 
-include_directories(
-    SYSTEM
-    BEFORE
-    ${TIFF_INCLUDE_DIR}
-    ${PNG_INCLUDE_DIRS}
-  )
+if(BUILD_ENV_APPLE)
+    # The bundled libtiff is patched (TIFFReadRGBATile_64 and friends), so its
+    # headers must win over any other libtiff on the machine. Where Homebrew
+    # lives in /usr/local, Apple's compiler driver searches /usr/local/include
+    # ahead of every -isystem directory (it passes it through CPATH), and
+    # Homebrew's libtiff puts its tiffio.h there. Only a plain -I directory
+    # comes first, and clang drops a -I directory that is also given as
+    # -isystem, so the directory must not be added as SYSTEM anywhere.
+    include_directories(BEFORE ${TIFF_INCLUDE_DIR})
+    include_directories(SYSTEM ${PNG_INCLUDE_DIRS})
+else()
+    include_directories(
+        SYSTEM
+        ${TIFF_INCLUDE_DIR}
+        ${PNG_INCLUDE_DIRS}
+    )
+endif()
 
 if(BUILD_ENV_MSVC OR BUILD_ENV_APPLE)
     # Handle CMake 3.30+/4.x: Force legacy module for prebuilt Boost (no config files)
