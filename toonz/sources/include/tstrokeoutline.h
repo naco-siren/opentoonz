@@ -196,7 +196,13 @@ class DVAPI OutlineParameter {
 public:
   double m_lengthStep;  //  max lengthStep (sulla centerline) per la
                         //  linearizzazione dell'outline
-  OutlineParameter(double lengthStep = 0) : m_lengthStep(lengthStep) {}
+  //! The size of a pixel in the stroke's coordinates, which decides how
+  //! finely the outline is cut. 0 (the default) has it read from the
+  //! OpenGL modelview matrix, as it always was; code that draws without an
+  //! OpenGL context has to say.
+  double m_pixelSize;
+  OutlineParameter(double lengthStep = 0, double pixelSize = 0)
+      : m_lengthStep(lengthStep), m_pixelSize(pixelSize) {}
 };
 
 // per adesso implementata in tellipticbrush.cpp (per motivi storici)

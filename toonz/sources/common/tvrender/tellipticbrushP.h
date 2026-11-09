@@ -52,7 +52,9 @@ struct OutlinizationData {
 
   OutlinizationData() : m_options(), m_pixSize(0.0) {}
   OutlinizationData(const TOutlineUtil::OutlineParameter &options)
-      : m_options(options), m_pixSize(sqrt(tglGetPixelSize2())) {}
+      : m_options(options)
+      , m_pixSize(options.m_pixelSize > 0.0 ? options.m_pixelSize
+                                            : sqrt(tglGetPixelSize2())) {}
 };
 
 //********************************************************************************

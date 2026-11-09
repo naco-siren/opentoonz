@@ -17,6 +17,28 @@
 #define TNZGLCANVAS_API __attribute__((visibility("default")))
 #endif
 
+//! How a TGlCanvas reaches the stencil buffer: for clips, and to paint a
+//! translucent shape once where its pieces overlap.
+/*!
+  The stencil buffer of an OpenGL context is shared with whatever else draws
+  into that context, and the tree has one manager for it (TStencilControl,
+  in tnzcore). The canvas library does not link tnzcore, so it is handed
+  this interface instead; the four functions are those of TStencilControl.
+*/
+class TNZGLCANVAS_API TGlCanvasMasks {
+public:
+  virtual ~TGlCanvasMasks() {}
+
+  //! Starts a mask: what is drawn until endMask() goes into it. With
+  //! \p drawOnce it also goes to the screen, each pixel at most once.
+  virtual void beginMask(bool drawOnce) = 0;
+  virtual void endMask()                = 0;
+  //! From here to disableMask(), drawing is kept inside the last mask or,
+  //! with \p inside false, outside it.
+  virtual void enableMask(bool inside) = 0;
+  virtual void disableMask()           = 0;
+};
+
 //! The canvas that draws with the fixed-function OpenGL the tree has always
 //! used: the bridge that keeps OpenGL targets working while the code that
 //! draws moves to the canvas interface.
@@ -34,31 +56,51 @@
     it covers each pixel once.
   - A mesh with colours per vertex or texture coordinates is drawn triangle
     by triangle: no fringe, and blended twice where triangles overlap.
+  - A strip with an even number of vertices is sent as a quad strip, which
+    is what the old renderer sent: how a quad that is not convex gets
+    split is the driver's choice, and stays the one it has always made.
   - Lines are OpenGL lines: no caps, no joins, a width the driver may
     clamp, and dashes rounded to a 16-bit stipple pattern.
-  - A clip is a stencil mask, without antialiasing. Clips nest through
-    TStencilControl, like the masks of the code around this canvas.
+  - A clip is a stencil mask, without antialiasing.
   - Gradients are textures of 256 steps.
-  - The target is premultiplied, which takes two passes per call: colour,
-    then alpha.
 
   The canvas draws into the OpenGL context that is current when it is
-  created, and that context has to be current for every call. When the
-  canvas is created, the modelview and projection matrices must map the
-  canvas's device coordinates (one unit per pixel, origin at the bottom
-  left) to the viewport; TOfflineGL::initMatrix() sets that up. The canvas
-  loads its own modelview matrix as transforms are applied and puts the
-  first one back when it is destroyed.
+  created, and that context has to be current for every call. Coordinates
+  are those of the modelview matrix at that moment; the canvas multiplies
+  onto that matrix as transforms are applied and puts it back when it is
+  destroyed. pixelSize() is read back from the modelview matrix, the way
+  tglGetPixelSize2() reads it: it is right when the projection maps one
+  unit of the untransformed modelview space to one pixel, which
+  TOfflineGL::initMatrix() and the viewers set up.
 
-  This library (tnzglcanvas) links OpenGL and tnzcore. Nothing that has to
-  build without them may depend on it.
+  There are two ways to use it, chosen by State:
+
+  - Own. The canvas takes care of everything: it blends for a target that
+    holds premultiplied colour (two passes per call: colour, then alpha),
+    sets line smoothing from each paint, and leaves every OpenGL attribute
+    as it found it.
+  - Callers. For the old drawing code, which sets up blending, colour masks
+    and line smoothing around the styles it draws and draws them twice
+    itself. The canvas then draws with that state, and changes only what
+    the code it replaces changed. This is what keeps a style that has
+    moved to the canvas interface pixel for pixel what it was when it is
+    reached through tglDraw().
+
+  This library (tnzglcanvas) links OpenGL and tnzcanvas, nothing else.
 */
 class TNZGLCANVAS_API TGlCanvas final : public TCanvas {
 public:
-  explicit TGlCanvas(const TCanvasIRect &deviceBounds);
+  enum class State { Own, Callers };
+
+  //! \p deviceBounds is only what deviceBounds() returns.
+  TGlCanvas(const TCanvasIRect &deviceBounds, TGlCanvasMasks &masks,
+            State state = State::Own);
+  //! With the current viewport as the device bounds.
+  explicit TGlCanvas(TGlCanvasMasks &masks, State state = State::Own);
   ~TGlCanvas() override;
 
   TCanvasIRect deviceBounds() const override { return m_bounds; }
+  double pixelSize() const override;
 
 protected:
   void onSave() override;
@@ -77,13 +119,13 @@ protected:
 
 private:
   TCanvasIRect m_bounds;
+  TGlCanvasMasks &m_masks;
+  State m_state;
   // For each save() not yet restored, and for the canvas itself at the
   // front: how many clips have been set since.
   std::vector<int> m_clips;
-  double m_base[16];  // the modelview matrix the canvas was created under
 
   void dropClips(int count);
-  void loadTransform();
 };
 
 #endif  // TGLCANVAS_H

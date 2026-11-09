@@ -28,6 +28,7 @@
 #include "tvectorimage.h"
 #include "tvectorrenderdata.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 
 #if defined(LINUX) || defined(FREEBSD)
 #include <QGuiApplication>
@@ -234,12 +235,17 @@ void convertFromVI(const TLevelReaderP &lr, const TPaletteP &plt,
       const TVectorRenderData rd(TTranslation(-maxBbox.getP00()), TRect(),
                                  plt.getPointer(), 0, true, true);
 
-      std::unique_ptr<TOfflineGL> glContext(
-          new TOfflineGL(convert(maxBbox).getSize()));
-      glContext->clear(TPixel32::Transparent);
-      glContext->draw(vectorImage, rd);
-
-      TRaster32P rasImage = glContext->getRaster();
+      // On the CPU if vectors are to be rasterised there, otherwise through
+      // an offscreen OpenGL context.
+      const TDimension size = convert(maxBbox).getSize();
+      TRaster32P rasImage(size);
+      if (!TVectorRasterizer::isSelected() ||
+          !TVectorRasterizer::rasterize(rasImage, vectorImage, rd)) {
+        std::unique_ptr<TOfflineGL> glContext(new TOfflineGL(size));
+        glContext->clear(TPixel32::Transparent);
+        glContext->draw(vectorImage, rd);
+        rasImage = glContext->getRaster();
+      }
       TImageWriterP iw    = lw->getFrameWriter(frames[i]);
       iw->save(TRasterImageP(rasImage));
 

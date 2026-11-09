@@ -32,7 +32,13 @@ function(nexttoonz_stage_runtime target)
     if(NOT APPLE)
         return()
     endif()
-    foreach(_dep ${ARGN})
+    # tnzcore loads the canvas libraries, so they go wherever it goes.
+    set(_deps ${ARGN})
+    if("tnzcore" IN_LIST _deps)
+        list(APPEND _deps ${NEXTTOONZ_CANVAS_LIBS})
+        list(REMOVE_DUPLICATES _deps)
+    endif()
+    foreach(_dep ${_deps})
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 $<TARGET_FILE:${_dep}> $<TARGET_FILE_DIR:${target}>

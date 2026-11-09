@@ -2,8 +2,10 @@
 # way the old vector renderer did (doc/nexttoonz_canvas_ir.md, 7.2).
 #
 # It keeps OpenGL targets working while drawing code moves to the canvas
-# interface, and it is the one canvas library that links OpenGL and tnzcore.
-# The libraries that are to lose their OpenGL dependency must not link it.
+# interface. It links OpenGL and tnzcanvas and nothing else of the tree, so
+# that it can stay behind with the viewers when the core libraries give up
+# OpenGL; until then tnzcore links it, for the styles the old renderer
+# reaches through tglDraw().
 
 set(HEADERS
     ../include/canvas/tglcanvas.h
@@ -28,7 +30,5 @@ target_link_libraries(tnzglcanvas
     PUBLIC
         tnzcanvas
     PRIVATE
-        tnzcore
-        Qt5::Core Qt5::Gui Qt5::OpenGL
-        ${GLUT_LIB} ${GL_LIB} ${GLU_LIB}
+        ${GL_LIB} ${GLU_LIB}
 )

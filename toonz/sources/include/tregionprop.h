@@ -54,6 +54,10 @@ public:
   //! Note: update internal data if isRegionChanged()
   virtual void draw(const TVectorRenderData &rd) = 0;
 
+  //! The region on a canvas instead of straight to OpenGL. Does something
+  //! for the props of styles whose canvasSupport() includes regions.
+  virtual void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) {}
+
   const TRegion *getRegion() const { return m_region; }
 
   virtual const TColorStyle *getColorStyle() const = 0;
@@ -84,10 +88,15 @@ public:
   OutlineRegionProp(const TRegion *region, const TOutlineStyleP regionStyle);
 
   void draw(const TVectorRenderData &rd) override;
+  void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) override;
 
   const TColorStyle *getColorStyle() const override;
 
   TRegionProp *clone(const TRegion *region) const override;
+
+private:
+  //! Brings the outline up to date for a pixel of this size.
+  void updateOutline(double pixelSize);
 };
 
 #endif

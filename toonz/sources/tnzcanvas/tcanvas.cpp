@@ -109,6 +109,9 @@ bool TCanvasMesh::isValid() const {
 
 TCanvas::TCanvas() : m_transforms(1) {}
 
+TCanvas::TCanvas(const TCanvasAffine &baseToDevice)
+    : m_transforms(1, baseToDevice) {}
+
 TCanvas::~TCanvas() {}
 
 void TCanvas::save() {

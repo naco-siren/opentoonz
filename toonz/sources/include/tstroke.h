@@ -28,6 +28,7 @@
 
 class TStrokeStyle;
 class TVectorRenderData;
+class TCanvas;
 class TColorStyle;
 class TThickQuadratic;
 class TStrokeProp;
@@ -408,6 +409,10 @@ public:
   TThread::Mutex *getMutex() { return &m_mutex; }
 
   virtual void draw(const TVectorRenderData &rd) = 0;
+
+  //! The stroke on a canvas instead of straight to OpenGL. Does something
+  //! for the props of styles whose canvasSupport() includes strokes.
+  virtual void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) {}
 
   virtual const TColorStyle *getColorStyle() const = 0;
 

@@ -32,12 +32,11 @@ target_link_libraries(nexttoonz_canvas_gl_tests
         GTest::gtest
 )
 
-nexttoonz_stage_runtime(nexttoonz_canvas_gl_tests tnzglcanvas tnzcanvas tnzcore)
+nexttoonz_stage_runtime(nexttoonz_canvas_gl_tests tnzcore)
 
 if(WITH_SKIA)
     target_compile_definitions(nexttoonz_canvas_gl_tests PRIVATE NEXTTOONZ_HAVE_SKIA)
     target_link_libraries(nexttoonz_canvas_gl_tests PRIVATE tnzskia)
-    nexttoonz_stage_runtime(nexttoonz_canvas_gl_tests tnzskia)
 endif()
 
 gtest_discover_tests(nexttoonz_canvas_gl_tests

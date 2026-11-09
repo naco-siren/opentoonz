@@ -185,6 +185,21 @@ public:
   virtual bool isStrokeStyle()
       const = 0;  //!< Returns whether the style applies on strokes.
 
+  //! What of a style can be drawn on a TCanvas rather than straight to OpenGL.
+  enum CanvasSupport {
+    NoCanvas        = 0,
+    StrokesOnCanvas = 1,
+    RegionsOnCanvas = 2
+  };
+  //! Which of its strokes and regions this style draws on a TCanvas
+  //! (doc/nexttoonz_canvas_ir.md). A vector image is rasterised without
+  //! OpenGL only when every style it uses says so for what it is used for.
+  //!
+  //! A class answers for itself alone: a class that derives from one which
+  //! draws on a canvas may still draw its own part with OpenGL, so the
+  //! answer must not be inherited without looking.
+  virtual int canvasSupport() const { return NoCanvas; }
+
   // General functions
 
   void setName(std::wstring name) {

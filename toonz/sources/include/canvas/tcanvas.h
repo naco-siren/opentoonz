@@ -58,13 +58,19 @@ public:
   //! From the coordinates of the next draw call to device pixels.
   const TCanvasAffine &transform() const { return m_transforms.back(); }
   //! The size of a device pixel in current coordinates: what styles used to
-  //! read back from the OpenGL modelview matrix (tglGetPixelSize2).
-  double pixelSize() const;
+  //! read back from the OpenGL modelview matrix (tglGetPixelSize2). Virtual
+  //! for the one backend that still has to read it back there, so that
+  //! drawing through it is rounded exactly as it always was.
+  virtual double pixelSize() const;
 
   //! The pixels this canvas can draw to; useful for culling.
   virtual TCanvasIRect deviceBounds() const = 0;
 
 protected:
+  //! For a backend whose device coordinates are not where drawing starts:
+  //! \p baseToDevice is the transform in force before the first concat().
+  explicit TCanvas(const TCanvasAffine &baseToDevice);
+
   virtual void onSave()    = 0;
   virtual void onRestore() = 0;
   //! transform() already includes \p aff when this is called.

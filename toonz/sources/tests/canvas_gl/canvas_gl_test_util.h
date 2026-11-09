@@ -7,6 +7,7 @@
 
 #include "canvas/tglcanvas.h"
 
+#include "tglcanvasbridge.h"
 #include "tgl.h"
 #include "tofflinegl.h"
 #include "traster.h"
@@ -22,7 +23,8 @@ Target drawWithGl(int width, int height, Draw draw) {
   glClearStencil(0);
   glClear(GL_STENCIL_BUFFER_BIT);
   {
-    TGlCanvas canvas(TCanvasIRect(0, 0, width, height));
+    TGlStencilMasks masks;
+    TGlCanvas canvas(TCanvasIRect(0, 0, width, height), masks);
     draw(canvas);
   }
   const TRaster32P raster = gl.getRaster();

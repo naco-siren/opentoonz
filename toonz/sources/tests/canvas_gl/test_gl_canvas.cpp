@@ -84,7 +84,8 @@ TEST(GlCanvas, LeavesTheModelviewMatrixAsItFoundIt) {
   glTranslated(3.0, 5.0, 0.0);
   glGetDoublev(GL_MODELVIEW_MATRIX, before);
   {
-    TGlCanvas canvas(TCanvasIRect(0, 0, 8, 8));
+    TGlStencilMasks masks;
+    TGlCanvas canvas(TCanvasIRect(0, 0, 8, 8), masks);
     canvas.save();
     canvas.concat(TCanvasAffine::scale(2, 3));
     canvas.clipPath(rectPath(0, 0, 1, 1), TCanvasFillRule::NonZero,

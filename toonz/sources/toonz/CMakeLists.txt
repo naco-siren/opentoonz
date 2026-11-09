@@ -547,6 +547,10 @@ elseif(BUILD_ENV_APPLE)
 
     # Workaround for non-standard library output locations
     set(EXTRA_LIBS ${EXTRA_LIBS} "$<TARGET_FILE:tnzstdfx>" "$<TARGET_FILE:tfarm>")
+
+    # The canvas libraries tnzcore loads; listed here so that they are copied
+    # into the bundle with the others.
+    set(EXTRA_LIBS ${EXTRA_LIBS} ${NEXTTOONZ_CANVAS_LIB_FILES})
     set(X64ONLY_LIBS)
     if(PLATFORM EQUAL 64)
         set(X64ONLY_LIBS ${X64ONLY_LIBS} Qt5::SerialPort ${TURBOJPEG_LIB} ${OpenCV_LIBS})
@@ -567,6 +571,7 @@ elseif(BUILD_ENV_APPLE)
 
     # ADDED/UPDATED: Expanded dependencies for all libs and utilities (ensures build order)
     add_dependencies(OpenToonz tnzcore tnzbase toonzlib colorfx tnzext image sound toonzqt tnztools tnzstdfx tfarm tcomposer tcleanup tconverter tfarmcontroller tfarmserver)
+    add_dependencies(OpenToonz ${NEXTTOONZ_CANVAS_LIBS})
 
     # ADDED/UPDATED: Configure Info.plist for bundle (retina support etc.)
     set_target_properties(OpenToonz PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/../cmake/BundleInfo.plist.in)
@@ -704,6 +709,7 @@ if(BUILD_ENV_UNIXLIKE AND BUILD_TARGET_WIN)
 
     install(
         FILES
+            ${NEXTTOONZ_CANVAS_LIB_FILES}
             "$<TARGET_FILE:tnzcore>"
             "$<TARGET_FILE:tnzbase>"
             "$<TARGET_FILE:toonzlib>"
@@ -766,6 +772,7 @@ elseif(BUILD_ENV_UNIXLIKE AND NOT BUILD_TARGET_WIN)
 
     install(
         FILES
+            ${NEXTTOONZ_CANVAS_LIB_FILES}
             "$<TARGET_FILE:tnzcore>"
             "$<TARGET_FILE:tnzbase>"
             "$<TARGET_FILE:toonzlib>"

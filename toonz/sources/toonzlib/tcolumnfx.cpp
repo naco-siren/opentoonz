@@ -49,6 +49,7 @@
 #include "toonz/preferences.h"
 #include "toonz/dpiscale.h"
 #include "imagebuilders.h"
+#include "tvectorrasterizer.h"
 
 // 4.6 compatibility - sandor fxs
 #include "toonz4.6/raster.h"
@@ -1062,29 +1063,40 @@ void TLevelColumnFx::doCompute(TTile &tile, double frame,
       if (info.m_quality == TRenderSettings::ClosestPixel_FilterResampleQuality)
         rd.m_antiAliasing = false;
 
-      if (!m_offlineContext || m_offlineContext->getLx() < size.lx ||
-          m_offlineContext->getLy() < size.ly) {
-        if (m_offlineContext) delete m_offlineContext;
-        m_offlineContext = new TOfflineGL(size);
-      }
-
-      m_offlineContext->makeCurrent();
-      m_offlineContext->clear(TPixel32(0, 0, 0, 0));
-
       // If level has animated palette, it is necessary to lock palette's color
       // against
       // concurrents TPalette::setFrame.
       if (!m_isCachable) vpalette->mutex()->lock();
 
       vpalette->setFrame((int)frame);
-      m_offlineContext->draw(vectorImage, rd, true);
+
+      // On the CPU, if that is what renders are to use and every style of
+      // the image can be drawn that way; otherwise, as before, through an
+      // offscreen OpenGL context.
+      const bool rasterized =
+          TVectorRasterizer::isSelected() &&
+          TVectorRasterizer::rasterize(tile.getRaster(), vectorImage, rd);
+      if (!rasterized) {
+        if (!m_offlineContext || m_offlineContext->getLx() < size.lx ||
+            m_offlineContext->getLy() < size.ly) {
+          if (m_offlineContext) delete m_offlineContext;
+          m_offlineContext = new TOfflineGL(size);
+        }
+
+        m_offlineContext->makeCurrent();
+        m_offlineContext->clear(TPixel32(0, 0, 0, 0));
+        m_offlineContext->draw(vectorImage, rd, true);
+      }
+
       vpalette->setFrame(oldFrame);
 
       if (!m_isCachable) vpalette->mutex()->unlock();
 
-      m_offlineContext->getRaster(tile.getRaster());
+      if (!rasterized) {
+        m_offlineContext->getRaster(tile.getRaster());
 
-      m_offlineContext->doneCurrent();
+        m_offlineContext->doneCurrent();
+      }
     }
   } else {
     // Raster case

@@ -34,6 +34,12 @@
 #include "tsimplecolorstyles.h"
 #include "trailscale.h"
 
+#include "tcanvasutil.h"
+#include "tglcanvasbridge.h"
+#include "tvectorrasterizer.h"
+
+#include <typeinfo>
+
 #ifndef _WIN32
 #define CALLBACK
 #endif
@@ -118,241 +124,6 @@ TLevel::Iterator getPatternFrameIterator(const TLevelP &level,
                                          const TStroke *stroke);
 void advancePatternFrameIterator(TLevel::Iterator &it, const TLevelP &level,
                                  int step);
-
-class OutlineBuilder {
-private:
-  double width;
-  int stage;
-  double stages[3][3];
-  double px, py, pz;
-  double ax, ay;
-
-  inline void next_stage(const double &x, const double &y, const double &z) {
-    stages[stage][0] = x;
-    stages[stage][1] = y;
-    stages[stage][2] = z;
-    ++stage;
-  }
-
-public:
-  std::vector<double> vertices;
-
-  explicit OutlineBuilder(double width, int count = 0)
-      : width(width), stage(0), px(), py(), pz(), ax(), ay() {
-    memset(stages, 0, sizeof(stages));
-    vertices.reserve(12 * (count + 2));
-  }
-
-  void add(double x, double y, double z = 0.0) {
-    const double maxl = 4.0;
-
-    if (stage == 0)
-      next_stage(x, y, z);
-    else {
-      double bx = x - px;
-      double by = y - py;
-      double lb = sqrt(bx * bx + by * by);
-      if (lb < 1e-9) return;
-      bx = width * bx / lb;
-      by = width * by / lb;
-
-      if (stage == 1)
-        next_stage(x, y, z);
-      else {
-        if (stage == 2) next_stage(x, y, z);
-        double l = fabs(ax + bx) > 1e-9   ? -(ay - by) / (ax + bx)
-                   : fabs(ay + by) > 1e-9 ? (ax - bx) / (ay + by)
-                                          : 0.0;
-        if (fabs(l) > maxl || fabs(l) < 1.0 || l > 0.0) {
-          vertices.resize(vertices.size() + 12);
-          double *p = &vertices.back() - 11;
-          p[0]      = px;
-          p[1]      = py;
-          p[2]      = pz;
-          p[3]      = px + ay;
-          p[4]      = py - ax;
-          p[5]      = pz;
-          p[6]      = px;
-          p[7]      = py;
-          p[8]      = pz;
-          p[9]      = px + by;
-          p[10]     = py - bx;
-          p[11]     = pz;
-        } else {
-          vertices.resize(vertices.size() + 6);
-          double *p = &vertices.back() - 5;
-          p[0]      = px;
-          p[1]      = py;
-          p[2]      = pz;
-          p[3]      = px - l * bx + by;
-          p[4]      = py - l * by - bx;
-          p[5]      = pz;
-        }
-      }
-
-      ax = bx;
-      ay = by;
-    }
-
-    px = x;
-    py = y;
-    pz = z;
-  }
-
-  void finish() {
-    for (int i = 0; i < stage; ++i)
-      add(stages[i][0], stages[i][1], stages[i][2]);
-    stage = 0;
-  }
-
-  double get_width() const { return width; }
-
-  void restart(double width) {
-    this->width = width;
-    stage       = 0;
-    vertices.clear();
-  }
-
-  void invert() { restart(-width); }
-};
-
-void vector4_div(double *v) {
-  double k = fabs(v[3]) > 1e-9 ? 1.0 / v[3] : 0.0;
-  v[0] *= k, v[1] *= k, v[2] *= k;
-  v[3] = 1.0;
-}
-
-void matrix4_x_vector4(double *dv, const double *m, const double *v) {
-  dv[0] = m[0] * v[0] + m[4] * v[1] + m[8] * v[2] + m[12] * v[3];
-  dv[1] = m[1] * v[0] + m[5] * v[1] + m[9] * v[2] + m[13] * v[3];
-  dv[2] = m[2] * v[0] + m[6] * v[1] + m[10] * v[2] + m[14] * v[3];
-  dv[3] = m[3] * v[0] + m[7] * v[1] + m[11] * v[2] + m[15] * v[3];
-}
-
-void matrix4_x_matrix4(double *dm, const double *ma, const double *mb) {
-  matrix4_x_vector4(dm + 0, ma, mb + 0);
-  matrix4_x_vector4(dm + 4, ma, mb + 4);
-  matrix4_x_vector4(dm + 8, ma, mb + 8);
-  matrix4_x_vector4(dm + 12, ma, mb + 12);
-}
-
-class AntialiasingOutlinePainter : public OutlineBuilder {
-private:
-  double matrix[16];
-  double projection_matrix[16];
-  double modelview_matrix[16];
-  double anti_viewport_matrix[16];
-
-public:
-  explicit AntialiasingOutlinePainter(int count = 0) : OutlineBuilder(1.0, 0) {
-    memset(matrix, 0, sizeof(matrix));
-    memset(projection_matrix, 0, sizeof(projection_matrix));
-    memset(modelview_matrix, 0, sizeof(modelview_matrix));
-    memset(anti_viewport_matrix, 0, sizeof(anti_viewport_matrix));
-
-    // read transformations
-    double viewport[4] = {};
-    glGetDoublev(GL_VIEWPORT, viewport);
-    glGetDoublev(GL_PROJECTION_MATRIX, projection_matrix);
-    glGetDoublev(GL_MODELVIEW_MATRIX, modelview_matrix);
-
-    double viewport_matrix[16] = {};
-    viewport_matrix[0]         = 0.5 * viewport[2];
-    viewport_matrix[5]         = 0.5 * viewport[3];
-    viewport_matrix[10]        = 1.0;
-    viewport_matrix[12]        = 0.5 * viewport[2];
-    viewport_matrix[13]        = 0.5 * viewport[3];
-    viewport_matrix[15]        = 1.0;
-
-    anti_viewport_matrix[0]  = 2.0 / viewport[2];
-    anti_viewport_matrix[5]  = 2.0 / viewport[3];
-    anti_viewport_matrix[10] = 1.0;
-    anti_viewport_matrix[12] = -1.0;
-    anti_viewport_matrix[13] = -1.0;
-    anti_viewport_matrix[15] = 1.0;
-
-    {
-      double tmp[16] = {};
-      matrix4_x_matrix4(tmp, projection_matrix, modelview_matrix);
-      matrix4_x_matrix4(matrix, viewport_matrix, tmp);
-    }
-  }
-
-  void add(double x, double y, double z = 0.0) {
-    double dest[4], src[4] = {x, y, z, 1.0};
-    matrix4_x_vector4(dest, matrix, src);
-    vector4_div(dest);
-    OutlineBuilder::add(dest[0], dest[1], dest[2]);
-  }
-
-  void finish() {
-    OutlineBuilder::finish();
-    if (vertices.empty()) return;
-    int count = (int)vertices.size() / 6;
-
-    // prepare colors
-    float color[8] = {};
-    glGetFloatv(GL_CURRENT_COLOR, color);
-    memcpy(color + 4, color, 3 * sizeof(float));
-    std::vector<float> colors(8 * count);
-    for (float *c = &colors[0], *ce = &colors.back(); c < ce; c += 8)
-      memcpy(c, color, sizeof(color));
-
-    // draw
-    glMatrixMode(GL_MODELVIEW);
-    glLoadMatrixd(anti_viewport_matrix);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-
-    glVertexPointer(3, GL_DOUBLE, 0, &vertices.front());
-    glColorPointer(4, GL_FLOAT, 0, &colors.front());
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 2 * count);
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glLoadMatrixd(projection_matrix);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadMatrixd(modelview_matrix);
-
-    glColor4fv(color);
-    restart(get_width());
-  }
-};
-
-void drawAntialiasedOutline(const std::vector<TOutlinePoint> &_v,
-                            const TStroke *stroke) {
-  if (_v.empty()) return;
-
-  const TOutlinePoint *begin = &_v.front(), *end = &_v.back();
-  assert(_v.size() % 2 == 0);
-
-  AntialiasingOutlinePainter outline(_v.size());
-  for (const TOutlinePoint *i = begin; i < end; i += 2) outline.add(i->x, i->y);
-  for (const TOutlinePoint *i = end; i > begin; i -= 2) outline.add(i->x, i->y);
-  outline.finish();
-
-  outline.invert();
-  for (const TOutlinePoint *i = begin; i < end; i += 2) outline.add(i->x, i->y);
-  for (const TOutlinePoint *i = end; i > begin; i -= 2) outline.add(i->x, i->y);
-  outline.finish();
-}
-
-void drawAliasedOutline(const std::vector<TOutlinePoint> &_v,
-                        const TStroke *stroke) {
-  static const int stride = 2 * sizeof(TOutlinePoint);
-
-  glEnableClientState(GL_VERTEX_ARRAY);
-
-  glVertexPointer(2, GL_DOUBLE, stride, &_v[0]);
-  glDrawArrays(GL_LINE_STRIP, 0, _v.size() / 2);
-
-  glVertexPointer(2, GL_DOUBLE, stride, &_v[1]);
-  glDrawArrays(GL_LINE_STRIP, 0, _v.size() / 2);
-
-  glDisableClientState(GL_VERTEX_ARRAY);
-}
 
 }  // namespace
 
@@ -593,19 +364,16 @@ void TOutlineStyle::computeOutline(const TStroke *stroke,
 //    TSolidColorStyle  implementation
 //*************************************************************************************
 
-TSolidColorStyle::TSolidColorStyle(const TPixel32 &color)
-    : m_color(color), m_tessellator(new TglTessellator) {}
+TSolidColorStyle::TSolidColorStyle(const TPixel32 &color) : m_color(color) {}
 
 //-----------------------------------------------------------------------------
 
 TSolidColorStyle::TSolidColorStyle(const TSolidColorStyle &other)
-    : TOutlineStyle(other)
-    , m_color(other.m_color)
-    , m_tessellator(new TglTessellator) {}
+    : TOutlineStyle(other), m_color(other.m_color) {}
 
 //-----------------------------------------------------------------------------
 
-TSolidColorStyle::~TSolidColorStyle() { delete m_tessellator; }
+TSolidColorStyle::~TSolidColorStyle() {}
 
 //-----------------------------------------------------------------------------
 
@@ -642,10 +410,59 @@ void TSolidColorStyle::makeIcon(const TDimension &size) {
 
 //-----------------------------------------------------------------------------
 
+int TSolidColorStyle::canvasSupport() const {
+  // The many styles that derive from this one override the OpenGL
+  // functions for the parts that make them what they are. Until they are
+  // moved to the canvas one by one, only the plain colour itself is.
+  return typeid(*this) == typeid(TSolidColorStyle)
+             ? (StrokesOnCanvas | RegionsOnCanvas)
+             : NoCanvas;
+}
+
+//-----------------------------------------------------------------------------
+
 void TSolidColorStyle::drawRegion(const TColorFunction *cf,
                                   const bool antiAliasing,
                                   TRegionOutline &boundary) const {
-  m_tessellator->tessellate(cf, antiAliasing, boundary, m_color);
+  TLegacyGlCanvas gl;
+  drawRegionOnCanvas(gl.canvas(), cf, antiAliasing, boundary);
+}
+
+//-----------------------------------------------------------------------------
+
+void TSolidColorStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                          const TColorFunction *cf,
+                                          bool antiAliasing,
+                                          TRegionOutline &outline) const {
+  TPixel32 color = m_color;
+  if (cf) color = (*cf)(color);
+  if (color.m == 0) return;
+
+  // One path: the outer contours as they come, the holes turned round. The
+  // old tessellator filled where the winding number was positive; for
+  // contours laid out like this, that is where it is not zero.
+  TCanvasPath path;
+  std::vector<TCanvasPoint> points;
+  for (const TRegionOutline::PointVector &contour : outline.m_exterior) {
+    points.clear();
+    for (const T3DPointD &p : contour) points.push_back(TCanvasPoint(p.x, p.y));
+    path.addPolygon(points.data(), points.size());
+  }
+  for (const TRegionOutline::PointVector &contour : outline.m_interior) {
+    points.clear();
+    for (auto p = contour.rbegin(); p != contour.rend(); ++p)
+      points.push_back(TCanvasPoint(p->x, p->y));
+    path.addPolygon(points.data(), points.size());
+  }
+
+  TCanvasPaint paint(toCanvas(color));
+  paint.antialias = antiAliasing && outline.m_doAntialiasing;
+  // The smooth line the old renderer drew around a region lay half outside
+  // it, which is what kept regions that share an edge from showing a seam.
+  // A rasteriser that computes coverage is asked for the same half pixel
+  // (doc/nexttoonz_canvas_ir.md, Q1).
+  if (paint.antialias) paint.growDevice = 0.5;
+  canvas.fillPath(path, TCanvasFillRule::NonZero, paint);
 }
 
 //-----------------------------------------------------------------------------
@@ -656,93 +473,39 @@ void TSolidColorStyle::doDrawStroke(const TColorFunction *cf,
                                     TStrokeOutline *outline,
                                     const TStroke *stroke,
                                     bool antialias) const {
-  struct locals {
-    static inline void fillOutlinedStroke(const std::vector<TOutlinePoint> &v) {
-      static const int stride = sizeof(TOutlinePoint);
-      glEnableClientState(GL_VERTEX_ARRAY);
-      glVertexPointer(2, GL_DOUBLE, stride, &v[0]);
-      glDrawArrays(QUAD_PRIMITIVE, 0, v.size());
-      glDisableClientState(GL_VERTEX_ARRAY);
-    }
-  };  // locals
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke, antialias);
+}
 
+//-----------------------------------------------------------------------------
+
+void TSolidColorStyle::drawStrokeOnCanvas(TCanvas &canvas,
+                                          const TColorFunction *cf,
+                                          TStrokeOutline *outline,
+                                          const TStroke *stroke,
+                                          bool antialias) const {
   TPixel32 color = m_color;
   if (cf) color = (*cf)(color);
-
   if (color.m == 0) return;
 
-  tglColor(color);
-
   const std::vector<TOutlinePoint> &v = outline->getArray();
-
   if (v.empty()) return;
 
-  if (true)  // color.m != 254) // !dummyStyle)
-  {
-    if (color.m < 255) {
-      TStencilControl *stencil = TStencilControl::instance();
+  // The outline is pairs of points, one on each side of the stroke: a
+  // strip. Where the stroke bends or crosses itself its quads overlap, and
+  // it is still one shape, painted once: that is what a mesh means.
+  TCanvasMesh mesh;
+  mesh.mode = TCanvasMesh::Mode::TriangleStrip;
+  mesh.positions.reserve(v.size());
+  for (const TOutlinePoint &p : v)
+    mesh.positions.push_back(TCanvasPoint(p.x, p.y));
 
-      /*
-// invertendo l'ordine tra disegno interno e contorno, l'antialiasing
-// peggiora un po'. Piu che altro, il mangiucchiamento che faceva su alcune
-macchine,
-// ma solo in drawOnScreen, ora lo fa anche quando si renderizza offline
-stencil->beginMask(TStencilControl::DRAW_ON_SCREEN_ONLY_ONCE);
-// center line
-fillOutlinedStroke(v);
-// outline with antialiasing
-drawAntialiasedOutline(v);
-stencil->endMask();
-*/
-
-      stencil->beginMask(TStencilControl::DRAW_ON_SCREEN_ONLY_ONCE);
-      locals::fillOutlinedStroke(v);
-      stencil->endMask();
-      stencil->enableMask(TStencilControl::SHOW_OUTSIDE);
-
-      if (antialias)
-        drawAntialiasedOutline(v, stroke);
-      else
-        drawAliasedOutline(v, stroke);
-
-      stencil->disableMask();
-
-    } else {
-      // outline with antialiasing
-      if (antialias)
-        drawAntialiasedOutline(v, stroke);
-      else
-        drawAliasedOutline(v, stroke);
-
-      // center line
-      locals::fillOutlinedStroke(v);
-    }
-
-  } else {
-    int i = 0;
-    for (i = 0; i < stroke->getControlPointCount(); i++) {
-      TThickPoint p = stroke->getControlPoint(i);
-      if (i % 2) {
-        tglColor(TPixel32(255, 0, 0));
-        tglDrawCircle(p, p.thick);
-      } else {
-        tglColor(TPixel32(255, 200, 200));
-        tglDrawDisk(p, p.thick);
-        tglColor(TPixel32(0, 255, 0));
-        tglDrawCircle(p, p.thick);
-      }
-      tglColor(TPixel32(127, 127, 127));
-      tglDrawDisk(p, 0.3);
-    }
-    tglColor(TPixel32(127, 127, 127));
-    glBegin(GL_LINE_STRIP);
-    for (i = 0; i < stroke->getControlPointCount(); i++)
-      tglVertex(stroke->getControlPoint(i));
-    glEnd();
-
-    tglColor(TPixel32(0, 0, 0));
-    drawAntialiasedOutline(v, stroke);
-  }
+  TCanvasPaint paint(toCanvas(color));
+  paint.antialias = antialias;
+  // Whether strokes keep the weight the old fringe gave them is still to be
+  // decided (doc/nexttoonz_canvas_ir.md, Q2).
+  if (antialias) paint.growDevice = TVectorRasterizer::strokeGrow();
+  canvas.drawMesh(mesh, paint);
 }
 
 //-----------------------------------------------------------------------------
@@ -796,58 +559,123 @@ TColorStyle *TCenterLineStrokeStyle::clone() const {
 
 //------------------------------------------------------------------------------------
 
+namespace {
+
+// The 16 bits of an OpenGL line stipple as lengths of dashes and gaps in
+// pixels, starting with a dash (of no length if the pattern starts with a
+// gap).
+std::vector<double> stippleToDash(USHORT stipple) {
+  std::vector<double> dash;
+  if (stipple == 0) return dash;
+  bool on = true;
+  dash.push_back(0.0);
+  for (int bit = 0; bit < 16; ++bit) {
+    const bool set = (stipple >> bit) & 1;
+    if (set != on) dash.push_back(0.0), on = set;
+    dash.back() += 1.0;
+  }
+  if (dash.size() % 2 != 0) dash.push_back(0.0);
+  return dash;
+}
+
+}  // namespace
+
+//------------------------------------------------------------------------------------
+
 void TCenterLineStrokeStyle::drawStroke(const TColorFunction *cf,
                                         const TStroke *stroke) const {
-  if (!stroke) return;
+  // Through OpenGL the width goes by what the driver says it can draw, as
+  // it always has, and smoothing by what the caller has set.
+  GLfloat range[2];
+  glGetFloatv(GL_LINE_WIDTH_RANGE, &range[0]);
 
-  // center line
+  // The old function switched the stipple on here, before it drew anything,
+  // the ribbon included. The canvas would do it for the lines alone, which
+  // is the same thing to OpenGL but not to Mesa: where its dash pattern
+  // starts on a line that begins outside the picture depends on when the
+  // stipple was switched on.
+  if (m_stipple != 0) {
+    glEnable(GL_LINE_STIPPLE);
+    glLineStipple(1, m_stipple);
+  }
+
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, stroke, glIsEnabled(GL_LINE_SMOOTH),
+                     range[0], range[1], 0.00001f);
+}
+
+//------------------------------------------------------------------------------------
+
+void TCenterLineStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas,
+                                                const TColorFunction *cf,
+                                                const TStroke *stroke,
+                                                bool antialias) const {
+  // No driver to ask. The narrowest line is taken to be one pixel, which is
+  // what both drivers the renders have been checked on report (Mesa's
+  // software rasteriser and AMD's on macOS); with it this style comes out
+  // as it does through them. There is no widest line.
+  drawStrokeOnCanvas(canvas, cf, stroke, antialias, 1.f,
+                     std::numeric_limits<float>::max(), 1.f);
+}
+
+//------------------------------------------------------------------------------------
+
+// \p minWidth and \p maxWidth are the line widths that can be drawn, and
+// \p hairline the width to ask for when the style's is nothing. The
+// arithmetic on the width is the old function's, single precision included.
+void TCenterLineStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas,
+                                                const TColorFunction *cf,
+                                                const TStroke *stroke,
+                                                bool antialias, float minWidth,
+                                                float maxWidth,
+                                                float hairline) const {
+  if (!stroke) return;
 
   int i, n = stroke->getChunkCount();
   if (n == 0) return;
   TPixel32 color = m_color;
   if (cf) color = (*cf)(m_color);
   if (color.m == 0) return;
-  tglColor(color);
-  double pixelSize = sqrt(tglGetPixelSize2());
+  const double pixelSize = canvas.pixelSize();
 
-  if (m_stipple != 0) {
-    glEnable(GL_LINE_STIPPLE);
-    glLineStipple(1, m_stipple);
-  }
+  TCanvasPaint paint(toCanvas(color));
+  paint.antialias = antialias;
 
-  const TThickQuadratic *q = 0;
-  q                        = stroke->getChunk(0);
-  GLfloat rangeValue[2];
-  glGetFloatv(GL_LINE_WIDTH_RANGE, &rangeValue[0]);
+  TCanvasPen pen;
+  pen.unit = TCanvasPen::Unit::Device;
+  pen.dash = stippleToDash(m_stipple);
+
+  const TThickQuadratic *q = stroke->getChunk(0);
 
   float width = float(m_width);
 
-  if (width < rangeValue[0])
-    width = rangeValue[0];
-  else if (width > rangeValue[1])
-    width = rangeValue[1];
+  if (width < minWidth)
+    width = minWidth;
+  else if (width > maxWidth)
+    width = maxWidth;
 
   width = 2 * width;
 
   if (width <= 1.0) {
+    // A line: the style's width in pixels, twice over.
     if (m_width != 0.0) width /= pixelSize;
 
-    if (width ==
-        0.F)  // http://www.opengl.org/sdk/docs/man/xhtml/glLineWidth.xml
-      width = 0.00001;
+    if (width == 0.F) width = hairline;
 
-    glLineWidth(width);
-
-    glBegin(GL_LINE_STRIP);
+    TCanvasPath path;
     for (i = 0; i < n; i++) {
       q           = stroke->getChunk(i);
       double step = computeStep(*q, pixelSize);
-      for (double t = 0; t < 1; t += step) tglVertex(q->getPoint(t));
+      for (double t = 0; t < 1; t += step)
+        path.lineTo(toCanvas(q->getPoint(t)));
     }
     assert(q);
-    tglVertex(q->getP2());
-    glEnd();
+    path.lineTo(toCanvas(q->getP2()));
+
+    pen.width = width;
+    canvas.strokePath(path, pen, paint);
   } else {
+    // A ribbon of that half width, with a line of one pixel down each side.
     double s      = 0;
     double length = stroke->getLength();
     TPointD pos1, pos4;
@@ -889,36 +717,32 @@ void TCenterLineStrokeStyle::drawStroke(const TColorFunction *cf,
     }
 
     if (pv.size() > 2) {
-      glColor4ub(color.r, color.g, color.b, color.m);
-      glBegin(QUAD_PRIMITIVE);
-      std::vector<TPointD>::iterator it = pv.begin();
-      for (; it != pv.end(); ++it) {
-        tglVertex(*it);
-      }
-      glEnd();
+      // The ribbon was drawn quad by quad, each blended on its own and with
+      // hard edges. A mesh with a colour at every vertex is drawn that way;
+      // one without would be treated as a single shape (as solid strokes
+      // are), which this style never was.
+      TCanvasMesh ribbon;
+      ribbon.mode        = TCanvasMesh::Mode::TriangleStrip;
+      ribbon.smoothEdges = false;
+      for (const TPointD &p : pv) ribbon.positions.push_back(toCanvas(p));
+      ribbon.colors.assign(pv.size(), paint.color);
+      canvas.drawMesh(ribbon, TCanvasPaint(TCanvasColor(1.f, 1.f, 1.f)));
 
-      glBegin(GL_LINE_STRIP);
-
-      std::vector<TPointD>::iterator it1 = pv.begin();
-      for (; it1 != pv.end(); ++it1) {
-        ++it1;
-        tglVertex(*it1);
-      }
-      glEnd();
-      glBegin(GL_LINE_STRIP);
-      std::vector<TPointD>::iterator it2 = pv.begin();
-      if (it2 != pv.end()) ++it2;
-      for (; it2 != pv.end() - 1; ++it2) {
-        ++it2;
-        tglVertex(*it2);
-      }
-      glEnd();
+      // The two lines, exactly the points the old loops visited: every odd
+      // one, and every even one but the first. They are two contours of one
+      // path, so that through OpenGL nothing happens between them, as
+      // nothing did: Mesa's stipple pattern runs on from one line to the
+      // next when a line starts outside the picture, and where it had got
+      // to depends on that.
+      pen.width = 1.0;
+      TCanvasPath sides;
+      for (std::size_t k = 1; k < pv.size(); k += 2)
+        k == 1 ? sides.moveTo(toCanvas(pv[k])) : sides.lineTo(toCanvas(pv[k]));
+      for (std::size_t k = 2; k < pv.size(); k += 2)
+        k == 2 ? sides.moveTo(toCanvas(pv[k])) : sides.lineTo(toCanvas(pv[k]));
+      canvas.strokePath(sides, pen, paint);
     }
   }
-
-  if (m_stipple != 0) glDisable(GL_LINE_STIPPLE);
-
-  glLineWidth(1.0);
 }
 
 //-----------------------------------------------------------------------------

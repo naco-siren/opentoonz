@@ -11,6 +11,7 @@
 #include "tvectorrenderdata.h"
 //#include "tcolorstyles.h"
 #include "tsimplecolorstyles.h"
+#include "tcanvasutil.h"
 //#include "tcurveutil.h"
 //#include "tdebugmessage.h"
 
@@ -163,6 +164,17 @@ void OutlineRegionProp::draw(const TVectorRenderData &rd) {
   tglMultMatrix(rd.m_aff);
   double pixelSize = sqrt(tglGetPixelSize2());
 
+  updateOutline(pixelSize);
+
+  m_colorStyle->drawRegion(rd.m_cf, rd.m_antiAliasing && rd.m_regionAntialias,
+                           m_outline);
+
+  glPopMatrix();
+}
+
+//-------------------------------------------------------------------
+
+void OutlineRegionProp::updateOutline(double pixelSize) {
   if (!isAlmostZero(pixelSize - m_pixelSize, 1e-5) || m_regionChanged ||
       m_styleVersionNumber != m_colorStyle->getVersionNumber()) {
     m_pixelSize     = pixelSize;
@@ -176,11 +188,26 @@ void OutlineRegionProp::draw(const TVectorRenderData &rd) {
   }
 
   assert(!m_outline.m_exterior.empty());
+}
 
-  m_colorStyle->drawRegion(rd.m_cf, rd.m_antiAliasing && rd.m_regionAntialias,
-                           m_outline);
+//-------------------------------------------------------------------
 
-  glPopMatrix();
+// draw() without OpenGL. Keep the two in step.
+void OutlineRegionProp::drawOnCanvas(TCanvas &canvas,
+                                     const TVectorRenderData &rd) {
+  if (rd.m_clippingRect != TRect() && !rd.m_is3dView &&
+      !(rd.m_aff * getRegion()->getBBox()).overlaps(convert(rd.m_clippingRect)))
+    return;
+
+  canvas.save();
+  canvas.concat(toCanvas(rd.m_aff));
+
+  updateOutline(canvas.pixelSize());
+
+  m_colorStyle->drawRegionOnCanvas(
+      canvas, rd.m_cf, rd.m_antiAliasing && rd.m_regionAntialias, m_outline);
+
+  canvas.restore();
 }
 
 //-------------------------------------------------------------------

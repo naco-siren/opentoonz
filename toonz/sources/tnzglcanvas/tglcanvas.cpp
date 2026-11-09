@@ -1,7 +1,19 @@
 #include "canvas/tglcanvas.h"
 
-#include "tgl.h"
-#include "tstencilcontrol.h"
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX  // or windows.h turns std::min and std::max into macros
+#endif
+#include <windows.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
+#elif defined(__APPLE__)
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+#else
+#include <GL/gl.h>
+#include <GL/glu.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -170,14 +182,20 @@ TCanvasAffine inverse(const TCanvasAffine &m) {
 //=============================================================================
 // Paint
 
-// Everything a call changes is put back when the call is over, except what
-// TStencilControl keeps track of itself.
+// With its own state, everything a call changes is put back when the call
+// is over (except the stencil state, which the masks keep track of). With
+// the caller's state nothing is saved: the old style code did not either,
+// and what it left changed is part of what the caller expects.
 struct ScopedAttributes {
-  ScopedAttributes() {
+  const bool active;
+  explicit ScopedAttributes(TGlCanvas::State state)
+      : active(state == TGlCanvas::State::Own) {
+    if (!active) return;
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
   }
   ~ScopedAttributes() {
+    if (!active) return;
     glPopClientAttrib();
     glPopAttrib();
   }
@@ -279,6 +297,7 @@ public:
       glColor4f(a, a, a, a);
     else
       glColor4f(1.f, 1.f, 1.f, a);
+    m_textureWasOn = glIsEnabled(GL_TEXTURE_2D);
     glEnable(GL_TEXTURE_2D);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     GLdouble matrix[16];
@@ -294,6 +313,7 @@ public:
     glMatrixMode(GL_TEXTURE);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
+    if (!m_textureWasOn) glDisable(GL_TEXTURE_2D);
     glDeleteTextures(1, &m_texture);
   }
 
@@ -307,6 +327,7 @@ public:
 private:
   GLuint m_texture     = 0;
   bool m_premultiplied = false;
+  GLboolean m_textureWasOn = GL_FALSE;
 
   enum { kSteps = 256 };
 
@@ -357,8 +378,15 @@ private:
 // Fixed-function blending cannot do that at once, so everything is drawn
 // twice: the colour channels blended by alpha, then the alpha channel
 // added up. (A source that is premultiplied already needs one pass.)
+//
+// None of this with the caller's state: the old drawing code does the two
+// passes itself, around the styles.
 template <class Draw>
-void blendOver(bool sourceIsPremultiplied, Draw draw) {
+void blendOver(TGlCanvas::State state, bool sourceIsPremultiplied, Draw draw) {
+  if (state == TGlCanvas::State::Callers) {
+    draw();
+    return;
+  }
   glEnable(GL_BLEND);
   if (sourceIsPremultiplied) {
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
@@ -542,48 +570,83 @@ void setStipple(const std::vector<double> &dash) {
 //=============================================================================
 // TGlCanvas
 
-TGlCanvas::TGlCanvas(const TCanvasIRect &deviceBounds)
-    : m_bounds(deviceBounds), m_clips(1, 0) {
-  glGetDoublev(GL_MODELVIEW_MATRIX, m_base);
+namespace {
+
+// The part of the modelview matrix that moves things about in the plane.
+TCanvasAffine modelviewAffine() {
+  GLdouble m[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, m);
+  return TCanvasAffine(m[0], m[4], m[12], m[1], m[5], m[13]);
+}
+
+void smoothLines() {
+  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+  glEnable(GL_LINE_SMOOTH);
+  glLineWidth(1.f);
+}
+
+}  // namespace
+
+TGlCanvas::TGlCanvas(const TCanvasIRect &deviceBounds, TGlCanvasMasks &masks,
+                     State state)
+    : TCanvas(modelviewAffine())
+    , m_bounds(deviceBounds)
+    , m_masks(masks)
+    , m_state(state)
+    , m_clips(1, 0) {
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
 }
 
 TGlCanvas::~TGlCanvas() {
-  for (int count : m_clips) dropClips(count);
   glMatrixMode(GL_MODELVIEW);
-  glLoadMatrixd(m_base);
+  for (int count : m_clips) {
+    dropClips(count);
+    glPopMatrix();
+  }
+}
+
+// The same number tglGetPixelSize2() gives, from the same place: OpenGL
+// keeps the matrix in single precision, and styles decide how finely to cut
+// curves by this value.
+double TGlCanvas::pixelSize() const {
+  GLdouble m[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, m);
+  double det = std::fabs(m[0] * m[5] - m[1] * m[4]);
+  if (det < 1e-8) det = 1e-8;
+  return std::sqrt(1.0 / det);
 }
 
 void TGlCanvas::dropClips(int count) {
-  for (int i = 0; i < count; ++i) TStencilControl::instance()->disableMask();
+  for (int i = 0; i < count; ++i) m_masks.disableMask();
 }
 
-void TGlCanvas::loadTransform() {
-  GLdouble matrix[16];
-  toGl(transform(), matrix);
+void TGlCanvas::onSave() {
+  m_clips.push_back(0);
   glMatrixMode(GL_MODELVIEW);
-  glLoadMatrixd(m_base);
-  glMultMatrixd(matrix);
+  glPushMatrix();
 }
-
-void TGlCanvas::onSave() { m_clips.push_back(0); }
 
 void TGlCanvas::onRestore() {
   dropClips(m_clips.back());
   m_clips.pop_back();
-  loadTransform();
+  glMatrixMode(GL_MODELVIEW);
+  glPopMatrix();
 }
 
-void TGlCanvas::onConcat(const TCanvasAffine &) { loadTransform(); }
+void TGlCanvas::onConcat(const TCanvasAffine &aff) {
+  GLdouble matrix[16];
+  toGl(aff, matrix);
+  glMatrixMode(GL_MODELVIEW);
+  glMultMatrixd(matrix);
+}
 
 void TGlCanvas::onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
                            TCanvasClipOp op, bool) {
-  TStencilControl *stencil = TStencilControl::instance();
-  stencil->beginMask();
+  m_masks.beginMask(false);
   tessellate(flatten(path, 0.1 * pixelSize()), rule);
-  stencil->endMask();
-  stencil->enableMask(op == TCanvasClipOp::Intersect
-                          ? TStencilControl::SHOW_INSIDE
-                          : TStencilControl::SHOW_OUTSIDE);
+  m_masks.endMask();
+  m_masks.enableMask(op == TCanvasClipOp::Intersect);
   ++m_clips.back();
 }
 
@@ -591,12 +654,12 @@ void TGlCanvas::onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
                            const TCanvasPaint &paint) {
   const std::vector<Contour> contours = flatten(path, 0.1 * pixelSize());
 
-  ScopedAttributes attributes;
+  ScopedAttributes attributes(m_state);
   BoundPaint bound(paint);
-  glDisable(GL_POLYGON_SMOOTH);
-  if (paint.antialias) tglEnableLineSmooth(true, 1.0);
+  if (m_state == State::Own) glDisable(GL_POLYGON_SMOOTH);
+  if (paint.antialias) smoothLines();
 
-  blendOver(bound.premultiplied(), [&] {
+  blendOver(m_state, bound.premultiplied(), [&] {
     tessellate(contours, rule);
     if (!paint.antialias) return;
     // The fringe: every contour once more, as a smooth closed line.
@@ -615,7 +678,7 @@ void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
                              const TCanvasPaint &paint) {
   const std::vector<Contour> contours = flatten(path, 0.1 * pixelSize());
 
-  ScopedAttributes attributes;
+  ScopedAttributes attributes(m_state);
   BoundPaint bound(paint);
 
   GLfloat range[2] = {1.f, 1.f};
@@ -625,27 +688,38 @@ void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
                                            : pen.width / pixelSize();
   glLineWidth((GLfloat)std::min(std::max(pixels, (double)range[0]),
                                 (double)range[1]));
-  if (paint.antialias) {
-    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-    glEnable(GL_LINE_SMOOTH);
-  } else {
-    glDisable(GL_LINE_SMOOTH);
+  // Whether lines are smooth is the caller's business when the state is.
+  if (m_state == State::Own) {
+    if (paint.antialias) {
+      glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+      glEnable(GL_LINE_SMOOTH);
+    } else {
+      glDisable(GL_LINE_SMOOTH);
+    }
   }
   if (!pen.dash.empty()) setStipple(pen.dash);
 
-  blendOver(bound.premultiplied(), [&] { drawLines(contours); });
+  blendOver(m_state, bound.premultiplied(), [&] { drawLines(contours); });
+
+  if (m_state == State::Callers) {
+    // What the old line styles left behind them.
+    if (!pen.dash.empty()) glDisable(GL_LINE_STIPPLE);
+    glLineWidth(1.f);
+  }
 }
 
 void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
-  ScopedAttributes attributes;
+  ScopedAttributes attributes(m_state);
   BoundPaint bound(paint);
 
+  const GLsizei count = (GLsizei)mesh.positions.size();
+  const bool strip    = mesh.mode == TCanvasMesh::Mode::TriangleStrip;
+  // An even strip is a strip of quads, and goes out as one (see the header).
   const GLenum mode = mesh.mode == TCanvasMesh::Mode::Triangles
                           ? GL_TRIANGLES
-                          : mesh.mode == TCanvasMesh::Mode::TriangleStrip
-                                ? GL_TRIANGLE_STRIP
-                                : GL_TRIANGLE_FAN;
-  const GLsizei count = (GLsizei)mesh.positions.size();
+                          : !strip          ? GL_TRIANGLE_FAN
+                            : count % 2 == 0 ? GL_QUAD_STRIP
+                                             : GL_TRIANGLE_STRIP;
 
   // The paint's opacity applies to the vertex colours too.
   std::vector<TCanvasColor> colors = mesh.colors;
@@ -678,48 +752,50 @@ void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
   // renderer drew those.
   const bool flat = colors.empty() && !bound.textured();
   if (!flat) {
-    blendOver(bound.premultiplied(), drawTriangles);
+    blendOver(m_state, bound.premultiplied(), drawTriangles);
     return;
   }
 
-  // The two sides of a strip are its even and its odd vertices; around
-  // them goes the fringe, or without antialiasing a plain line.
-  const bool strip = mesh.mode == TCanvasMesh::Mode::TriangleStrip;
-  std::vector<TCanvasPoint> loop;
-  if (strip && mesh.smoothEdges) {
-    for (std::size_t i = 0; i < mesh.positions.size(); i += 2)
-      loop.push_back(mesh.positions[i]);
-    const std::size_t lastOdd = (mesh.positions.size() / 2) * 2 - 1;
-    for (std::size_t i = lastOdd;; i -= 2) {
-      loop.push_back(mesh.positions[i]);
-      if (i == 1) break;
-    }
-  }
+  // The two sides of a strip are its even and its odd vertices. Along them
+  // goes the fringe: a band around both, or without antialiasing a plain
+  // line down each.
+  const bool outlined = strip && mesh.smoothEdges && count >= 4;
   const auto drawOutline = [&] {
-    if (loop.empty()) return;
+    if (!outlined) return;
+    const std::size_t n = mesh.positions.size();
     if (paint.antialias) {
+      std::vector<TCanvasPoint> loop;
+      for (std::size_t i = 0; i < n; i += 2) loop.push_back(mesh.positions[i]);
+      for (std::size_t i = (n / 2) * 2 - 1;; i -= 2) {
+        loop.push_back(mesh.positions[i]);
+        if (i == 1) break;
+      }
       drawFringe(loop, paint.color);
-    } else {
+      return;
+    }
+    if (m_state == State::Own) {
       glDisable(GL_LINE_SMOOTH);
       glLineWidth(1.f);
-      glBegin(GL_LINE_LOOP);
-      for (const TCanvasPoint &point : loop) glVertex2d(point.x, point.y);
+    }
+    for (std::size_t side = 0; side < 2; ++side) {
+      glBegin(GL_LINE_STRIP);
+      for (std::size_t i = side; i < n; i += 2)
+        glVertex2d(mesh.positions[i].x, mesh.positions[i].y);
       glEnd();
     }
   };
 
-  blendOver(false, [&] {
+  blendOver(m_state, false, [&] {
     if (paint.color.a < 1.f) {
       // The triangles overlap where the stroke bends or crosses itself.
       // The stencil buffer lets each pixel through once, and afterwards
       // keeps the fringe off what the triangles covered.
-      TStencilControl *stencil = TStencilControl::instance();
-      stencil->beginMask(TStencilControl::DRAW_ON_SCREEN_ONLY_ONCE);
+      m_masks.beginMask(true);
       drawTriangles();
-      stencil->endMask();
-      stencil->enableMask(TStencilControl::SHOW_OUTSIDE);
+      m_masks.endMask();
+      m_masks.enableMask(false);
       drawOutline();
-      stencil->disableMask();
+      m_masks.disableMask();
     } else {
       drawOutline();
       drawTriangles();
@@ -742,7 +818,7 @@ void TGlCanvas::onDrawImage(const TCanvasImage &image,
   paint.shader.tile         = TCanvasTile::Clamp;
   paint.shader.filter       = options.filter;
 
-  ScopedAttributes attributes;
+  ScopedAttributes attributes(m_state);
   BoundPaint bound(paint);
   const TCanvasPoint corners[4] = {
       imageToLocal * TCanvasPoint(0, 0),
@@ -750,7 +826,7 @@ void TGlCanvas::onDrawImage(const TCanvasImage &image,
       imageToLocal * TCanvasPoint(image.width, image.height),
       imageToLocal * TCanvasPoint(0, image.height)};
 
-  blendOver(bound.premultiplied(), [&] {
+  blendOver(m_state, bound.premultiplied(), [&] {
     glBegin(GL_TRIANGLE_FAN);
     for (const TCanvasPoint &corner : corners) {
       glTexCoord2d(corner.x, corner.y);

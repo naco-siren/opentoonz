@@ -42,6 +42,7 @@ public:
 
   TStrokeProp *clone(const TStroke *stroke) const override;
   void draw(const TVectorRenderData &rd) override;
+  void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) override;
 };
 
 //=============================================================================
@@ -95,6 +96,11 @@ public:
 
   TStrokeProp *clone(const TStroke *stroke) const override;
   void draw(const TVectorRenderData &rd) override;
+  void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) override;
+
+private:
+  //! Brings the outline up to date for a pixel of this size.
+  void updateOutline(double pixelSize);
 };
 
 //=============================================================================

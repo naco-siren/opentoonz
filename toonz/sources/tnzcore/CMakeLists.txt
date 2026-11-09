@@ -97,6 +97,10 @@ set(HEADERS ${MOC_HEADERS}
     ../include/tstrokeutil.h
     ../include/ttessellator.h
     ../include/tvectorgl.h
+    ../include/tvectorcanvas.h
+    ../include/tvectorrasterizer.h
+    ../include/tcanvasutil.h
+    ../include/tglcanvasbridge.h
     ../include/tvectorbrushstyle.h
     ../include/tvectorrenderdata.h
     ../include/trop.h
@@ -186,6 +190,8 @@ set(SOURCES
     ../common/tvrender/tglregions.cpp
     ../common/tvrender/tinbetween.cpp
     ../common/tvrender/tofflinegl.cpp
+    ../common/tvrender/tglcanvasbridge.cpp
+    ../common/tvrender/tvectorrasterizer.cpp
     ../common/tvrender/tpalette.cpp
     ../common/tvrender/tpaletteutil.cpp
     ../common/tvrender/tregionprop.cpp
@@ -373,3 +379,15 @@ target_link_libraries(tnzcore
     ${GL_LIB} ${GLUT_LIB} ${QT_LIB} ${Z_LIB} ${JPEG_LIB} ${LZ4_LIB}
     ${EXTRA_LIBS}
 )
+
+# The canvas interface the vector renderer draws through, and the OpenGL
+# canvas the old drawing code reaches migrated styles with.
+target_link_libraries(tnzcore tnzcanvas tnzglcanvas)
+
+# With Skia, vector images can also be rasterised without OpenGL
+# (tvectorrasterizer.h). Only that one file knows.
+if(WITH_SKIA)
+    target_link_libraries(tnzcore tnzskia)
+    set_source_files_properties(../common/tvrender/tvectorrasterizer.cpp
+        PROPERTIES COMPILE_DEFINITIONS NEXTTOONZ_WITH_SKIA)
+endif()

@@ -8,6 +8,7 @@
 //#include "tcolorfunctions.h"
 #include "tvectorrenderdata.h"
 #include "tmathutil.h"
+#include "tcanvasutil.h"
 //#include "tcurves.h"
 //#include "tstrokeutil.h"
 
@@ -70,6 +71,28 @@ void TSimpleStrokeProp::draw(
   m_colorStyle->drawStroke(rd.m_cf, m_stroke);
 
   glPopMatrix();
+}
+
+//-----------------------------------------------------------------------------
+
+// draw() without OpenGL. Keep the two in step.
+void TSimpleStrokeProp::drawOnCanvas(TCanvas &canvas,
+                                     const TVectorRenderData &rd) {
+  if (rd.m_clippingRect != TRect() && !rd.m_is3dView &&
+      !convert(rd.m_aff * m_stroke->getBBox()).overlaps(rd.m_clippingRect))
+    return;
+
+  if (!rd.m_show0ThickStrokes) {
+    const TCenterLineStrokeStyle *cs =
+        dynamic_cast<const TCenterLineStrokeStyle *>(m_colorStyle);
+    if (cs && cs->getParamValue(TColorStyle::double_tag(), 0) == 0) return;
+  }
+
+  canvas.save();
+  canvas.concat(toCanvas(rd.m_aff));
+  m_colorStyle->drawStrokeOnCanvas(canvas, rd.m_cf, m_stroke,
+                                   rd.m_antiAliasing);
+  canvas.restore();
 }
 
 //=============================================================================
@@ -231,23 +254,7 @@ void OutlineStrokeProp::draw(const TVectorRenderData &rd) {
     appStyle->drawStroke(rd.m_cf, m_stroke);
     delete appStyle;
   } else {
-    if (!isAlmostZero(pixelSize - m_outlinePixelSize, 1e-5) ||
-        m_strokeChanged ||
-        m_styleVersionNumber != m_colorStyle->getVersionNumber()) {
-      m_strokeChanged    = false;
-      m_outlinePixelSize = pixelSize;
-      TOutlineUtil::OutlineParameter param;
-
-      m_outline.getArray().clear();
-      m_colorStyle->computeOutline(m_stroke, m_outline, param);
-
-      // TOutlineStyle::StrokeOutlineModifier *modifier =
-      // m_colorStyle->getStrokeOutlineModifier();
-      // if(modifier)
-      //  modifier->modify(m_outline);
-
-      m_styleVersionNumber = m_colorStyle->getVersionNumber();
-    }
+    updateOutline(pixelSize);
 
     if (rd.m_antiAliasing)
       m_colorStyle->drawStroke(rd.m_cf, &m_outline, m_stroke);
@@ -256,6 +263,62 @@ void OutlineStrokeProp::draw(const TVectorRenderData &rd) {
   }
 
   glPopMatrix();
+}
+
+//-----------------------------------------------------------------------------
+
+void OutlineStrokeProp::updateOutline(double pixelSize) {
+  if (!isAlmostZero(pixelSize - m_outlinePixelSize, 1e-5) || m_strokeChanged ||
+      m_styleVersionNumber != m_colorStyle->getVersionNumber()) {
+    m_strokeChanged    = false;
+    m_outlinePixelSize = pixelSize;
+    // The pixel size goes along: computing the outline used to read it
+    // from OpenGL once more, and on a canvas there may be none.
+    TOutlineUtil::OutlineParameter param(0, pixelSize);
+
+    m_outline.getArray().clear();
+    m_colorStyle->computeOutline(m_stroke, m_outline, param);
+
+    // TOutlineStyle::StrokeOutlineModifier *modifier =
+    // m_colorStyle->getStrokeOutlineModifier();
+    // if(modifier)
+    //  modifier->modify(m_outline);
+
+    m_styleVersionNumber = m_colorStyle->getVersionNumber();
+  }
+}
+
+//-----------------------------------------------------------------------------
+
+// draw() without OpenGL. Keep the two in step.
+void OutlineStrokeProp::drawOnCanvas(TCanvas &canvas,
+                                     const TVectorRenderData &rd) {
+  if (rd.m_clippingRect != TRect() && !rd.m_is3dView &&
+      !convert(rd.m_aff * m_stroke->getBBox()).overlaps(rd.m_clippingRect))
+    return;
+
+  canvas.save();
+  canvas.concat(toCanvas(rd.m_aff));
+
+  const double pixelSize = canvas.pixelSize();
+
+#ifdef _DEBUG
+  if (m_stroke->isCenterLine() && m_colorStyle->getTagId() != 99)
+#else
+  if (m_stroke->isCenterLine())
+#endif
+  {
+    TCenterLineStrokeStyle *appStyle =
+        new TCenterLineStrokeStyle(m_colorStyle->getAverageColor(), 0, 0);
+    appStyle->drawStrokeOnCanvas(canvas, rd.m_cf, m_stroke, rd.m_antiAliasing);
+    delete appStyle;
+  } else {
+    updateOutline(pixelSize);
+    m_colorStyle->drawStrokeOnCanvas(canvas, rd.m_cf, &m_outline, m_stroke,
+                                     rd.m_antiAliasing);
+  }
+
+  canvas.restore();
 }
 
 //=============================================================================

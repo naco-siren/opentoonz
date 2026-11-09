@@ -5,6 +5,7 @@
 
 // TnzCore includes
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tstroke.h"
 #include "tpalette.h"
 #include "tvectorimage.h"
@@ -513,9 +514,6 @@ void Iwa_TiledParticlesFx::doCompute(TTile &tile, double frame,
     partLevel.push_back(new TLevel());
     partLevel[0]->setName("particles");
     TDimension vecsize(10, 10);
-    TOfflineGL *offlineGlContext = new TOfflineGL(vecsize);
-    offlineGlContext->clear(TPixel32(0, 0, 0, 0));
-
     TStroke *stroke;
     stroke = makeEllipticStroke(
         0.07, TPointD((vecsize.lx - 1) * .5, (vecsize.ly - 1) * .5), 2.0, 2.0);
@@ -525,16 +523,24 @@ void Iwa_TiledParticlesFx::doCompute(TTile &tile, double frame,
     vectmp->setPalette(plt);
     vectmp->addStroke(stroke);
     TVectorRenderData rd(AffI, TRect(vecsize), plt, 0, true, true);
-    offlineGlContext->makeCurrent();
-    offlineGlContext->draw(vectmp, rd);
 
-    partLevel[0]->setFrame(
-        0, TRasterImageP(offlineGlContext->getRaster()->clone()));
+    // On the CPU if renders are to rasterise vectors there, otherwise
+    // through an offscreen OpenGL context.
+    TRasterP particle = TRaster32P(vecsize);
+    if (!TVectorRasterizer::isSelected() ||
+        !TVectorRasterizer::rasterize(particle, vectmp, rd)) {
+      TOfflineGL *offlineGlContext = new TOfflineGL(vecsize);
+      offlineGlContext->makeCurrent();
+      offlineGlContext->clear(TPixel32(0, 0, 0, 0));
+      offlineGlContext->draw(vectmp, rd);
+      particle = offlineGlContext->getRaster()->clone();
+      delete offlineGlContext;
+    }
+
+    partLevel[0]->setFrame(0, TRasterImageP(particle));
     p_size.lx = vecsize.lx + 1;
     p_size.ly = vecsize.ly + 1;
     lastframe.push_back(1);
-
-    delete offlineGlContext;
   }
 
   Iwa_Particles_Engine myEngine(this, frame);

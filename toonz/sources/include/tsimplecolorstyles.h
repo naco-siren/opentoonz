@@ -33,6 +33,7 @@ class TRegionProp;
 class TRegionOutline;
 class TTessellator;
 class TColorFunction;
+class TCanvas;
 class TVectorImage;
 
 //=================================================
@@ -59,6 +60,14 @@ public:
 
   virtual void drawStroke(const TColorFunction *cf,
                           const TStroke *stroke) const = 0;
+
+  //! The stroke on a canvas instead of straight to OpenGL, in the canvas's
+  //! current coordinates. Implemented by the classes whose canvasSupport()
+  //! says so; \p antialias is what the OpenGL version reads from the state
+  //! its caller has set.
+  virtual void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                                  const TStroke *stroke, bool antialias) const {
+  }
 };
 
 //**********************************************************************************
@@ -126,6 +135,17 @@ public:
     drawStroke(cf, outline, stroke);
   };
 
+  //! The region and the stroke on a canvas instead of straight to OpenGL,
+  //! in the canvas's current coordinates. Implemented by the classes whose
+  //! canvasSupport() says so.
+  virtual void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                                  bool antiAliasing,
+                                  TRegionOutline &outline) const {}
+  virtual void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                                  TStrokeOutline *outline,
+                                  const TStroke *stroke, bool antialias) const {
+  }
+
 protected:
   // Not assignable
   TOutlineStyle &operator=(const TOutlineStyle &);
@@ -141,7 +161,6 @@ typedef TSmartPointerT<TOutlineStyle> TOutlineStyleP;
 
 class DVAPI TSolidColorStyle : public TOutlineStyle {
   TPixel32 m_color;
-  TTessellator *m_tessellator;
 
 protected:
   void makeIcon(const TDimension &d) override;
@@ -164,11 +183,23 @@ public:
   TPixel32 getMainColor() const override { return m_color; }
   void setMainColor(const TPixel32 &color) override { m_color = color; }
 
+  //! Strokes and regions, for a TSolidColorStyle itself. The classes that
+  //! derive from it draw their own way until they say otherwise.
+  int canvasSupport() const override;
+
+  // The OpenGL versions are the canvas versions seen through a TGlCanvas.
+  // Classes that derive from this one call them for their plain parts.
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &outline) const override;
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   void doDrawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                     const TStroke *s, bool antialias) const;
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          TStrokeOutline *outline, const TStroke *stroke,
+                          bool antialias) const override;
 
   void drawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                   const TStroke *s) const override {
@@ -211,8 +242,13 @@ public:
   TPixel32 getColor() const { return m_color; }
   USHORT getStipple() const { return m_stipple; }
 
+  int canvasSupport() const override { return StrokesOnCanvas; }
+
+  // The OpenGL version is the canvas version seen through a TGlCanvas.
   void drawStroke(const TColorFunction *cf,
                   const TStroke *stroke) const override;
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          const TStroke *stroke, bool antialias) const override;
 
   bool hasMainColor() const override { return true; }
   TPixel32 getMainColor() const override { return m_color; }
@@ -236,6 +272,11 @@ protected:
 private:
   // Not assignable
   TCenterLineStrokeStyle &operator=(const TCenterLineStrokeStyle &);
+
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          const TStroke *stroke, bool antialias,
+                          float minWidth, float maxWidth,
+                          float hairline) const;
 };
 
 //------------------------------------------------------------------------------
