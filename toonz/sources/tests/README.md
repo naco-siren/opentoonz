@@ -20,6 +20,7 @@ ctest --output-on-failure
 | `golden/` | Golden-render tests: `tcomposer` renders the reference project and the frames are compared with `golden/expected/<scene>/`. |
 | `fixtures/reference_project/` | The reference project: scenes, levels and palettes the golden tests render. Generated, but committed. |
 | `fixtures/gen_reference_project.cpp` | The generator that builds the reference project through the toonzlib API. |
+| `skia_spike/` | Phase 1 spike: one test binary that links a CPU-only Skia from vcpkg. Off by default (`WITH_SKIA_SPIKE`); see its README. |
 
 ## Unit tests
 

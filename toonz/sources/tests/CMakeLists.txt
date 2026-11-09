@@ -80,6 +80,14 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toonzlib/CMakeLists.txt)
 endif()
 
 #-----------------------------------------------------------------------------
+# Phase 1 spike: CPU Skia from vcpkg (off by default, see skia_spike/README.md)
+
+option(WITH_SKIA_SPIKE "Build the Phase 1 Skia spike test (needs Skia from vcpkg)" OFF)
+if(WITH_SKIA_SPIKE)
+    add_subdirectory(skia_spike)
+endif()
+
+#-----------------------------------------------------------------------------
 # Golden renders (registered by golden/CMakeLists.txt once fixtures exist)
 
 add_subdirectory(golden)
