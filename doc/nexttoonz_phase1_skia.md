@@ -1,6 +1,6 @@
 # NextToonz Phase 1：Skia 的获取方式
 
-版本 0.1，2026-11-08。本文回答 `doc/nexttoonz_plan.md` 第 5 节的待定事项"Skia 的获取方式"：比较了几条路线，在本机把选中的一条走通，并记录实测数据。结论先行，数据和没有验证的部分在后面。
+版本 0.2，2026-11-08。本文回答 `doc/nexttoonz_plan.md` 第 5 节的待定事项"Skia 的获取方式"：比较了几条路线，在本机把选中的一条走通，并记录实测数据。结论先行，数据和没有验证的部分在后面。
 
 实测环境：Intel Mac（i7-10700K，8 核 16 线程），macOS 26.7，Xcode 26.5 的 Apple clang；Linux 部分在本机的 lima 虚拟机 `nt-asan` 里（Ubuntu 24.04 x86_64，14 核，GCC 13.3）。作为参照，同一台机器上 OpenToonz 的全量构建是 508 秒墙钟、4,890 秒 CPU。
 
@@ -8,15 +8,20 @@
 
 ## 1. 结论
 
-**用 vcpkg 的 `skia` port，清单模式，关掉全部可选特性，vcpkg 版本用 `builtin-baseline` 钉死。** 计划里的倾向成立，不需要启用 D6 的 Rust 触发条件。
+**范围（所有者 2026-11-08）：一开始只要求一套完整的技术栈在 x86 macOS（开发用的这台 iMac）和 iPadOS 上正确运行。** 本文 0.1 版是按"覆盖 CI 的全部平台"写的，并据此推荐 vcpkg；那个前提不是所有者的要求。按现在的范围，结论改为：
 
-- 一条命令从源码构建，CMake 侧一句 `find_package(unofficial-skia CONFIG)`。
-- 本机冷构建 3 分钟出头，产物进二进制缓存后恢复只要 5 秒，缓存每个平台十几到二十几 MB。
-- 同一个 port 在四个目标上构建成功：x86_64 macOS、arm64 macOS（交叉编译）、arm64 iOS（交叉编译）、x86_64 Linux（GCC 13）。第一个和最后一个还链接进了本仓库的测试并跑通。
+**用 JetBrains skia-pack 的预编译包**（m144），三个目标各一个 zip：macOS x86_64、iPadOS 模拟器 x86_64、iPadOS arm64。不需要编译，不引入新的构建工具。
+
+- 三个 zip 合计 128 MB，SHA-256 与 GitHub 记录的一致。
+- macOS x86_64：链进本仓库，spike 的 8 个测试全部通过。
+- iPad 模拟器（iPad Air 第 5 代，iOS 15.5 运行时）：7 个测试全部通过。没跑的那一个要用 tnzcore，而 tnzcore 链接 Qt，还不能为 iPadOS 构建。
+- iPadOS arm64 真机：编译并链接成功，没有在真机上运行。
+- 三处的场景哈希相同，并且与 vcpkg 编出的 m148 在 macOS 上的哈希相同。
 - 许可证是 BSD-3-Clause。
-- Skia 用构建机自己的编译器和标准库编出来，没有预编译包在 Linux 上的 ABI 问题。
 
-落地的东西在分支 `wip/phase1-skia-spike` 上：`toonz/sources/tests/skia_spike/`（清单、CMake 目标、8 个像素测试、说明），由 CMake 选项 `WITH_SKIA_SPIKE` 控制，默认关闭。现有渲染路径没有动。
+第 7 节是这次验证的记录。**vcpkg 路线保留为后备**：需要自己控制 Skia 的编译参数，或者以后要在 Linux 上构建 Skia 后端时用它（预编译包在 Linux 上有 ABI 问题，见第 2 节）。第 2 到 6 节是 0.1 版关于 vcpkg 的内容，数据仍然有效，其中针对 CI 全平台的部分现在用不上。
+
+落地的东西在分支 `wip/phase1-skia-spike` 上：`toonz/sources/tests/skia_spike/`（CMake 目标、8 个像素测试、iPadOS 的构建脚本、vcpkg 清单、说明），由 CMake 选项 `WITH_SKIA_SPIKE` 控制，默认关闭。现有渲染路径没有动。
 
 ---
 
@@ -24,8 +29,8 @@
 
 | 路线 | 覆盖的平台 | 与本项目编译器的 ABI | 版本 | 维护成本 | 结论 |
 |---|---|---|---|---|---|
-| vcpkg `skia` port | 除 32 位 ARM Windows 和 MinGW 之外全部；有 iOS 三元组 | 就地从源码构建，与构建机一致 | m148（2026-11-07 的 vcpkg） | 钉一个 vcpkg 提交；port 由 vcpkg 社区跟进 Skia | **采用** |
-| 预编译包：JetBrains skia-pack | macOS、Linux、Windows、iOS、iOS 模拟器、Android、tvOS、wasm；x64 与 arm64 | Linux 包用 GCC 10 加 `-D_GLIBCXX_USE_CXX11_ABI=0` 编译，与发行版默认的 libstdc++ ABI 不兼容 | m144（2026-02） | 依赖 JetBrains 为 Skiko 做的分叉和发布节奏 | 否决 |
+| vcpkg `skia` port | 除 32 位 ARM Windows 和 MinGW 之外全部；有 iOS 三元组 | 就地从源码构建，与构建机一致 | m148（2026-11-07 的 vcpkg） | 钉一个 vcpkg 提交；port 由 vcpkg 社区跟进 Skia | 后备；要覆盖 Linux 时采用 |
+| 预编译包：JetBrains skia-pack | macOS、Linux、Windows、iOS、iOS 模拟器、Android、tvOS、wasm；x64 与 arm64 | Linux 包用 GCC 10 加 `-D_GLIBCXX_USE_CXX11_ABI=0` 编译，与发行版默认的 libstdc++ ABI 不兼容 | m144（2026-02） | 依赖 JetBrains 为 Skiko 做的分叉和发布节奏 | 只做 Apple 平台时**采用**（第 7 节）；要覆盖 Linux 时否决 |
 | 预编译包：aseprite/skia | macOS、Linux x64、Windows；没有 iOS | Linux 包绑定一种标准库 | m151（2026-07） | 是 Aseprite 自己的分叉 | 否决 |
 | 预编译包：rust-skia 的 skia-binaries | 很全，含 iOS 真机与模拟器 | 为 Rust 绑定准备：只有静态库和 `bindings.rs`，不带 C++ 头文件 | 0.157（2026-11） | 要引入 Rust 工具链才用得顺 | 留作 D6 触发条件 1 的后备 |
 | 自己用 GN 构建 | 全部 | 一致 | 任意 | 要自己取 depot_tools 或 `git-sync-deps`、自己维护各平台的 GN 参数、自己导出头文件和链接参数；这些正是 vcpkg port 已经做掉的事 | 否决，除非要改 Skia 本身 |
@@ -198,3 +203,41 @@ m148 的公共头文件在本仓库的 C++17 下可以编译（spike 就是这�
 - **需要文字时的依赖。** 核心构建在 macOS 和 iOS 上用 CoreText，Linux 上没有任何字体后端。Phase 1 的离线渲染不需要通过 Skia 画文字（画布 IR 草案第 3 节的清单里没有文字绘制）；Phase 3 的 viewer 需要时，Linux 要加 `freetype` 和 `fontconfig` 特性，构建时间和依赖都会增加。
 - **链接进共享库。** spike 把静态的 `libskia.a` 链进一个可执行文件。正式的后端是一个共享库（`.dylib`、`.so`），Skia 的符号可见性和 Linux 上是否需要 `-fPIC`（vcpkg 在 Linux 上默认加）没有单独验证。
 - **vcpkg 基线升级的代价**没有经验数据。Skia 不保证 API 稳定，m148 里 `SkPath` 的编辑方法和 `SkGradientShader` 都已经不在了。建议 Phase 1 期间钉住 m148 不动。
+
+---
+
+## 7. 预编译包（skia-pack）的验证
+
+发布：`JetBrains/skia-pack` 的 `m144-e2e6623374-4`（2026-02-20）。每个 zip 里是 Skia 的头文件（`include/`、`modules/`、`src/` 下的 `.h`）和 `out/<配置>/` 下的静态库。
+
+| 目标 | zip | 解包后 | `libskia.a` | 最低系统版本 | 验证 |
+|---|---|---|---|---|---|
+| macOS x86_64 | 38 MB | 126 MB | 23.2 MB | macOS 11.0 | 链进仓库，8 个测试通过，另外 206 个非 golden 测试通过 |
+| iPadOS 模拟器 x86_64 | 32 MB | 114 MB | 21.7 MB | iOS 12.0 | 在 iPad 模拟器里运行，7 个测试通过 |
+| iPadOS arm64（库里有 arm64 和 arm64e 两个切片） | 58 MB | 181 MB | 40.1 MB | 两个切片分别是 iOS 12.0 和 14.0 | 编译并链接成一个 arm64 可执行文件，没有运行 |
+
+怎样做的：
+
+- macOS：`tests/skia_spike/CMakeLists.txt` 新增缓存变量 `NEXTTOONZ_SKIA_PACK_DIR`，指向解包后的目录即可，不设时仍然找 vcpkg 的 Skia。两种来源包成同一个目标 `nexttoonz_skia`。
+- iPadOS：`tests/skia_spike/run_ios.sh` 用 Xcode 的 clang 直接编译测试、GoogleTest 和链接，模拟器版用 `xcrun simctl spawn` 在模拟器里运行。从零编译到跑完约 15 秒。
+
+实测到的事实：
+
+- **只需要链接 `libskia.a` 一个库**，加 CoreFoundation、CoreGraphics、CoreText、Foundation、Metal（iPadOS 上还有 UIKit）这几个系统框架。包里另外二十多个库（icu、harfbuzz、png、jpeg、webp、skottie 等）用不到。
+- **不链接 OpenGL，也不链接 OpenGL ES。** `libskia.a` 里没有未定义的 GL 符号，iPadOS 的可执行文件的依赖里没有 OpenGLES.framework。我在这次验证之前根据它的构建脚本推断"iPadOS 上会链接已废弃的 OpenGL ES"，这个推断是错的。
+- **带 RTTI。** 库里有 `SkCanvas` 的 typeinfo，所以 5.4 节的 vptr 问题在这个包上不存在（没有在清洁剂构建里实际试）。
+- **像素与 vcpkg 的 m148 相同。** 场景哈希在 macOS、iPad 模拟器上都是 `5653731d3fe1721d`，和 3.5 节里 vcpkg 版在 macOS 上的值一样。
+- **API 没有差别到要改测试。** 同一份测试源码对 m144 和 m148 都能编译。
+- 链接后的测试可执行文件：macOS 4.1 MB，iPad 模拟器 4.0 MB，iPadOS arm64 3.3 MB。
+
+需要知道的代价和没有验证的地方：
+
+- **包里没有"编译时用了哪些宏"的清单。** vcpkg 的 CMake 配置会导出一串 `SK_*` 宏，这个包没有。现在按它的构建脚本定义了 `SK_GANESH` 和 `SK_METAL`，另外显式定义 `SK_RELEASE`（库是 Release 构建；不定义的话，在没有 `NDEBUG` 的构建里 Skia 的头文件会切到调试布局）。测试通过说明用到的这部分接口没有问题，但这不是证明：以后用到新的 Skia 接口时，头文件与库不一致的风险要记着。
+- **它是别人的产品的构建产物。** 版本（现在是 m144）、发布时间、打开哪些特性都由 JetBrains 的 Skiko 决定。它上一次发布是 2026-02-20，到现在八个多月没有更新。
+- **没有 x86_64 以外的 macOS 验证**，arm64 macOS 的包存在但没有下载。
+- **没有在真机上运行。** 真机需要应用包和代码签名；arm64 上的像素是否与 x86_64 一致仍然未知。
+- **模拟器运行时是 iOS 15.5**（本机只装了这一个），不是当前的 iPadOS 26。
+- 下载的 zip 没有放进仓库；正式使用时需要一个按固定地址下载并校验 SHA-256 的步骤，还没有写。三个 zip 的 SHA-256：
+  - macOS x86_64：`077513011356f9d96c596def3c5b292e43c705dc6902812daa82bc147303a9f4`
+  - iPadOS 模拟器 x86_64：`fe4a092491720c1c8332c0e96aaec7c12174ed191fb32341a4d0926d325b045b`
+  - iPadOS arm64：`d8f7140066f0637c292b31c1ada8bfec30ff6e229f41e527c9690708b6b8a173`

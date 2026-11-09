@@ -19,8 +19,13 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkVertices.h"
 
+// tnzcore links Qt and is not built for iPadOS yet; the script that runs
+// these tests in the iPad simulator defines this to leave out the one test
+// that needs it.
+#ifndef NEXTTOONZ_SKIA_SPIKE_NO_TNZCORE
 #include "traster.h"
 #include "tpixel.h"
+#endif
 
 #include <cstdint>
 #include <cstdio>
@@ -312,6 +317,7 @@ TEST(SkiaRaster, MeshesInterpolateColoursButAreNotAntialiased) {
 // is. A Skia backend therefore needs no copy and no conversion to hand a
 // frame to the fx tree. (Only things with an intrinsic "up", text and images
 // that are not themselves TRasters, would come out upside down.)
+#ifndef NEXTTOONZ_SKIA_SPIKE_NO_TNZCORE
 TEST(SkiaRaster, DrawsIntoTRaster32WithoutACopy) {
 #ifndef TNZ_MACHINE_CHANNEL_ORDER_BGRM
   GTEST_SKIP() << "TPixel32 is not BGRM on this platform";
@@ -352,6 +358,7 @@ TEST(SkiaRaster, DrawsIntoTRaster32WithoutACopy) {
   EXPECT_EQ(raster->pixels(4)[10].m, 128);
 #endif
 }
+#endif  // NEXTTOONZ_SKIA_SPIKE_NO_TNZCORE
 
 //-----------------------------------------------------------------------------
 

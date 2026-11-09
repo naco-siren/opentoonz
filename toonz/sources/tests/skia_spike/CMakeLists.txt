@@ -4,11 +4,43 @@
 # the existing libraries, tools and tests are built exactly as before.
 # See README.md in this directory for how to install Skia and configure.
 
-# The config package the vcpkg port installs. It is found through
-# CMAKE_PREFIX_PATH (<vcpkg root>/installed/<triplet>) or unofficial-skia_DIR;
-# the vcpkg toolchain file is deliberately not required, because it would
-# redirect every other find_package() in this build to vcpkg as well.
-find_package(unofficial-skia CONFIG REQUIRED)
+# Skia comes from one of two places, wrapped in the target nexttoonz_skia:
+#
+# - NEXTTOONZ_SKIA_PACK_DIR: an unpacked JetBrains skia-pack release (prebuilt
+#   static libraries with the headers next to them).
+# - otherwise the config package of the vcpkg port, found through
+#   CMAKE_PREFIX_PATH (<vcpkg root>/installed/<triplet>) or
+#   unofficial-skia_DIR. The vcpkg toolchain file is deliberately not
+#   required, because it would redirect every other find_package() in this
+#   build to vcpkg as well.
+set(NEXTTOONZ_SKIA_PACK_DIR "" CACHE PATH
+    "Unpacked JetBrains skia-pack archive to link instead of vcpkg's Skia")
+
+add_library(nexttoonz_skia INTERFACE)
+if(NEXTTOONZ_SKIA_PACK_DIR)
+    file(GLOB _skia_pack_lib "${NEXTTOONZ_SKIA_PACK_DIR}/out/*/libskia.a")
+    if(NOT _skia_pack_lib)
+        message(FATAL_ERROR "No out/*/libskia.a under ${NEXTTOONZ_SKIA_PACK_DIR}")
+    endif()
+    # The archive has no list of the macros Skia was built with. SK_GANESH and
+    # SK_METAL are the ones its build script implies (script/build.py).
+    target_compile_definitions(nexttoonz_skia INTERFACE SK_GANESH SK_METAL)
+    target_include_directories(nexttoonz_skia INTERFACE "${NEXTTOONZ_SKIA_PACK_DIR}")
+    target_link_libraries(nexttoonz_skia INTERFACE
+        "${_skia_pack_lib}"
+        "-framework CoreFoundation"
+        "-framework CoreGraphics"
+        "-framework CoreText"
+        "-framework Foundation"
+        "-framework Metal"
+    )
+else()
+    find_package(unofficial-skia CONFIG REQUIRED)
+    target_link_libraries(nexttoonz_skia INTERFACE unofficial::skia::skia)
+endif()
+# Both are release builds. Skia's headers switch to their debug layout when
+# NDEBUG is missing, so say which one the library is.
+target_compile_definitions(nexttoonz_skia INTERFACE SK_RELEASE)
 
 add_executable(nexttoonz_skia_spike_tests
     test_skia_raster.cpp
@@ -31,7 +63,7 @@ endif()
 
 target_link_libraries(nexttoonz_skia_spike_tests
     PRIVATE
-        unofficial::skia::skia
+        nexttoonz_skia
         tnzcore
         Qt5::Core
         GTest::gtest
