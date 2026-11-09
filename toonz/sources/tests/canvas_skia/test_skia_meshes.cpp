@@ -1,6 +1,8 @@
 // The Skia canvas: meshes, images, shaders, and whole pictures.
 
-#include "canvas_skia_test_util.h"
+#include "canvas_pixel_test_util.h"
+
+#include "canvas/tskiacanvas.h"
 
 #include "canvas/tcanvasrecorder.h"
 
@@ -515,91 +517,6 @@ TEST(SkiaCanvasShader, AMeshLooksItUpAtItsTextureCoordinates) {
 
 //-----------------------------------------------------------------------------
 // Whole pictures
-
-namespace {
-
-// Something of everything, on 64 by 48 pixels.
-void drawScene(TCanvas &canvas, const FourColours &colours) {
-  canvas.fillPath(rectPath(0, 0, 64, 48), TCanvasFillRule::NonZero,
-                  paintOf(1.f, 1.f, 1.f));
-
-  // Two regions that share a curved edge, the first one grown.
-  TCanvasPath left, right;
-  left.moveTo({4, 4}).lineTo({20, 4}).quadTo({28, 14}, {20, 24});
-  left.lineTo({4, 24}).close();
-  right.moveTo({20, 4}).lineTo({36, 4}).lineTo({36, 24}).lineTo({20, 24});
-  right.quadTo({28, 14}, {20, 4}).close();
-  TCanvasPaint grown = paintOf(0.9f, 0.6f, 0.1f);
-  grown.growDevice   = 0.5;
-  canvas.fillPath(left, TCanvasFillRule::NonZero, grown);
-  canvas.fillPath(right, TCanvasFillRule::NonZero, paintOf(0.2f, 0.5f, 0.8f));
-
-  // A translucent ribbon that crosses itself, turned a little.
-  canvas.save();
-  canvas.concat(TCanvasAffine::translation(30, 30) *
-                TCanvasAffine::rotation(20));
-  TCanvasMesh ribbon;
-  ribbon.mode      = TCanvasMesh::Mode::TriangleStrip;
-  ribbon.positions = {{-20, -3}, {-20, 3}, {0, -3}, {0, 3},  {14, 2},
-                      {10, 8},   {4, 12},  {-2, 8}, {-6, -8}, {-12, -6}};
-  canvas.drawMesh(ribbon, paintOf(0.1f, 0.1f, 0.1f, 0.6f));
-
-  // A dashed line one pixel wide and a wide one with round ends.
-  TCanvasPath curve;
-  curve.moveTo({-24, 10}).quadTo({0, 30}, {24, 6});
-  TCanvasPen thin;
-  thin.dash = {5, 3};
-  canvas.strokePath(curve, thin, paintOf(0.f, 0.f, 0.f));
-  TCanvasPen wide;
-  wide.width = 2.5;
-  wide.unit  = TCanvasPen::Unit::Local;
-  wide.cap   = TCanvasPen::Cap::Round;
-  wide.join  = TCanvasPen::Join::Round;
-  TCanvasPath angle;
-  angle.moveTo({-26, -14}).lineTo({-16, -20}).lineTo({-8, -13});
-  canvas.strokePath(angle, wide, paintOf(0.7f, 0.f, 0.2f, 0.8f));
-  canvas.restore();
-
-  // A gradient seen through a round clip.
-  canvas.save();
-  TCanvasPath disc;
-  disc.moveTo({52, 4}).quadTo({62, 4}, {62, 14}).quadTo({62, 24}, {52, 24});
-  disc.quadTo({42, 24}, {42, 14}).quadTo({42, 4}, {52, 4}).close();
-  canvas.clipPath(disc, TCanvasFillRule::NonZero, TCanvasClipOp::Intersect,
-                  true);
-  TCanvasPaint gradient;
-  gradient.shader.kind  = TCanvasShader::Kind::LinearGradient;
-  gradient.shader.p0    = {42, 4};
-  gradient.shader.p1    = {62, 24};
-  gradient.shader.stops = {{0.0, TCanvasColor(1.f, 0.9f, 0.2f)},
-                           {0.6, TCanvasColor(0.9f, 0.2f, 0.3f)},
-                           {1.0, TCanvasColor(0.3f, 0.1f, 0.5f, 0.5f)}};
-  canvas.fillPath(rectPath(40, 0, 64, 28), TCanvasFillRule::NonZero, gradient);
-  canvas.restore();
-
-  // A fan whose colours fade from its hub.
-  TCanvasMesh fan;
-  fan.mode      = TCanvasMesh::Mode::TriangleFan;
-  fan.positions = {{52, 37}, {44.5, 31.5}, {60.5, 30.5},
-                   {61.5, 44.5}, {45.5, 45.5}, {44.5, 31.5}};
-  fan.colors    = {TCanvasColor(1.f, 1.f, 1.f),
-                   TCanvasColor(0.f, 0.6f, 0.3f),
-                   TCanvasColor(0.f, 0.3f, 0.6f),
-                   TCanvasColor(0.5f, 0.f, 0.5f, 0.5f),
-                   TCanvasColor(0.6f, 0.3f, 0.f),
-                   TCanvasColor(0.f, 0.6f, 0.3f)};
-  canvas.drawMesh(fan, TCanvasPaint());
-
-  // An image, enlarged and turned, at three quarters opacity.
-  TCanvasImageOptions options;
-  options.opacity = 0.75;
-  canvas.drawImage(colours.image(),
-                   TCanvasAffine::translation(10, 30) *
-                       TCanvasAffine::rotation(15) * TCanvasAffine::scale(6, 6),
-                   options);
-}
-
-}  // namespace
 
 TEST(SkiaCanvasPicture, ReplayingARecordingGivesTheSamePixels) {
   const FourColours colours;

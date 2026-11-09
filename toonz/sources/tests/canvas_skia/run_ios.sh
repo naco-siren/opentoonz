@@ -16,7 +16,7 @@ lib=$(ls "$skia"/out/*/libskia.a)
 
 exec "$here/../ios_gtest.sh" "$1" "$3" "$4" nexttoonz_canvas_skia_tests -- \
     -DTNZCANVAS_STATIC -DTNZSKIA_STATIC -DSK_RELEASE -DSK_GANESH -DSK_METAL \
-    -I"$sources/include" -I"$skia" \
+    -I"$sources/include" -I"$here/../canvas" -I"$skia" \
     "$sources"/tnzcanvas/*.cpp "$sources"/tnzskia/*.cpp "$here"/test_*.cpp \
     "$lib" \
     -framework CoreFoundation -framework CoreGraphics -framework CoreText \

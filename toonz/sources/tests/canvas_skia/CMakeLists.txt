@@ -7,8 +7,12 @@ file(GLOB NEXTTOONZ_CANVAS_SKIA_TEST_SOURCES CONFIGURE_DEPENDS
 )
 
 add_executable(nexttoonz_canvas_skia_tests
-    canvas_skia_test_util.h
+    ../canvas/canvas_pixel_test_util.h
     ${NEXTTOONZ_CANVAS_SKIA_TEST_SOURCES}
+)
+
+target_include_directories(nexttoonz_canvas_skia_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../canvas
 )
 
 target_link_libraries(nexttoonz_canvas_skia_tests

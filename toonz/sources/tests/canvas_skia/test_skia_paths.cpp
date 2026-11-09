@@ -1,6 +1,8 @@
 // The Skia canvas: where pixels land, fills, clips and strokes.
 
-#include "canvas_skia_test_util.h"
+#include "canvas_pixel_test_util.h"
+
+#include "canvas/tskiacanvas.h"
 
 //-----------------------------------------------------------------------------
 // The target

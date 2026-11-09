@@ -22,6 +22,7 @@ ctest --output-on-failure
 | `fixtures/gen_reference_project.cpp` | The generator that builds the reference project through the toonzlib API. |
 | `canvas/` | GoogleTest unit tests of the canvas IR library (`tnzcanvas`): no rasteriser, no display, no other library. |
 | `canvas_skia/` | Pixel tests of the Skia canvas backend (`tnzskia`): what each canvas call puts into the pixels. Built with `WITH_SKIA`. |
+| `canvas_gl/` | Tests of the OpenGL canvas backend (`tnzglcanvas`) and of how far it agrees with the Skia one. Off by default (`WITH_CANVAS_GL_TESTS`): they need an OpenGL context. |
 | `skia_spike/` | Phase 1 spike: one test binary that links Skia and checks pixels. Off by default (`WITH_SKIA_SPIKE`, with `WITH_SKIA`); see its README. |
 | `ios_gtest.sh` | Builds a GoogleTest binary for iPadOS with Xcode's clang and runs it in the iPad simulator; used by the `run_ios.sh` of `canvas/`, `canvas_skia/` and `skia_spike/`. |
 
@@ -96,6 +97,38 @@ between builds of Skia. `NEXTTOONZ_CANVAS_SKIA_DUMP=<file>` makes it write
 the pixels. `tnzskia` may include Skia's headers besides the standard
 library and the canvas headers, and nothing else:
 `canvas_skia.sources_are_self_contained` checks that.
+
+### The OpenGL backend, and the two compared
+
+`nexttoonz_canvas_gl_tests` links `tnzglcanvas`, the canvas that draws with
+the fixed-function OpenGL of the old vector renderer, and draws into a
+`TOfflineGL`. It is built with `-DWITH_CANVAS_GL_TESTS=ON` and needs what
+the golden tests need: a window system that gives an OpenGL context (on
+Linux, run it under `xvfb-run`). On macOS the binary stays in the
+background; it opens no window.
+
+```
+ctest -L canvas_gl
+./tests/canvas_gl/nexttoonz_canvas_gl_tests --gtest_filter='CanvasBackends.*'
+```
+
+The `GlCanvas` tests check what any driver should agree on: the inside of
+shapes, premultiplied results, clips, where images and gradients land.
+
+The `CanvasBackends` tests (built when `WITH_SKIA` is on as well) record a
+picture once and replay it through both canvases. The two are not meant to
+match pixel for pixel, since OpenGL softens outlines with a line or a band
+where Skia computes coverage; each test prints how far apart they are and
+fails beyond about twice what this was on the machine it was written on:
+
+```
+regions                mean  1.43  over 32:  0.23%  over 96:  0.00%  largest  56
+```
+
+That is the mean of the largest channel difference per pixel, the share of
+pixels that differ by more than 32 and by more than 96 (of 255), and the
+largest difference. `NEXTTOONZ_CANVAS_GL_DUMP=<directory>` keeps both
+pictures of every test as raw BGRA.
 
 ## toonzlib tests
 

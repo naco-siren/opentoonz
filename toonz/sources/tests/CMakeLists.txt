@@ -85,11 +85,17 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toonzlib/CMakeLists.txt)
 endif()
 
 #-----------------------------------------------------------------------------
-# Pixel tests of the Skia canvas backend (tnzskia), and the Phase 1 spike that
-# proved how Skia is linked (off by default, see skia_spike/README.md)
+# Pixel tests of the canvas backends: Skia (tnzskia) and OpenGL (tnzglcanvas),
+# and the Phase 1 spike that proved how Skia is linked (off by default, see
+# skia_spike/README.md)
 
 if(WITH_SKIA)
     add_subdirectory(canvas_skia)
+endif()
+
+option(WITH_CANVAS_GL_TESTS "Build the tests of the OpenGL canvas backend (they need an OpenGL context)" OFF)
+if(WITH_CANVAS_GL_TESTS)
+    add_subdirectory(canvas_gl)
 endif()
 
 option(WITH_SKIA_SPIKE "Build the Phase 1 Skia spike test (needs WITH_SKIA)" OFF)
