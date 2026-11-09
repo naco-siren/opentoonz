@@ -85,10 +85,18 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toonzlib/CMakeLists.txt)
 endif()
 
 #-----------------------------------------------------------------------------
-# Phase 1 spike: CPU Skia from vcpkg (off by default, see skia_spike/README.md)
+# Pixel tests of the Skia canvas backend (tnzskia), and the Phase 1 spike that
+# proved how Skia is linked (off by default, see skia_spike/README.md)
 
-option(WITH_SKIA_SPIKE "Build the Phase 1 Skia spike test (needs Skia from vcpkg)" OFF)
+if(WITH_SKIA)
+    add_subdirectory(canvas_skia)
+endif()
+
+option(WITH_SKIA_SPIKE "Build the Phase 1 Skia spike test (needs WITH_SKIA)" OFF)
 if(WITH_SKIA_SPIKE)
+    if(NOT WITH_SKIA)
+        message(FATAL_ERROR "WITH_SKIA_SPIKE needs WITH_SKIA")
+    endif()
     add_subdirectory(skia_spike)
 endif()
 

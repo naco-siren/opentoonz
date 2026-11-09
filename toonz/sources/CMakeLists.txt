@@ -109,6 +109,7 @@ option(WITH_CANON "Build with Canon DSLR support - Requires Canon SDK" OFF)
 option(WITH_TRANSLATION "Generate translation projects as well" ON)
 option(WITH_WINTAB "(Windows only) Build with customized Qt with WinTab support. https://github.com/shun-iwasawa/qt5/releases/tag/v5.15.2_wintab" OFF)
 option(WITH_TESTS "Build the GoogleTest unit tests and register ctest targets" ON)
+option(WITH_SKIA "Build tnzskia, the canvas backend that rasterises with Skia (see tnzskia/CMakeLists.txt for where Skia comes from)" OFF)
 
 # Always export compile_commands.json for clangd, clang-tidy and friends.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -760,6 +761,9 @@ set(CMAKE_C_FLAGS "${C_WARNINGS} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CXX_WARNINGS} ${CMAKE_CXX_FLAGS}")
 
 add_subdirectory(tnzcanvas)
+if(WITH_SKIA)
+    add_subdirectory(tnzskia)
+endif()
 add_subdirectory(tnzcore)
 add_subdirectory(tnzbase)
 add_subdirectory(tnzext)

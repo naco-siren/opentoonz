@@ -7,12 +7,14 @@ exists to prove how Skia is obtained and linked; the render path does not
 use it. The route, the alternatives that were rejected and the measurements
 are in `doc/nexttoonz_phase1_skia.md`.
 
-The target is off by default (`WITH_SKIA_SPIKE`), so a normal build and the
-CI are unaffected.
+The target is off by default (`WITH_SKIA_SPIKE`, which needs `WITH_SKIA`), so
+a normal build and the CI are unaffected. The canvas backend that came out
+of the spike is `tnzskia`; its tests are in `../canvas_skia`.
 
 ## Getting Skia
 
-There are two ways; both end in the CMake target `nexttoonz_skia`.
+There are two ways; both end in the CMake target `nexttoonz_skia`, which is
+defined in `tnzskia/CMakeLists.txt`.
 
 ### Prebuilt (recommended for macOS and iPadOS)
 
@@ -24,7 +26,7 @@ listed in `doc/nexttoonz_phase1_skia.md`. Nothing is built.
 
 ```
 cmake ../sources -G Ninja ... \
-    -DWITH_SKIA_SPIKE=ON \
+    -DWITH_SKIA=ON -DWITH_SKIA_SPIKE=ON \
     -DNEXTTOONZ_SKIA_PACK_DIR=<unpacked macos-Release-x64>
 ninja nexttoonz_skia_spike_tests
 ctest -L skia_spike --output-on-failure

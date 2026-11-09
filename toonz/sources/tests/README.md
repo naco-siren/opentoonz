@@ -21,8 +21,9 @@ ctest --output-on-failure
 | `fixtures/reference_project/` | The reference project: scenes, levels and palettes the golden tests render. Generated, but committed. |
 | `fixtures/gen_reference_project.cpp` | The generator that builds the reference project through the toonzlib API. |
 | `canvas/` | GoogleTest unit tests of the canvas IR library (`tnzcanvas`): no rasteriser, no display, no other library. |
-| `skia_spike/` | Phase 1 spike: one test binary that links Skia and checks pixels. Off by default (`WITH_SKIA_SPIKE`); see its README. |
-| `ios_gtest.sh` | Builds a GoogleTest binary for iPadOS with Xcode's clang and runs it in the iPad simulator; used by `canvas/run_ios.sh` and `skia_spike/run_ios.sh`. |
+| `canvas_skia/` | Pixel tests of the Skia canvas backend (`tnzskia`): what each canvas call puts into the pixels. Built with `WITH_SKIA`. |
+| `skia_spike/` | Phase 1 spike: one test binary that links Skia and checks pixels. Off by default (`WITH_SKIA_SPIKE`, with `WITH_SKIA`); see its README. |
+| `ios_gtest.sh` | Builds a GoogleTest binary for iPadOS with Xcode's clang and runs it in the iPad simulator; used by the `run_ios.sh` of `canvas/`, `canvas_skia/` and `skia_spike/`. |
 
 ## Unit tests
 
@@ -72,6 +73,29 @@ The simulator used is the first iPad `xcrun simctl list devices available`
 shows, or the one named by `NEXTTOONZ_IOS_SIMULATOR`.
 `_deps/googletest-src` is there when CMake fetched GoogleTest; with a system
 GoogleTest, pass a checkout of its sources instead.
+
+### The Skia backend
+
+`nexttoonz_canvas_skia_tests` links `tnzskia`, the canvas that rasterises on
+the CPU with Skia, and checks pixels: coverage at edges, what growing a
+shape does to a seam and to a hole, line widths and dashes under a
+transform, meshes painted once where they overlap, images and gradients.
+It is built only with `-DWITH_SKIA=ON`, which needs Skia itself:
+`-DNEXTTOONZ_SKIA_PACK_DIR=<unpacked skia-pack archive>` for the prebuilt
+one, see `skia_spike/README.md` and `doc/nexttoonz_phase1_skia.md`.
+
+```
+ctest -L canvas_skia
+../sources/tests/canvas_skia/run_ios.sh simulator <unpacked iosSim-Release-x64> _deps/googletest-src ./ios-work
+../sources/tests/canvas_skia/run_ios.sh device    <unpacked ios-Release-arm64>  _deps/googletest-src ./ios-work
+```
+
+`SkiaCanvasPicture.RenderingIsRepeatable` prints a hash of a small picture
+that uses every call; it is the number to compare between machines and
+between builds of Skia. `NEXTTOONZ_CANVAS_SKIA_DUMP=<file>` makes it write
+the pixels. `tnzskia` may include Skia's headers besides the standard
+library and the canvas headers, and nothing else:
+`canvas_skia.sources_are_self_contained` checks that.
 
 ## toonzlib tests
 

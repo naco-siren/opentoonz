@@ -28,6 +28,7 @@ gtest_discover_tests(nexttoonz_canvas_tests
 # compile; this test reads the sources instead.
 add_test(NAME canvas.sources_are_self_contained
     COMMAND ${CMAKE_COMMAND}
+        -DLIBRARY=tnzcanvas
         -DCANVAS_SOURCE_DIR=${CMAKE_SOURCE_DIR}/tnzcanvas
         -DCANVAS_INCLUDE_DIR=${CMAKE_SOURCE_DIR}/include/canvas
         -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake
