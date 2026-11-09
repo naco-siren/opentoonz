@@ -25,6 +25,8 @@ git clone https://github.com/microsoft/vcpkg.git
 ```
 
 Use `arm64-osx-release` on Apple Silicon and `x64-linux-release` on Linux.
+Python 3.10 or newer has to come first on `PATH` (the build of pkgconf uses
+meson); macOS's own `/usr/bin/python3` is too old.
 The `-release` triplets skip the debug build of every package, which halves
 the build time and the disk use.
 
