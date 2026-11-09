@@ -20,7 +20,9 @@ ctest --output-on-failure
 | `golden/` | Golden-render tests: `tcomposer` renders the reference project and the frames are compared with `golden/expected/<scene>/`. |
 | `fixtures/reference_project/` | The reference project: scenes, levels and palettes the golden tests render. Generated, but committed. |
 | `fixtures/gen_reference_project.cpp` | The generator that builds the reference project through the toonzlib API. |
-| `skia_spike/` | Phase 1 spike: one test binary that links a CPU-only Skia from vcpkg. Off by default (`WITH_SKIA_SPIKE`); see its README. |
+| `canvas/` | GoogleTest unit tests of the canvas IR library (`tnzcanvas`): no rasteriser, no display, no other library. |
+| `skia_spike/` | Phase 1 spike: one test binary that links Skia and checks pixels. Off by default (`WITH_SKIA_SPIKE`); see its README. |
+| `ios_gtest.sh` | Builds a GoogleTest binary for iPadOS with Xcode's clang and runs it in the iPad simulator; used by `canvas/run_ios.sh` and `skia_spike/run_ios.sh`. |
 
 ## Unit tests
 
@@ -40,6 +42,36 @@ as its own ctest entry:
 ctest -R TFilePath
 ./bin/nexttoonz_core_tests --gtest_filter='TAffine.*'
 ```
+
+## Canvas tests
+
+`nexttoonz_canvas_tests` links `tnzcanvas` and nothing else of the tree.
+`tnzcanvas` is the path-level canvas IR of `doc/nexttoonz_canvas_ir.md`: the
+interface drawing code calls (`TCanvas`), its value types, and a recorder
+that keeps the calls and prints them as text. The tests compare that text,
+so they say which operations a piece of drawing code emits without
+rasterising anything:
+
+```
+ctest -L canvas
+./tests/canvas/nexttoonz_canvas_tests --gtest_filter='CanvasDisplayList.*'
+```
+
+`tnzcanvas` is the first library that also has to build for iPadOS, so it
+may use the C++ standard library only. The test
+`canvas.sources_are_self_contained` reads its sources and fails on any other
+`#include` (Qt, OpenGL, tnzcore). To run the same tests in the iPad
+simulator, or to check that they link for a real iPad:
+
+```
+../sources/tests/canvas/run_ios.sh simulator _deps/googletest-src ./ios-work
+../sources/tests/canvas/run_ios.sh device    _deps/googletest-src ./ios-work
+```
+
+The simulator used is the first iPad `xcrun simctl list devices available`
+shows, or the one named by `NEXTTOONZ_IOS_SIMULATOR`.
+`_deps/googletest-src` is there when CMake fetched GoogleTest; with a system
+GoogleTest, pass a checkout of its sources instead.
 
 ## toonzlib tests
 

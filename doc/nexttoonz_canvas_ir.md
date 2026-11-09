@@ -1,6 +1,6 @@
 # NextToonz 画布 IR 设计草案
 
-版本 0.1（草案，待所有者审阅），2026-11-08。本文是 `doc/nexttoonz_plan.md` Phase 1 第一个工作项"定义路径级画布 IR"的设计草案，以及支撑它的绘制操作清单。它只是设计，没有任何实现；所有者审过第 9 节的问题之后才开始动现有渲染路径。
+版本 0.2，2026-11-08。所有者已审过第 9 节的问题，迁移第 0 步（4.6 节）已经实现；其余仍是设计。本文是 `doc/nexttoonz_plan.md` Phase 1 第一个工作项"定义路径级画布 IR"的设计草案，以及支撑它的绘制操作清单。现有渲染路径还没有动。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `6d043a367`。所有路径相对于 `toonz/sources/`。标着"实测"的结论来自 `tests/skia_spike/` 里的测试（Skia m148，x86_64 macOS），其余来自读代码；清单的逐类明细由自动化代码调查产出，带文件与行号，我抽查过其中的关键几处，没有逐行复核全部。
 
@@ -181,47 +181,42 @@
 
 ### 4.6 接口形态
 
-一个抽象类，放在 tnzcore，不依赖 GL、Skia 和 Qt。下面只是示意，名字未定：
+**已实现（迁移第 0 步，2026-11-08）。** 接口在一个新的库 `tnzcanvas` 里，头文件是 `include/canvas/tcanvastypes.h`、`tcanvas.h`、`tcanvasrecorder.h`。本稿 0.1 版写的是"放在 tnzcore"，改掉的原因是所有者定下的首要目标（x86 macOS 和 iPadOS 上先跑通一套完整的技术栈）：tnzcore 链接 Qt，要到 Phase 2 才去得掉，放在里面的东西在那之前上不了 iPadOS。
+
+- `tnzcanvas` 只用 C++ 标准库，不链接任何东西，不包含 Qt、OpenGL 和 tnzcore 的头文件。有一个测试专门读它的源码，出现别的 `#include` 就失败。
+- 因此它不能用 `TAffine`、`TPointD`、`TPixel32`、`TRaster`（它们的实现在 tnzcore 里，头文件牵着 Qt）。库里有自己的一套朴素值类型：`TCanvasPoint`、`TCanvasAffine`（成员布局和乘法约定与 `TAffine` 相同）、`TCanvasColor`（非预乘、浮点，即 Q5 的决定）、`TCanvasImage`（指向 `TRaster32` 布局的像素的视图）。发射端在调用处转换；转换函数放在 tnzcore 一侧，第 2 步再加。
+- `TCanvas` 的公开函数不是虚函数：它们维护变换栈，丢掉画不出东西的调用（空路径、无效网格、全透明的画笔），再转给受保护的虚函数 `onFillPath` 等，后端实现后者。这样"当前变换"和"像素大小"对所有后端只有一份实现。空路径的裁剪不丢，因为"裁到什么都不剩"和"不裁剪"不是一回事。
+- 同一套单元测试在 macOS 上和 iPad 模拟器里各跑了一遍，并为 iPadOS arm64 链接成功（没有在真机上运行）。
+
+接口的要点如下（节选自 `tcanvas.h`）：
 
 ```cpp
-struct TCanvasPath {
-  enum Verb : unsigned char { MoveTo, LineTo, QuadTo, Close };
-  std::vector<Verb> verbs;
-  std::vector<TPointD> points;
-};
-
-struct TCanvasMesh {
-  enum Mode { Triangles, TriangleStrip, TriangleFan };
-  Mode mode;
-  std::vector<TPointD> positions;
-  std::vector<TPixel32> colors;  // empty: the paint's colour
-  std::vector<TPointD> uvs;      // empty: no image
-  bool smoothEdges;
-};
-
 class TCanvas {
 public:
-  virtual ~TCanvas() {}
+  void save();
+  void restore();
+  void concat(const TCanvasAffine &aff);  // like glMultMatrix
+  void clipPath(const TCanvasPath &, TCanvasFillRule, TCanvasClipOp, bool aa);
 
-  virtual void save()                      = 0;
-  virtual void restore()                   = 0;
-  virtual void concat(const TAffine &aff)  = 0;
-  virtual void clipPath(const TCanvasPath &, FillRule, ClipOp, bool aa) = 0;
+  void fillPath(const TCanvasPath &, TCanvasFillRule, const TCanvasPaint &);
+  void strokePath(const TCanvasPath &, const TCanvasPen &,
+                  const TCanvasPaint &);
+  void drawMesh(const TCanvasMesh &, const TCanvasPaint &);
+  void drawImage(const TCanvasImage &, const TCanvasAffine &imageToLocal,
+                 const TCanvasImageOptions &);
 
-  virtual void fillPath(const TCanvasPath &, FillRule, const TCanvasPaint &) = 0;
-  virtual void strokePath(const TCanvasPath &, const TCanvasPen &,
-                          const TCanvasPaint &)                          = 0;
-  virtual void drawMesh(const TCanvasMesh &, const TCanvasPaint &)       = 0;
-  virtual void drawImage(const TRasterP &, const TAffine &imageToLocal,
-                         const TCanvasImageOptions &)                    = 0;
+  const TCanvasAffine &transform() const;
+  double pixelSize() const;  // what tglGetPixelSize2() gave
+  virtual TCanvasIRect deviceBounds() const = 0;
 
-  virtual TAffine transform() const = 0;
-  double pixelSize() const;  // from transform()
-  virtual TRect deviceBounds() const = 0;
+protected:
+  virtual void onFillPath(const TCanvasPath &, TCanvasFillRule,
+                          const TCanvasPaint &) = 0;
+  // ... one on...() per call above
 };
 ```
 
-这是**立即式**接口：样式直接调画布的方法，和现在直接调 GL 的写法一一对应，57 个绘制函数改起来是逐行替换。另外提供一个把调用录成列表的实现（记录器），它有三个用途：
+这是**立即式**接口：样式直接调画布的方法，和现在直接调 GL 的写法一一对应，57 个绘制函数改起来是逐行替换。另外有一个把调用录成列表的实现（`TCanvasRecorder`，录成 `TCanvasDisplayList`，可以回放到任何画布上，也可以打印成文本），它有三个用途：
 
 - 把一串 IR 回放到另一个后端上，做 A/B 对照；
 - 把 IR 打印成文本，写**不需要任何光栅器的测试**（"这个样式对这条笔触发出这些操作"）；
@@ -350,8 +345,8 @@ Phase 3 的 QRhi 后端和 Phase 4 的 Metal 后端消费的是网格级 IR。�
 
 | 步 | 内容 | 验收 |
 |---|---|---|
-| 0 | IR 类型、画布接口、记录器和文本打印，放进 tnzcore | 单测，不需要光栅器 |
-| 1 | Skia 后端库和 GL 桥接后端；同一段 IR 分别过两个后端的一致性测试 | 两个后端的输出在容差内 |
+| 0（已完成） | IR 类型、画布接口、记录器和文本打印，放进不依赖 Qt 的新库 `tnzcanvas` | 单测，不需要光栅器：macOS 上 25 个通过；iPad 模拟器里 24 个中 23 个通过、1 个跳过 |
+| 1 | Skia 后端库（同样不依赖 Qt，在 macOS 和 iPad 模拟器上都跑像素测试）和 GL 桥接后端；同一段 IR 分别过两个后端的一致性测试 | 两个后端的输出在容差内 |
 | 2 | 核心遍历、四个 prop、`TSolidColorStyle`、`TCenterLineStrokeStyle` 改发 IR。`TLevelColumnFx` 矢量分支、默认粒子、tconverter 加运行时开关在 GL 和 Skia 之间切换 | `vector_basic`、`pegbar_hierarchy`、`subxsheet`、`sound_column`、`stage_showcase`、`particles_basic`：GL 桥接后端与基线一致；Skia 后端出对照图，人工审 |
 | 3 | tnzcore 与 toonzlib 里的图案和贴图样式：栅格图案、矢量图案、矢量笔刷、`TTextureStyle`、MyPaint | 同上，加 `vector_styles`（它已经覆盖全部注册的样式类） |
 | 4 | colorfx 的 16 个区域样式，按 5.4 的族分批 | `vector_styles` |

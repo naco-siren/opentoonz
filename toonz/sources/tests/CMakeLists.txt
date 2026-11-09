@@ -73,6 +73,11 @@ gtest_discover_tests(nexttoonz_core_tests
 )
 
 #-----------------------------------------------------------------------------
+# Tests of the canvas IR library (no other library, no rasteriser)
+
+add_subdirectory(canvas)
+
+#-----------------------------------------------------------------------------
 # Tests against toonzlib and the image library (formats, scene model)
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toonzlib/CMakeLists.txt)
