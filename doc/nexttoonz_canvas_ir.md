@@ -1,6 +1,6 @@
 # NextToonz 画布 IR 设计草案
 
-版本 0.3，2026-11-09。所有者已审过第 9 节的问题，迁移第 0 步（4.6 节）和第 1 步（第 7 节的两个后端）已经实现；其余仍是设计。本文是 `doc/nexttoonz_plan.md` Phase 1 第一个工作项"定义路径级画布 IR"的设计草案，以及支撑它的绘制操作清单。现有渲染路径还没有动。
+版本 0.4，2026-11-09。所有者已审过第 9 节的问题，迁移第 0 步（4.6 节）、第 1 步（第 7 节的两个后端）和第 2 步（第 8 节，纯色笔触与区域）已经实现；其余仍是设计。Q2（笔触线重）的对照图已经渲出，等所有者看图决定。本文是 `doc/nexttoonz_plan.md` Phase 1 第一个工作项"定义路径级画布 IR"的设计草案，以及支撑它的绘制操作清单。第 2 步起渲染路径开始改动：默认仍走 OpenGL，逐像素与改动前相同；Skia 路径要显式打开。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `6d043a367`。所有路径相对于 `toonz/sources/`。标着"实测"的结论来自 `tests/skia_spike/`、`tests/canvas_skia/`、`tests/canvas_gl/` 里的测试（Skia m144 和 m148，x86_64 macOS），其余来自读代码；清单的逐类明细由自动化代码调查产出，带文件与行号，我抽查过其中的关键几处，没有逐行复核全部。
 
@@ -216,6 +216,14 @@ protected:
 };
 ```
 
+**tnzcore 一侧怎样接上（迁移第 2 步，2026-11-09）。**
+
+- 样式类多了一个查询 `TColorStyle::canvasSupport()`，回答"我的笔触、我的区域能不能画在画布上"。**每个类只替自己回答，不继承**：`TSolidColorStyle` 有三十多个派生类（colorfx 的区域样式几乎都是），它们各自重写了 OpenGL 的绘制函数，如果继承了基类的"能"，就会被画成纯色。所以 `TSolidColorStyle` 只在对象恰好是它自己时回答"能"。
+- 画在画布上的函数另起名字：样式的 `drawStrokeOnCanvas`、`drawRegionOnCanvas`，prop 的 `drawOnCanvas`。旧的 `drawStroke`、`drawRegion`、`draw` 还在，交互 viewer 和回退路径用它们。
+- 已迁移的样式不再有自己的 OpenGL 代码：旧函数的实现就是"在当前 GL 上下文上建一个 `TGlCanvas`，调画布版本"。这样派生类调用 `TSolidColorStyle::drawRegion` 画底色时，走的也是同一份代码。
+- `tcanvasDraw(canvas, rd, image)`（`tvectorcanvas.h`）是不碰 OpenGL 的 `tglDraw`：分组、区域在前笔触在后、检查模式、颜色全透明时跳过，都照原样。`tcanvasCanDraw(rd, image)` 判断一张图能不能这样画：它用到的每个样式都得"能"，而且设置里不能有只有 GL viewer 才有的东西（3D 视图、引导绘制）。不能的图整张走旧路径，见第 8 节。
+- `TVectorRasterizer::rasterize(raster, image, rd)`（`tvectorrasterizer.h`）把一张矢量图用 Skia 画进栅格，画不了就返回 false，调用方照旧用 `TOfflineGL`。`TLevelColumnFx` 的矢量分支、两个粒子特效的默认粒子、tconverter 现在都先问它。它默认不启用：要在带 Skia 的构建里设环境变量 `NEXTTOONZ_VECTOR_RASTERIZER=skia`。
+
 这是**立即式**接口：样式直接调画布的方法，和现在直接调 GL 的写法一一对应，57 个绘制函数改起来是逐行替换。另外有一个把调用录成列表的实现（`TCanvasRecorder`，录成 `TCanvasDisplayList`，可以回放到任何画布上，也可以打印成文本），它有三个用途：
 
 - 把一串 IR 回放到另一个后端上，做 A/B 对照；
@@ -265,7 +273,7 @@ protected:
 | 区域阴影 | `ShadowStyle`、`ShadowStyle2`、`TPointShadowFillStyle` | 裁剪（第一个还要反向裁剪）加描边路径、网格、一批小圆 |
 | 贴图 | `TTextureStyle`、`TRasterImagePatternStrokeStyle` | 填充路径或画网格加图像着色器；印章用画图像 |
 | 递归 | `TVectorImagePatternStrokeStyle` | 每个印章：保存、变换、递归调用核心遍历、恢复。太小时的替代画法是带虚线的描边路径 |
-| 中心线 | `TCenterLineStrokeStyle` | 描边路径，笔宽以设备像素计，可带虚线；宽的分支是网格 |
+| 中心线 | `TCenterLineStrokeStyle` | 描边路径，笔宽以设备像素计，可带虚线；宽的分支是网格。**已迁移，照搬了今天的画法**：带子逐个四边形画、硬边，两侧各一条一像素线（按本表的分类这两条线是镶边，本该删掉换成反走样的网格）。先照搬是为了让 GL 路径逐像素不变；Skia 下它也是这个样子，改不改等看过图再说 |
 | 栅格样式 | `TAirbrushRasterStyle`、`TBlendRasterStyle`、`TNoColorRasterStyle` | 不经过 IR，本来就在 CPU 上（`common/trop/tropcm.cpp`） |
 
 依赖驱动的两处要改成常量：`TPointShadowFillStyle` 把参数映射到驱动报告的点大小范围上，`TCenterLineStrokeStyle` 把线宽夹到驱动报告的线宽范围里。这正是同一场景在不同显卡上结果不同的来源之一（已知问题第 18 条 c）。
@@ -341,7 +349,14 @@ Skia 后端现在的做法（`tnzskia/tskiacanvas.cpp` 里的 `drawShadedMesh`�
 
 ### 7.2 GL 桥接后端
 
-**已实现（迁移第 1 步，2026-11-09）。** 库 `tnzglcanvas`，类 `TGlCanvas`（`include/canvas/tglcanvas.h`）。它链接 OpenGL 和 tnzcore，是画布这几个库里唯一这样的；要去掉 GL 依赖的那四个库不能链接它。它画进当前的 GL 上下文，要求创建时的矩阵把"一个单位一个像素"的设备坐标映到视口（`TOfflineGL::initMatrix()` 之后就是这样）。
+**已实现（迁移第 1 步；第 2 步改过，2026-11-09）。** 库 `tnzglcanvas`，类 `TGlCanvas`（`include/canvas/tglcanvas.h`）。它只链接 OpenGL 和 `tnzcanvas`，不链接 tnzcore：stencil 掩码通过一个四个函数的接口交给它，tnzcore 用 `TStencilControl` 实现这个接口。现在是 tnzcore 链接它（旧的 `tglDraw` 要靠它画已迁移的样式）；到第 9 步核心库去掉 GL 时，它连同 `tglDraw` 一起留在 viewer 一侧。第 1 步写的是反过来的依赖方向，行不通：tnzcore 里的样式要用它。
+
+它画进当前的 GL 上下文，坐标系就是创建时的 modelview 矩阵，像素大小和 `tglGetPixelSize2()` 一样从 modelview 读回（GL 内部按单精度存矩阵，样式按这个数决定曲线切多细，要逐像素一致就得用同一个数）。
+
+它有两种工作方式：
+
+- **自己管状态**：自己做两遍混合得到预乘结果，按每个画笔设置线的平滑，画完把所有 GL 属性恢复原样。测试和以后独立使用时是这种。
+- **用调用者的状态**：旧的绘制代码（`tglDraw` 及其下游）自己在样式外面设好了混合、颜色掩码、线平滑，并且自己画两遍。这时画布什么都不设，只做被它取代的那段代码做过的事。已迁移的样式经由 `tglDraw` 到达时用的是这种，这是"逐像素与改动前相同"的前提。
 
 | IR 操作 | GL 的做法（即今天的做法） |
 |---|---|
@@ -355,7 +370,17 @@ Skia 后端现在的做法（`tnzskia/tskiacanvas.cpp` 里的 `drawShadedMesh`�
 | 渐变、图像着色器 | 都变成贴图：图像原样上传，渐变打成 256 级，查找位置由贴图矩阵算 |
 | 预乘的目标 | 每个操作画两遍：先按 alpha 混合颜色通道，再累加 alpha 通道。源本身已预乘的图像只要一遍 |
 
-它还不是"今天的渲染器搬了个家"：细分用的是我自己调 GLU 的代码而不是 `TglTessellator`，带子是照着 `AntialiasingOutlinePainter` 重写的。它和今天的输出是否逐像素相同，要到第 2 步样式真的改成发 IR、golden 场景经过它渲染时才能验证。
+另有两处是为了和旧渲染器逐像素一致加的：偶数个顶点的三角带按四边形带（`GL_QUAD_STRIP`）发出，因为旧代码发的就是它，不凸的四边形怎样拆成三角形由驱动决定；不反走样时笔触两侧画的是两条线而不是一圈。
+
+**它和改动前的渲染器逐像素相同（第 2 步验证，2026-11-09）。** `TSolidColorStyle` 和 `TCenterLineStrokeStyle` 自己的 GL 代码已经删掉，它们现在只经过这个后端到达 OpenGL。在本机（AMD Radeon Pro 5700）上：
+
+- 能在 macOS 上跑的 24 个 golden 场景，全部 262 帧，与改动前的渲染逐位相同；
+- `vector_styles`（全部注册的样式类，其中派生自 `TSolidColorStyle` 的都要调基类画底色或笔触）7 帧逐位相同，对照的是 Phase 0 的构建；
+- 一张专门的测试图在 9 种设置下逐位相同：半透明并自相交的笔触、关掉反走样、虚线和宽的"固定宽度线"、零粗细笔触、透明度检查和墨线检查、viewer 的设置、不均匀缩放。对照的同样是 Phase 0 的构建。
+
+Linux 虚拟机（Mesa 软件光栅器）上做了同样的对照，对照的是改动前的同一个构建目录：全部 29 个 golden 场景的 282 帧，改动前后的文件逐字节相同；测试图的 9 种设置逐位相同。
+
+Linux 上第一次对照时有一种设置不同：不均匀缩放下，带虚线的"固定宽度线"两侧的虚线相位偏了几个像素。原因是 GL 状态的先后：旧函数在画带子之前就打开了 stipple，画布只在画那两条线时打开。按 OpenGL 规范这没有区别，本机显卡上也确实没有区别，但 Mesa 画一条起点在画面之外的虚线时，虚线从哪里开始会受它影响（为什么，我没有查清）。现在 `TCenterLineStrokeStyle` 的 GL 入口照旧在最前面打开 stipple，两条线也合成一次调用，之后 Linux 上逐位相同。这件事说明两点：一是"逐像素不变"只能靠对照得出，靠读代码推不出来；二是 macOS 上不跑的那五类场景以外，Linux 的对照不能省。
 
 ### 7.3 两个后端差多少
 
@@ -396,7 +421,7 @@ Phase 3 的 QRhi 后端和 Phase 4 的 Metal 后端消费的是网格级 IR。�
 |---|---|---|
 | 0（已完成） | IR 类型、画布接口、记录器和文本打印，放进不依赖 Qt 的新库 `tnzcanvas` | 单测，不需要光栅器：macOS 上 25 个通过；iPad 模拟器里 24 个中 23 个通过、1 个跳过 |
 | 1（已完成） | Skia 后端库 `tnzskia`（同样不依赖 Qt）和 GL 桥接后端 `tnzglcanvas`；同一段 IR 分别过两个后端的一致性测试 | Skia 后端 45 个像素测试，macOS 和 iPad 模拟器都通过；GL 后端 15 个测试；两个后端的差异见 7.3 |
-| 2 | 核心遍历、四个 prop、`TSolidColorStyle`、`TCenterLineStrokeStyle` 改发 IR。`TLevelColumnFx` 矢量分支、默认粒子、tconverter 加运行时开关在 GL 和 Skia 之间切换 | `vector_basic`、`pegbar_hierarchy`、`subxsheet`、`sound_column`、`stage_showcase`、`particles_basic`：GL 桥接后端与基线一致；Skia 后端出对照图，人工审 |
+| 2（已完成，待看图） | 核心遍历、三个 prop、`TSolidColorStyle`、`TCenterLineStrokeStyle` 改发 IR。`TLevelColumnFx` 矢量分支、默认粒子、tconverter 加运行时开关在 GL 和 Skia 之间切换 | 默认路径（GL，经桥接后端）与改动前逐位相同，见 7.2；Skia 路径在 `vector_basic`、`pegbar_hierarchy`、`subxsheet`、`sound_column`、`stage_showcase`、`particles_basic` 上出了对照图，两种线重各一套，等所有者定 Q2 |
 | 3 | tnzcore 与 toonzlib 里的图案和贴图样式：栅格图案、矢量图案、矢量笔刷、`TTextureStyle`、MyPaint | 同上，加 `vector_styles`（它已经覆盖全部注册的样式类） |
 | 4 | colorfx 的 16 个区域样式，按 5.4 的族分批 | `vector_styles` |
 | 5 | colorfx 的 25 个笔触样式，按 5.4 的族分批；`TNormal2` 和 `TPointShadow` 最后 | `vector_styles` |
@@ -423,6 +448,21 @@ Phase 3 的 QRhi 后端和 Phase 4 的 Metal 后端消费的是网格级 IR。�
 
 倾向 (a)，并把 (b) 留作以后的质量选项。
 
+**Q2 的对照图和数字（迁移第 2 步，2026-11-09）。** 六个场景各用三种方式渲了一遍：今天的 OpenGL、Skia 按真实宽度、Skia 把笔触外扩半个像素。参考场景是 320x180，笔触只有一两个像素宽，差别在这个分辨率下最明显。和 OpenGL 相比（叠在白底上看，逐像素取最大通道差）：
+
+| 场景 | 真实宽度：差超过 32 的像素 | 真实宽度：墨量变化 | 外扩半像素：差超过 32 的像素 | 外扩半像素：墨量变化 |
+|---|---|---|---|---|
+| `vector_basic` | 2.08% | -4.7% | 0.01% | +0.1% |
+| `pegbar_hierarchy` | 0.80% | -2.6% | 0.01% | +0.1% |
+| `subxsheet` | 0.95% | -3.9% | 0.01% | 0 |
+| `sound_column` | 1.81% | -17.4% | 0.01% | +0.3% |
+| `stage_showcase` | 3.23% | （背景不透明，量不出） | 0.08% | |
+| `particles_basic` | 0.48% | （同上） | 0.10% | |
+
+"墨量"是整张图 alpha 的总和。按真实宽度画，线明显变细变淡，细线（`sound_column`）少了六分之一的墨；外扩半个像素之后和今天的样子几乎分不出来。对照图在 `toonz/build-phase1/review/step2/`（不进版本库）：每个场景一张三联图，另有三张放大的局部。
+
+开关是环境变量 `NEXTTOONZ_STROKE_GROW`（像素数，默认 0），只对 Skia 路径起作用。所有者定下之后，把选中的值写成默认值，开关可以留着也可以去掉。
+
 **Q2 笔触要不要保持现在的"线重"。** 现在的镶边画在轮廓之外，等于每侧多出大约半个像素。解析式反走样按几何真实宽度画，同一条线会比现在细一点、淡一点；在 320x180 的参考场景上看得出来，在 2K 成片上不明显。选项：(a) 按几何真实宽度；(b) 笔触也外扩半个像素，保持现在的线重。两种都只是一个参数。建议第 2 步把两种都渲出来，由所有者看图决定，而不是现在凭推测定。
 
 **Q3 GL 桥接后端的定位。** 计划写的是"放在独立的可选模块里……Phase 1 结束后删除或仅作开发工具"。但样式类改成发 IR 之后就不再发 GL，而交互 viewer 到 Phase 3 才离开 GL。这期间 viewer 画矢量样式只有三条路：
@@ -443,9 +483,12 @@ Phase 3 的 QRhi 后端和 Phase 4 的 Metal 后端消费的是网格级 IR。�
 
 ## 10. 风险与未验证事项
 
-- **GL 桥接后端和今天的渲染器是否逐像素相同，还没有验证。** 它是照着今天的手法重写的，不是把今天的代码搬过去（7.2）。第 2 步的验收"GL 桥接后端与基线一致"就是这项验证；不一致时以今天的代码为准改桥接后端。
+- **交互 viewer 的窗口没有人看过。** 第 2 步之后，应用里画纯色笔触和区域走的也是桥接后端。能离屏验证的都验证了：viewer 的设置下逐像素没有变（7.2）；摄影表画法（`ToonzScene::renderFrame`，用的就是 viewer 的绘制器）在五个场景的十帧上与 Phase 0 的构建逐位相同，其中包括 `vector_styles`。但真正的 viewer 窗口（缩放、洋葱皮、工具绘制中的笔触、3D 视图）我没有办法操作，没有验证；每画一条笔触要多建一个画布对象、多读两次矩阵，对交互帧率的影响也没有测。
+- **轮廓计算曾经背着调用者从 OpenGL 读像素大小。** `TOutlineUtil::makeOutline` 内部调 `tglGetPixelSize2()`，没有 GL 上下文时直接崩溃（Skia 路径第一次运行时就是这样发现的）。现在由 prop 把像素大小传进去。别的样式里还有同类的隐藏读取（`tvectorbrushstyle.cpp`、栅格图案样式），迁移到它们时要逐个改。
+- **"固定宽度线"样式的宽度下限来自驱动。** `TCenterLineStrokeStyle` 把宽度夹到驱动报告的线宽范围里。本机和 Mesa 报告的下限都是 1，于是它"宽度不超过半个像素时画成一条线"的分支在这两个驱动上从来走不到，画出来的总是一条带子，宽度参数小于 1 时也按 1 算。画布版本把下限固定为 1，和这两个驱动的结果一致；这是不是样式作者的本意我不知道。
+- **正环绕数换成非零规则，在现有场景里没有造成差别**，但 `TRegion` 的边界会不会出现负环绕数的小块仍然没有调查（下一条）。
 - **逐顶点颜色在两个后端里插值空间不同**（7.3）。要让 Skia 一侧按非预乘插值，得自己把三角形拆细或者换一种画法，没有做。
-- **外扩和带逐顶点颜色的网格的性能没有测过。** 外扩的纯色网格要给每个三角形的轮廓描边；逐顶点颜色的网格每次要开一个图层。第 2 步用真实场景量。
+- **Skia 路径现在比 OpenGL 慢，只有一个数据点。** 一张测试图（4 条笔触、4 个区域，半透明的占一半）放大到 1920x1760，本机单线程：OpenGL 画加读回每帧约 11 毫秒，Skia 约 40 毫秒（外扩半像素时 36 到 40 毫秒）。去掉"固定宽度线"之后数字不变，所以时间花在纯色笔触和区域上。我的判断是笔触网格的画法：每个三角形一条轮廓，放大后一条笔触有几千条轮廓，扫描线上同时活动的边很多；这是推测，没有做剖析。可以试的办法：按四边形而不是三角形出轮廓，或者只出带子的外边界。另外发射代码每次绘制都把轮廓点拷进一个新的路径或网格。Skia 路径没有上下文、可以多线程，这一点还没有利用。这些都没有做；在默认后端切到 Skia（第 9 步）之前要用真实场景量过并处理。
 - **正环绕数与非零规则的差别。** 现有区域填充用 `GLU_TESS_WINDING_POSITIVE`。区域边界自相交、出现负环绕数的小块时，现在不填，换成非零规则会填。我没有调查 `TRegion` 的边界是否保证不出现这种情况。第 2 步用 GL 桥接后端对照时会暴露出来；真出现的话，在发射端用符号面积规整轮廓方向，或者在 Skia 后端用 PathOps 处理。
 - **arm64 上的像素没有验证。** x86_64 上，macOS（Apple clang）与 Ubuntu（GCC 13）画同一个小场景，在各自的本机像素格式下逐位相同，指定 BGRA 时有 5 个像素差 1；换成用到全部操作的图，有一成多的像素不同，最大相差 3（`doc/nexttoonz_phase1_skia.md` 3.5）。但 Skia 的光栅管线按 CPU 指令集分派（SSE、AVX2、NEON），arm64 没有跑过。计划对 golden 的要求是容差内一致，不要求逐位；"基线合并成一份、本机可生成"仍然需要 arm64 上的实测。spike 的最后一个测试会打印场景哈希并能导出像素，可以拿来比。
 - **网格并集转路径的规模。** 一条长笔触的轮廓可以有上千个四边形，全部作为独立轮廓放进一条路径。Skia 的扫描线填充对边数是线性到线性对数的，预计不成问题，但没有测过大场景的性能。备选：先把三角带的外边界提取成一条轮廓（自相交时仍需并集语义）。

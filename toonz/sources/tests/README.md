@@ -45,6 +45,39 @@ ctest -R TFilePath
 ./bin/nexttoonz_core_tests --gtest_filter='TAffine.*'
 ```
 
+## Vector images without OpenGL
+
+Since migration step 2 of `doc/nexttoonz_canvas_ir.md`, solid colours and
+constant lines draw through the canvas interface. By default nothing
+changes: renders still go through `TOfflineGL`, where the migrated styles
+reach OpenGL through `tnzglcanvas` and come out bit for bit as before.
+
+In a build with `-DWITH_SKIA=ON`, two environment variables switch renders
+(tcomposer, tconverter) to the CPU rasteriser:
+
+```
+NEXTTOONZ_VECTOR_RASTERIZER=skia   rasterise vector levels with Skia; an image
+                                   that uses a style not yet on the canvas
+                                   still goes through OpenGL, as a whole
+NEXTTOONZ_STROKE_GROW=0.5          grow solid strokes by this many pixels
+                                   (default 0: their true width)
+```
+
+The golden baselines are OpenGL renders, so the golden tests of vector
+scenes fail with the first variable set; that is expected, and the way to
+get pictures to compare:
+
+```
+NEXTTOONZ_VECTOR_RASTERIZER=skia python3 ../sources/tests/golden/run_golden.py \
+    --tcomposer <tcomposer> --stuff ../../stuff \
+    --project ../sources/tests/fixtures/reference_project \
+    --scene scenes/vector_basic.tnz \
+    --expected ../sources/tests/golden/expected/vector_basic --work <dir>
+```
+
+`core/test_vector_canvas.cpp` covers the same code without a rasteriser: it
+records what drawing an image asks of a canvas and compares the text.
+
 ## Canvas tests
 
 `nexttoonz_canvas_tests` links `tnzcanvas` and nothing else of the tree.

@@ -590,10 +590,12 @@ void TCenterLineStrokeStyle::drawStroke(const TColorFunction *cf,
   glGetFloatv(GL_LINE_WIDTH_RANGE, &range[0]);
 
   // The old function switched the stipple on here, before it drew anything,
-  // the ribbon included. The canvas would do it for the lines alone, which
-  // is the same thing to OpenGL but not to Mesa: where its dash pattern
-  // starts on a line that begins outside the picture depends on when the
-  // stipple was switched on.
+  // the ribbon included. The canvas does it for the lines alone, which by
+  // the OpenGL specification draws the same thing. Mesa's software
+  // rasteriser does not agree: with a dashed line that starts outside the
+  // picture, where the dashes fall came out different (seen in a
+  // before-and-after comparison; why, I did not find out). With the stipple
+  // switched on here as well, it draws what it drew.
   if (m_stipple != 0) {
     glEnable(GL_LINE_STIPPLE);
     glLineStipple(1, m_stipple);
@@ -730,10 +732,8 @@ void TCenterLineStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas,
 
       // The two lines, exactly the points the old loops visited: every odd
       // one, and every even one but the first. They are two contours of one
-      // path, so that through OpenGL nothing happens between them, as
-      // nothing did: Mesa's stipple pattern runs on from one line to the
-      // next when a line starts outside the picture, and where it had got
-      // to depends on that.
+      // path, so that through OpenGL the stipple stays switched on from the
+      // first to the second, as it did.
       pen.width = 1.0;
       TCanvasPath sides;
       for (std::size_t k = 1; k < pv.size(); k += 2)
