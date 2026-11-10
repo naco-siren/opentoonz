@@ -344,3 +344,230 @@ TEST(GlCanvas, AnImageShaderRepeatsAndFollowsTextureCoordinates) {
   EXPECT_TRUE(pixelIs(mapped, 10, 10, 255, 255, 255, 255));
   EXPECT_EQ(mapped.alpha(3, 5), 0);
 }
+
+//-----------------------------------------------------------------------------
+// What the styles that draw their own primitives use
+
+TEST(GlCanvas, TakesQuads) {
+  TCanvasMesh quads;
+  quads.mode        = TCanvasMesh::Mode::Quads;
+  quads.smoothEdges = false;
+  quads.positions   = {{1, 1}, {5, 1}, {5, 5}, {1, 5},
+                       {7, 1}, {7, 5}, {11, 5}, {11, 1}};
+  TCanvasPaint paint = paintOf(0.f, 0.f, 0.f);
+  paint.antialias    = false;
+  const Target target = drawWithGl(
+      12, 6, [&](TCanvas &canvas) { canvas.drawMesh(quads, paint); });
+
+  for (int y = 0; y < 6; ++y)
+    for (int x = 0; x < 12; ++x) {
+      const bool inside =
+          y >= 1 && y < 5 && ((x >= 1 && x < 5) || (x >= 7 && x < 11));
+      EXPECT_EQ(target.alpha(x, y), inside ? 255 : 0)
+          << "at (" << x << ", " << y << ")";
+    }
+}
+
+// A mesh that brings its colours is not taken for a stroke outline: its
+// primitives are blended one by one, also where they overlap. (A mesh of
+// one colour in the paint covers each pixel once: see above.)
+TEST(GlCanvas, AMeshWithItsOwnColoursIsBlendedPrimitiveByPrimitive) {
+  TCanvasMesh quads;
+  quads.mode        = TCanvasMesh::Mode::Quads;
+  quads.smoothEdges = false;
+  // Two quads that share the pixels from x = 4 to x = 6.
+  quads.positions = {{1, 1}, {6, 1}, {6, 5}, {1, 5},
+                     {4, 1}, {11, 1}, {11, 5}, {4, 5}};
+  quads.colors.assign(8, TCanvasColor(0.f, 0.f, 1.f, 0.5f));
+  TCanvasPaint paint = paintOf(1.f, 1.f, 1.f);
+  paint.antialias    = false;
+  const Target target = drawWithGl(
+      12, 6, [&](TCanvas &canvas) { canvas.drawMesh(quads, paint); });
+
+  EXPECT_NEAR(target.alpha(2, 3), 128, 2);
+  EXPECT_NEAR(target.alpha(5, 3), 191, 3) << "half over a half";
+  EXPECT_NEAR(target.alpha(8, 3), 128, 2);
+  EXPECT_EQ(target.alpha(0, 3), 0) << "no fringe";
+}
+
+// The mask of an antialiased clip is the shape as an antialiased fill
+// draws it: the pixels of the fringe belong to it, whole.
+TEST(GlCanvas, AnAntialiasedClipTakesInTheFringe) {
+  TCanvasPaint flat = paintOf(0.f, 0.f, 0.f);
+  flat.antialias    = false;
+  const auto clipped = [&](bool antialias) {
+    return drawWithGl(12, 12, [&](TCanvas &canvas) {
+      canvas.clipPath(rectPath(3, 3, 9, 9), TCanvasFillRule::NonZero,
+                      TCanvasClipOp::Intersect, antialias);
+      canvas.fillPath(rectPath(0, 0, 12, 12), TCanvasFillRule::NonZero, flat);
+    });
+  };
+
+  const Target smooth = clipped(true);
+  EXPECT_EQ(smooth.alpha(5, 5), 255);
+  EXPECT_EQ(smooth.alpha(2, 5), 255) << "the pixel the fringe is in";
+  EXPECT_EQ(smooth.alpha(0, 5), 0);
+
+  const Target hard = clipped(false);
+  EXPECT_EQ(hard.alpha(3, 5), 255);
+  EXPECT_EQ(hard.alpha(2, 5), 0);
+}
+
+// Through OpenGL a fill that is also a clip is the fill and a mask of every
+// pixel it touched.
+TEST(GlCanvas, AFillThatIsAlsoAClipKeepsWhatIsDrawnOnItToTheFill) {
+  TCanvasPaint blue = paintOf(0.f, 0.f, 1.f);
+  blue.antialias    = false;
+  const Target target = drawWithGl(12, 12, [&](TCanvas &canvas) {
+    canvas.save();
+    canvas.fillPathAndClip(rectPath(3, 3, 9, 9), TCanvasFillRule::NonZero,
+                           paintOf(1.f, 0.f, 0.f));
+    canvas.fillPath(rectPath(0, 0, 12, 6), TCanvasFillRule::NonZero, blue);
+    canvas.restore();
+    canvas.fillPath(rectPath(11, 11, 12, 12), TCanvasFillRule::NonZero, blue);
+  });
+
+  EXPECT_TRUE(pixelIs(target, 5, 7, 255, 0, 0, 255, 2)) << "the fill";
+  EXPECT_TRUE(pixelIs(target, 5, 4, 0, 0, 255, 255, 2)) << "what is on it";
+  EXPECT_TRUE(pixelIs(target, 2, 4, 0, 0, 255, 255, 2))
+      << "at full strength where the fringe is";
+  EXPECT_GT(target.alpha(2, 7), 30);
+  EXPECT_LT(target.alpha(2, 7), 225);
+  EXPECT_EQ(target.alpha(0, 4), 0);
+  EXPECT_EQ(target.alpha(5, 1), 0) << "kept to the fill";
+  EXPECT_EQ(target.alpha(11, 11), 255) << "the clip has ended";
+}
+
+TEST(GlCanvas, AMeshKeepsDrawingOffOrOnWhatItCovers) {
+  TCanvasMesh quads;
+  quads.mode      = TCanvasMesh::Mode::Quads;
+  quads.positions = {{2, 2}, {6, 2}, {6, 6}, {2, 6},
+                     {5, 3}, {5, 5}, {10, 5}, {10, 3}};
+  TCanvasPaint flat = paintOf(0.f, 0.f, 0.f);
+  flat.antialias    = false;
+  const auto clipped = [&](TCanvasClipOp op) {
+    return drawWithGl(12, 8, [&](TCanvas &canvas) {
+      canvas.save();
+      canvas.clipMesh(quads, op);
+      canvas.fillPath(rectPath(0, 0, 12, 8), TCanvasFillRule::NonZero, flat);
+      canvas.restore();
+      // After the restore the clip is gone.
+      canvas.fillPath(rectPath(0, 0, 1, 1), TCanvasFillRule::NonZero, flat);
+    });
+  };
+  const Target outside = clipped(TCanvasClipOp::Difference);
+  const Target inside  = clipped(TCanvasClipOp::Intersect);
+
+  for (int y = 0; y < 8; ++y)
+    for (int x = 0; x < 12; ++x) {
+      if (x == 0 && y == 0) continue;
+      const bool covered = (x >= 2 && x < 6 && y >= 2 && y < 6) ||
+                           (x >= 5 && x < 10 && y >= 3 && y < 5);
+      EXPECT_EQ(outside.alpha(x, y), covered ? 0 : 255)
+          << "at (" << x << ", " << y << ")";
+      EXPECT_EQ(inside.alpha(x, y), covered ? 255 : 0)
+          << "at (" << x << ", " << y << ")";
+    }
+  EXPECT_EQ(inside.alpha(0, 0), 255);
+}
+
+// A point under a round pen: a disc in the units of the drawing, or a point
+// of OpenGL's in pixels.
+TEST(GlCanvas, APointUnderARoundPenIsADot) {
+  TCanvasPath points;
+  points.moveTo({4, 4}).moveTo({12, 4});
+  TCanvasPaint flat = paintOf(0.f, 0.f, 0.f);
+  flat.antialias    = false;
+
+  TCanvasPen pen;
+  pen.width = 3.0;
+  pen.cap   = TCanvasPen::Cap::Round;
+  for (bool device : {false, true}) {
+    SCOPED_TRACE(device ? "device pen" : "local pen");
+    pen.unit = device ? TCanvasPen::Unit::Device : TCanvasPen::Unit::Local;
+
+    const Target target = drawWithGl(16, 8, [&](TCanvas &canvas) {
+      canvas.strokePath(points, pen, flat);
+    });
+    for (int cx : {4, 12}) {
+      EXPECT_EQ(target.alpha(cx, 4), 255);
+      EXPECT_EQ(target.alpha(cx - 1, 4), 255);
+      EXPECT_EQ(target.alpha(cx - 3, 4), 0);
+      EXPECT_EQ(target.alpha(cx, 7), 0);
+    }
+    EXPECT_EQ(target.alpha(8, 4), 0) << "the points are not joined";
+
+    // Under twice the transform the disc is twice the size, the point is
+    // not.
+    const Target scaled = drawWithGl(16, 16, [&](TCanvas &canvas) {
+      canvas.concat(TCanvasAffine::scale(2, 2));
+      TCanvasPath one;
+      one.moveTo({4, 4});
+      canvas.strokePath(one, pen, flat);
+    });
+    EXPECT_EQ(scaled.alpha(8, 8), 255);
+    EXPECT_EQ(scaled.alpha(5, 8), device ? 0 : 255) << "centre 2.5 away";
+    EXPECT_EQ(scaled.alpha(3, 8), 0);
+  }
+
+  // With flat caps a point is nothing.
+  pen.cap = TCanvasPen::Cap::Butt;
+  const Target none = drawWithGl(16, 8, [&](TCanvas &canvas) {
+    canvas.strokePath(points, pen, flat);
+  });
+  for (unsigned char byte : none.bytes) ASSERT_EQ(byte, 0);
+}
+
+// A line that fades in and out along its length: the stops of the gradient
+// are on its vertices, and the line is drawn with a colour at each.
+TEST(GlCanvas, AGradientWithItsStopsOnTheVerticesOfALineRunsAlongIt) {
+  TCanvasPath line;
+  line.moveTo({2, 4.5}).lineTo({8, 4.5}).lineTo({14, 4.5});
+  TCanvasPaint paint = paintOf(1.f, 1.f, 1.f);
+  paint.antialias    = false;
+  paint.shader.kind  = TCanvasShader::Kind::LinearGradient;
+  paint.shader.p0    = {2, 4.5};
+  paint.shader.p1    = {14, 4.5};
+  paint.shader.stops = {{0.0, TCanvasColor(1.f, 0.f, 0.f, 0.f)},
+                        {0.5, TCanvasColor(1.f, 0.f, 0.f, 1.f)},
+                        {1.0, TCanvasColor(1.f, 0.f, 0.f, 0.f)}};
+  const Target target = drawWithGl(16, 8, [&](TCanvas &canvas) {
+    canvas.strokePath(line, TCanvasPen(), paint);
+  });
+
+  EXPECT_LT(target.alpha(2, 4), 40);
+  EXPECT_GT(target.alpha(7, 4), 215);
+  EXPECT_LT(target.alpha(13, 4), 40);
+  for (int x = 3; x <= 7; ++x)
+    EXPECT_GT(target.alpha(x, 4), target.alpha(x - 1, 4)) << "at " << x;
+  for (int x = 9; x <= 13; ++x)
+    EXPECT_LT(target.alpha(x, 4), target.alpha(x - 1, 4)) << "at " << x;
+  EXPECT_EQ(target.alpha(7, 6), 0);
+}
+
+//-----------------------------------------------------------------------------
+// For the old drawing code
+
+// The old tessellator filled where the winding number was positive, taking
+// for positive the way most of the outline goes round, and left a loop that
+// goes the other way empty. Drawing for the old code keeps that; a canvas
+// of its own fills by the rule it is given.
+TEST(GlCanvas, ForTheOldCodeNonZeroMeansPositive) {
+  TCanvasPaint flat = paintOf(0.f, 0.f, 0.f);
+  flat.antialias    = false;
+  // A large contour, and a small one beside it that goes the other way.
+  TCanvasPath path             = rectPath(1, 1, 6, 5);
+  const TCanvasPoint other[4] = {{8, 2}, {8, 5}, {11, 5}, {11, 2}};
+  path.addPolygon(other, 4);
+  const auto draw = [&](TCanvas &canvas) {
+    canvas.fillPath(path, TCanvasFillRule::NonZero, flat);
+  };
+
+  const Target own = drawWithGl(12, 6, draw);
+  EXPECT_EQ(own.alpha(3, 3), 255);
+  EXPECT_EQ(own.alpha(9, 3), 255);
+
+  const Target old = drawWithGl(12, 6, draw, TGlCanvas::State::Callers);
+  EXPECT_EQ(old.alpha(3, 3), 255);
+  EXPECT_EQ(old.alpha(9, 3), 0);
+}

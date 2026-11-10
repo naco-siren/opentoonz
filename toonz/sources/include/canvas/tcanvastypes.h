@@ -141,7 +141,11 @@ private:
 // the paint is applied once, whichever way each triangle is wound.
 
 struct TNZCANVAS_API TCanvasMesh {
-  enum class Mode { Triangles, TriangleStrip, TriangleFan };
+  //! Quads: every four vertices one quad, given all the way round; it is
+  //! the two triangles 0 1 2 and 0 2 3. The mode exists because OpenGL has
+  //! it and blends colours across a quad in its own way, which drawing
+  //! code written for OpenGL counts on while OpenGL still draws it.
+  enum class Mode { Triangles, TriangleStrip, TriangleFan, Quads };
 
   Mode mode = Mode::Triangles;
   std::vector<TCanvasPoint> positions;

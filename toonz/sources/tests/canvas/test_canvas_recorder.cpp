@@ -9,6 +9,7 @@
 #include <clocale>
 #include <cstdio>
 #include <string>
+#include <variant>
 
 namespace {
 
@@ -112,6 +113,58 @@ TEST(Canvas, AnEmptyClipIsPassedOn) {
   EXPECT_EQ(canvas.displayList().ops.size(), 1u);
 }
 
+// A fill that is also a clip is a call of its own. With a paint that cannot
+// be seen, the clip is all that is left of it.
+TEST(Canvas, AFillThatIsAlsoAClipIsOneCallOrOnlyAClip) {
+  TCanvasRecorder canvas(kBounds);
+  canvas.fillPathAndClip(square(0, 0, 4, 4), TCanvasFillRule::NonZero,
+                         TCanvasPaint(TCanvasColor(1, 0, 0)));
+  TCanvasPaint invisible(TCanvasColor(1, 0, 0, 0));
+  invisible.antialias = false;
+  canvas.fillPathAndClip(square(0, 0, 4, 4), TCanvasFillRule::NonZero,
+                         invisible);
+
+  EXPECT_EQ(canvas.displayList().dump(),
+            "fillPathAndClip nonzero color=(1 0 0 1)\n"
+            "  M 0 0 L 4 0 L 4 4 L 0 4 Z\n"
+            "clipPath intersect nonzero noaa\n"
+            "  M 0 0 L 4 0 L 4 4 L 0 4 Z\n");
+
+  TCanvasRecorder copy(kBounds);
+  canvas.displayList().replay(copy);
+  EXPECT_EQ(copy.displayList().dump(), canvas.displayList().dump());
+}
+
+TEST(Canvas, AClipToAMeshIsPassedOnAsOne) {
+  TCanvasRecorder canvas(kBounds);
+  canvas.clipMesh(ribbon(), TCanvasClipOp::Difference);
+
+  ASSERT_EQ(canvas.displayList().ops.size(), 1u);
+  EXPECT_TRUE(
+      std::holds_alternative<TCanvasOpClipMesh>(canvas.displayList().ops[0]));
+}
+
+// A mesh that is not one covers nothing. Keeping off nothing is no clip at
+// all; keeping to nothing is a clip to an empty path, which every backend
+// already has to understand.
+TEST(Canvas, AClipToNoMeshIsNoClipOrAClipToNothing) {
+  TCanvasMesh half;
+  half.positions.resize(2);
+
+  TCanvasRecorder outside(kBounds);
+  outside.clipMesh(half, TCanvasClipOp::Difference);
+  EXPECT_TRUE(outside.displayList().isEmpty());
+
+  TCanvasRecorder inside(kBounds);
+  inside.clipMesh(half, TCanvasClipOp::Intersect);
+  ASSERT_EQ(inside.displayList().ops.size(), 1u);
+  const TCanvasOpClipPath *clip =
+      std::get_if<TCanvasOpClipPath>(&inside.displayList().ops[0]);
+  ASSERT_NE(clip, nullptr);
+  EXPECT_TRUE(clip->path.isEmpty());
+  EXPECT_EQ(clip->op, TCanvasClipOp::Intersect);
+}
+
 //-----------------------------------------------------------------------------
 // Printing
 
@@ -142,6 +195,41 @@ TEST(CanvasDisplayList, DumpsOneLinePerCallWithGeometryBelow) {
             "    M -2 -2 L 0 4 L 2 -2 Z\n"
             "  drawMesh strip color=(0 0 0 0.5)\n"
             "    positions: (0 1) (0 -1) (5 2) (5 -2) (10 1) (10 -1)\n"
+            "restore\n");
+}
+
+// What a style of stripes emits for one stripe: the stripe as a quad with
+// its colour at every corner and hard edges, then, kept off the quad, a
+// smooth line along it.
+TEST(CanvasDisplayList, DumpsQuadsAndClipsToMeshes) {
+  TCanvasRecorder canvas(kBounds);
+
+  TCanvasMesh stripe;
+  stripe.mode        = TCanvasMesh::Mode::Quads;
+  stripe.smoothEdges = false;
+  stripe.positions   = {{0, 0}, {0, 2}, {10, 6}, {10, 4}};
+  stripe.colors.assign(4, TCanvasColor(0, 0, 1, 0.5f));
+  TCanvasPaint plain(TCanvasColor(1, 1, 1));
+  plain.antialias = false;
+  canvas.drawMesh(stripe, plain);
+
+  canvas.save();
+  canvas.clipMesh(stripe, TCanvasClipOp::Difference);
+  TCanvasPath edge;
+  edge.moveTo({0, 2}).lineTo({10, 6});
+  canvas.strokePath(edge, TCanvasPen(), TCanvasPaint(TCanvasColor(0, 0, 1)));
+  canvas.restore();
+
+  EXPECT_EQ(canvas.displayList().dump(),
+            "drawMesh quads hardedges color=(1 1 1 1) noaa\n"
+            "  positions: (0 0) (0 2) (10 6) (10 4)\n"
+            "  colors: (0 0 1 0.5) (0 0 1 0.5) (0 0 1 0.5) (0 0 1 0.5)\n"
+            "save\n"
+            "  clipMesh difference quads\n"
+            "    positions: (0 0) (0 2) (10 6) (10 4)\n"
+            "    colors: (0 0 1 0.5) (0 0 1 0.5) (0 0 1 0.5) (0 0 1 0.5)\n"
+            "  strokePath width=1px color=(0 0 1 1)\n"
+            "    M 0 2 L 10 6\n"
             "restore\n");
 }
 
@@ -293,6 +381,7 @@ TEST(CanvasDisplayList, ReplayMakesTheSameCallsOnAnotherCanvas) {
   first.fillPath(square(1, 1, 9, 9), TCanvasFillRule::EvenOdd,
                  TCanvasPaint(TCanvasColor(0, 1, 0)));
   first.drawMesh(ribbon(), TCanvasPaint(TCanvasColor(0, 0, 1)));
+  first.clipMesh(ribbon(), TCanvasClipOp::Difference);
   first.restore();
   first.strokePath(square(0, 0, 3, 3), TCanvasPen(),
                    TCanvasPaint(TCanvasColor(0, 0, 0)));
@@ -300,7 +389,7 @@ TEST(CanvasDisplayList, ReplayMakesTheSameCallsOnAnotherCanvas) {
   TCanvasRecorder second(kBounds);
   first.displayList().replay(second);
 
-  EXPECT_EQ(second.displayList().ops.size(), 7u);
+  EXPECT_EQ(second.displayList().ops.size(), 8u);
   EXPECT_EQ(second.displayList().dump(), first.displayList().dump());
   EXPECT_EQ(second.saveCount(), 0);
   EXPECT_TRUE(second.transform().isIdentity());

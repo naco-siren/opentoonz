@@ -131,6 +131,21 @@ TEST(CanvasMesh, CountsTrianglesByMode) {
   EXPECT_EQ(mesh.triangleCount(), 0u);
 }
 
+// Every four vertices are one quad, and a quad is two triangles.
+TEST(CanvasMesh, QuadsAreFourVerticesEach) {
+  TCanvasMesh mesh;
+  mesh.mode = TCanvasMesh::Mode::Quads;
+
+  mesh.positions.resize(8);
+  EXPECT_EQ(mesh.triangleCount(), 4u);
+  EXPECT_TRUE(mesh.isValid());
+
+  mesh.positions.resize(6);
+  EXPECT_FALSE(mesh.isValid()) << "a quad and a half";
+  mesh.positions.resize(3);
+  EXPECT_FALSE(mesh.isValid()) << "not one whole quad";
+}
+
 TEST(CanvasMesh, IsValidOnlyWithWholeTrianglesAndMatchingArrays) {
   TCanvasMesh mesh;
   EXPECT_FALSE(mesh.isValid()) << "no vertices";

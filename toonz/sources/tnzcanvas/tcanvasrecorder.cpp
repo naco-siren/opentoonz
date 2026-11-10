@@ -60,6 +60,20 @@ const char *name(TCanvasFillRule rule) {
   return rule == TCanvasFillRule::NonZero ? "nonzero" : "evenodd";
 }
 
+const char *name(TCanvasMesh::Mode mode) {
+  switch (mode) {
+  case TCanvasMesh::Mode::Triangles:
+    return "triangles";
+  case TCanvasMesh::Mode::TriangleStrip:
+    return "strip";
+  case TCanvasMesh::Mode::TriangleFan:
+    return "fan";
+  case TCanvasMesh::Mode::Quads:
+    return "quads";
+  }
+  return "";
+}
+
 const char *name(TCanvasFilter filter) {
   return filter == TCanvasFilter::Nearest ? "nearest" : "linear";
 }
@@ -192,9 +206,23 @@ struct DumpVisitor {
         << name(op.rule) << (op.antialias ? "" : " noaa") << "\n";
     writePath(out, op.path, depth + 1);
   }
+  void operator()(const TCanvasOpClipMesh &op) const {
+    out.indent(depth);
+    out << "clipMesh "
+        << (op.op == TCanvasClipOp::Intersect ? "intersect " : "difference ")
+        << name(op.mesh.mode) << "\n";
+    writeMesh(out, op.mesh, depth + 1);
+  }
   void operator()(const TCanvasOpFillPath &op) const {
     out.indent(depth);
     out << "fillPath " << name(op.rule) << " ";
+    writePaint(out, op.paint);
+    out << "\n";
+    writePath(out, op.path, depth + 1);
+  }
+  void operator()(const TCanvasOpFillPathAndClip &op) const {
+    out.indent(depth);
+    out << "fillPathAndClip " << name(op.rule) << " ";
     writePaint(out, op.paint);
     out << "\n";
     writePath(out, op.path, depth + 1);
@@ -211,17 +239,7 @@ struct DumpVisitor {
   void operator()(const TCanvasOpDrawMesh &op) const {
     out.indent(depth);
     out << "drawMesh ";
-    switch (op.mesh.mode) {
-    case TCanvasMesh::Mode::Triangles:
-      out << "triangles";
-      break;
-    case TCanvasMesh::Mode::TriangleStrip:
-      out << "strip";
-      break;
-    case TCanvasMesh::Mode::TriangleFan:
-      out << "fan";
-      break;
-    }
+    out << name(op.mesh.mode);
     if (!op.mesh.smoothEdges) out << " hardedges";
     out << " ";
     writePaint(out, op.paint);
@@ -246,8 +264,14 @@ struct ReplayVisitor {
   void operator()(const TCanvasOpClipPath &op) const {
     canvas.clipPath(op.path, op.rule, op.op, op.antialias);
   }
+  void operator()(const TCanvasOpClipMesh &op) const {
+    canvas.clipMesh(op.mesh, op.op);
+  }
   void operator()(const TCanvasOpFillPath &op) const {
     canvas.fillPath(op.path, op.rule, op.paint);
+  }
+  void operator()(const TCanvasOpFillPathAndClip &op) const {
+    canvas.fillPathAndClip(op.path, op.rule, op.paint);
   }
   void operator()(const TCanvasOpStrokePath &op) const {
     canvas.strokePath(op.path, op.pen, op.paint);
@@ -305,9 +329,19 @@ void TCanvasRecorder::onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
   m_list.ops.emplace_back(TCanvasOpClipPath{path, rule, op, antialias});
 }
 
+void TCanvasRecorder::onClipMesh(const TCanvasMesh &mesh, TCanvasClipOp op) {
+  m_list.ops.emplace_back(TCanvasOpClipMesh{mesh, op});
+}
+
 void TCanvasRecorder::onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
                                  const TCanvasPaint &paint) {
   m_list.ops.emplace_back(TCanvasOpFillPath{path, rule, paint});
+}
+
+void TCanvasRecorder::onFillPathAndClip(const TCanvasPath &path,
+                                        TCanvasFillRule rule,
+                                        const TCanvasPaint &paint) {
+  m_list.ops.emplace_back(TCanvasOpFillPathAndClip{path, rule, paint});
 }
 
 void TCanvasRecorder::onStrokePath(const TCanvasPath &path,

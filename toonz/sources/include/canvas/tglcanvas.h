@@ -63,8 +63,18 @@ public:
     is what the old renderer sent: how a quad that is not convex gets
     split is the driver's choice, and stays the one it has always made.
   - Lines are OpenGL lines: no caps, no joins, a width the driver may
-    clamp, and dashes rounded to a 16-bit stipple pattern.
-  - A clip is a stencil mask, without antialiasing.
+    clamp, and dashes rounded to a 16-bit stipple pattern. A line whose
+    paint is a linear gradient with no stop between two neighbouring
+    vertices is drawn with a colour per vertex, not through a texture.
+  - A contour of one point under a pen with round caps is a dot: an OpenGL
+    point of the pen's width for a pen in device units, a disc of 60
+    slices for one in local units.
+  - A clip is a stencil mask: the path filled as a region is, which with
+    antialiasing includes the smooth line along its contours. A clip to a
+    mesh is the mesh drawn into the mask as the primitive it is drawn as.
+    A fill that is also a clip is the fill followed by a clip to it: every
+    pixel the fill touched takes what is drawn on it afterwards at full
+    strength, so the edge of the whole is as jagged as a mask is.
   - Gradients are textures of 256 steps. Texture coordinates are computed
     here and sent with the vertices; the texture matrix is not used.
   - The texture of an image that names what keeps its pixels alive
@@ -91,7 +101,12 @@ public:
     itself. The canvas then draws with that state, and changes only what
     the code it replaces changed. This is what keeps a style that has
     moved to the canvas interface pixel for pixel what it was when it is
-    reached through tglDraw().
+    reached through tglDraw(). For the same reason a path filled by the
+    non-zero rule is then filled only where its winding number is
+    positive, which is the rule the old tessellator had (positive being
+    the way most of the path goes round). The two part ways where an
+    outline crosses itself and the loop that makes is wound the other
+    way: the old renderer left such a loop empty.
 
   This library (tnzglcanvas) links OpenGL and tnzcanvas, nothing else.
 */
@@ -117,8 +132,11 @@ protected:
   void onConcat(const TCanvasAffine &aff) override;
   void onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
                   TCanvasClipOp op, bool antialias) override;
+  void onClipMesh(const TCanvasMesh &mesh, TCanvasClipOp op) override;
   void onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
                   const TCanvasPaint &paint) override;
+  void onFillPathAndClip(const TCanvasPath &path, TCanvasFillRule rule,
+                         const TCanvasPaint &paint) override;
   void onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
                     const TCanvasPaint &paint) override;
   void onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) override;
@@ -134,8 +152,12 @@ private:
   // For each save() not yet restored, and for the canvas itself at the
   // front: how many clips have been set since.
   std::vector<int> m_clips;
+  // The driver's GL_LINE_WIDTH_RANGE, once it has been asked for.
+  float m_lineWidthRange[2] = {1.f, 0.f};
 
   void dropClips(int count);
+  void drawDots(const std::vector<TCanvasPoint> &dots, const TCanvasPen &pen,
+                const TCanvasPaint &paint);
 };
 
 #endif  // TGLCANVAS_H

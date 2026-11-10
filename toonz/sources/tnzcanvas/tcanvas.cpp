@@ -92,6 +92,7 @@ void TCanvasPath::clear() {
 std::size_t TCanvasMesh::triangleCount() const {
   const std::size_t n = positions.size();
   if (mode == Mode::Triangles) return n / 3;
+  if (mode == Mode::Quads) return n / 4 * 2;
   return n >= 3 ? n - 2 : 0;
 }
 
@@ -99,6 +100,7 @@ bool TCanvasMesh::isValid() const {
   const std::size_t n = positions.size();
   if (triangleCount() == 0) return false;
   if (mode == Mode::Triangles && n % 3 != 0) return false;
+  if (mode == Mode::Quads && n % 4 != 0) return false;
   if (!colors.empty() && colors.size() != n) return false;
   if (!uvs.empty() && uvs.size() != n) return false;
   return true;
@@ -138,10 +140,30 @@ void TCanvas::clipPath(const TCanvasPath &path, TCanvasFillRule rule,
   onClipPath(path, rule, op, antialias);
 }
 
+void TCanvas::clipMesh(const TCanvasMesh &mesh, TCanvasClipOp op) {
+  if (mesh.isValid()) {
+    onClipMesh(mesh, op);
+    return;
+  }
+  // A mesh that covers nothing: nothing to keep off, or nothing left.
+  if (op == TCanvasClipOp::Intersect)
+    onClipPath(TCanvasPath(), TCanvasFillRule::NonZero, op, false);
+}
+
 void TCanvas::fillPath(const TCanvasPath &path, TCanvasFillRule rule,
                        const TCanvasPaint &paint) {
   if (path.isEmpty() || paint.color.a <= 0.f) return;
   onFillPath(path, rule, paint);
+}
+
+void TCanvas::fillPathAndClip(const TCanvasPath &path, TCanvasFillRule rule,
+                              const TCanvasPaint &paint) {
+  // A fill that cannot be seen is still a shape to keep to.
+  if (path.isEmpty() || paint.color.a <= 0.f) {
+    onClipPath(path, rule, TCanvasClipOp::Intersect, paint.antialias);
+    return;
+  }
+  onFillPathAndClip(path, rule, paint);
 }
 
 void TCanvas::strokePath(const TCanvasPath &path, const TCanvasPen &pen,

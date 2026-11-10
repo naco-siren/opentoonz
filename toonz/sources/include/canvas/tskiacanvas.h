@@ -78,8 +78,11 @@ protected:
   void onConcat(const TCanvasAffine &aff) override;
   void onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
                   TCanvasClipOp op, bool antialias) override;
+  void onClipMesh(const TCanvasMesh &mesh, TCanvasClipOp op) override;
   void onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
                   const TCanvasPaint &paint) override;
+  void onFillPathAndClip(const TCanvasPath &path, TCanvasFillRule rule,
+                         const TCanvasPaint &paint) override;
   void onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
                     const TCanvasPaint &paint) override;
   void onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) override;

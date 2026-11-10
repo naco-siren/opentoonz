@@ -141,8 +141,10 @@ typedef GLvoid(CALLBACK *GluCallback)(void);
 typedef GLvoid (*GluCallback)();
 #endif
 
+// With \p positive, the non-zero rule fills only where the winding number
+// is above zero: see TGlCanvas::State::Callers.
 void tessellate(const std::vector<Contour> &contours, TCanvasFillRule rule,
-                const Lookup &lookup) {
+                const Lookup &lookup, bool positive) {
   GLUtesselator *tess = gluNewTess();
   if (!tess) return;
 
@@ -153,8 +155,10 @@ void tessellate(const std::vector<Contour> &contours, TCanvasFillRule rule,
   gluTessCallback(tess, GLU_TESS_VERTEX_DATA, (GluCallback)tessVertex);
   gluTessCallback(tess, GLU_TESS_COMBINE_DATA, (GluCallback)tessCombine);
   gluTessProperty(tess, GLU_TESS_WINDING_RULE,
-                  rule == TCanvasFillRule::NonZero ? GLU_TESS_WINDING_NONZERO
-                                                   : GLU_TESS_WINDING_ODD);
+                  rule == TCanvasFillRule::EvenOdd
+                      ? GLU_TESS_WINDING_ODD
+                      : positive ? GLU_TESS_WINDING_POSITIVE
+                                 : GLU_TESS_WINDING_NONZERO);
 
   gluTessBeginPolygon(tess, &tessellation);
   for (const Contour &contour : contours) {
@@ -349,6 +353,29 @@ GLuint TGlCanvas::Textures::get(const TCanvasImage &image,
 
 namespace {
 
+// A colour whose components are whole bytes goes to OpenGL as bytes, the
+// way the old code sent a TPixel32 (glColor4ub). How a byte becomes the
+// float OpenGL works with is then the driver's affair, as it always was;
+// a float worked out here may be the next one along, which is enough to
+// round a blended or interpolated pixel the other way now and then.
+bool wholeBytes(const TCanvasColor &color, GLubyte bytes[4]) {
+  const float v[4] = {color.r, color.g, color.b, color.a};
+  for (int i = 0; i < 4; ++i) {
+    const long k = std::lround(v[i] * 255.f);
+    if (k < 0 || k > 255 || (float)k / 255.f != v[i]) return false;
+    bytes[i] = (GLubyte)k;
+  }
+  return true;
+}
+
+void setColor(const TCanvasColor &color) {
+  GLubyte bytes[4];
+  if (wholeBytes(color, bytes))
+    glColor4ubv(bytes);
+  else
+    glColor4f(color.r, color.g, color.b, color.a);
+}
+
 // Sets up OpenGL for a paint: the colour and, for a shader, a texture, with
 // the map from the point a vertex is looked up at to where in the texture
 // that is.
@@ -391,15 +418,15 @@ public:
     }
 
     if (!m_texture) {
-      glColor4f(color.r, color.g, color.b, color.a);
+      setColor(color);
       return;
     }
     // The texture gives the colour, the paint its opacity.
     const float a = paint.color.a;
     if (m_premultiplied)
-      glColor4f(a, a, a, a);
+      setColor(TCanvasColor(a, a, a, a));
     else
-      glColor4f(1.f, 1.f, 1.f, a);
+      setColor(TCanvasColor(1.f, 1.f, 1.f, a));
     m_textureWasOn = glIsEnabled(GL_TEXTURE_2D);
     glEnable(GL_TEXTURE_2D);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
@@ -679,6 +706,22 @@ TCanvasAffine modelviewAffine() {
   return TCanvasAffine(m[0], m[4], m[12], m[1], m[5], m[13]);
 }
 
+// What a mesh is sent as. An even strip is a strip of quads, and goes out
+// as one (see the header).
+GLenum primitive(const TCanvasMesh &mesh) {
+  switch (mesh.mode) {
+  case TCanvasMesh::Mode::Triangles:
+    return GL_TRIANGLES;
+  case TCanvasMesh::Mode::Quads:
+    return GL_QUADS;
+  case TCanvasMesh::Mode::TriangleFan:
+    return GL_TRIANGLE_FAN;
+  case TCanvasMesh::Mode::TriangleStrip:
+    break;
+  }
+  return mesh.positions.size() % 2 == 0 ? GL_QUAD_STRIP : GL_TRIANGLE_STRIP;
+}
+
 void smoothLines() {
   glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
   glEnable(GL_LINE_SMOOTH);
@@ -744,9 +787,39 @@ void TGlCanvas::onConcat(const TCanvasAffine &aff) {
 }
 
 void TGlCanvas::onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
-                           TCanvasClipOp op, bool) {
+                           TCanvasClipOp op, bool antialias) {
+  const std::vector<Contour> contours = flatten(path, 0.1 * pixelSize());
+
+  // The mask is the path filled in white, the way a region is filled:
+  // "antialiased" means with the smooth line along every contour, whose
+  // outer half then belongs to the mask as well. That is the mask the old
+  // styles got when they drew a region to the screen and to the stencil
+  // buffer in one go.
   m_masks.beginMask(false);
-  tessellate(flatten(path, 0.1 * pixelSize()), rule, Lookup());
+  glColor4f(1.f, 1.f, 1.f, 1.f);
+  if (antialias) smoothLines();
+  tessellate(contours, rule, Lookup(), m_state == State::Callers);
+  if (antialias) {
+    for (const Contour &contour : contours) {
+      glBegin(GL_LINE_LOOP);
+      for (const TCanvasPoint &point : contour.points)
+        glVertex2d(point.x, point.y);
+      glEnd();
+    }
+  }
+  m_masks.endMask();
+  m_masks.enableMask(op == TCanvasClipOp::Intersect);
+  ++m_clips.back();
+}
+
+// The mesh goes into the mask as the primitive it is drawn as, so that the
+// mask is to the pixel what drawing it covers.
+void TGlCanvas::onClipMesh(const TCanvasMesh &mesh, TCanvasClipOp op) {
+  m_masks.beginMask(false);
+  glColor4f(1.f, 1.f, 1.f, 1.f);
+  glBegin(primitive(mesh));
+  for (const TCanvasPoint &p : mesh.positions) glVertex2d(p.x, p.y);
+  glEnd();
   m_masks.endMask();
   m_masks.enableMask(op == TCanvasClipOp::Intersect);
   ++m_clips.back();
@@ -762,7 +835,7 @@ void TGlCanvas::onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
   if (paint.antialias) smoothLines();
 
   blendOver(m_state, bound.premultiplied(), [&] {
-    tessellate(contours, rule, bound.lookup());
+    tessellate(contours, rule, bound.lookup(), m_state == State::Callers);
     if (!paint.antialias) return;
     // The fringe: every contour once more, as a smooth closed line.
     for (const Contour &contour : contours) {
@@ -776,15 +849,98 @@ void TGlCanvas::onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
   });
 }
 
+// The fill, and a mask of the same fragments: with antialiasing, the smooth
+// line along the contours included. The old styles drew a region to the
+// screen and to the stencil buffer in one go; this comes to the same.
+void TGlCanvas::onFillPathAndClip(const TCanvasPath &path, TCanvasFillRule rule,
+                                  const TCanvasPaint &paint) {
+  onFillPath(path, rule, paint);
+  onClipPath(path, rule, TCanvasClipOp::Intersect, paint.antialias);
+}
+
+namespace {
+
+// The colours of a linear gradient at the vertices of polylines, when that
+// is all there is to it: no stop of the gradient falls between two
+// neighbouring vertices, so that OpenGL's own interpolation from vertex to
+// vertex is the gradient. A line that fades in and out along its length,
+// which the old styles drew with a colour per vertex, is such a gradient.
+bool gradientAtVertices(const std::vector<Contour> &contours,
+                        const TCanvasPaint &paint,
+                        std::vector<std::vector<TCanvasColor>> &colors) {
+  const TCanvasShader &shader = paint.shader;
+  if (shader.kind != TCanvasShader::Kind::LinearGradient ||
+      shader.stops.size() < 2)
+    return false;
+  const double dx = shader.p1.x - shader.p0.x, dy = shader.p1.y - shader.p0.y;
+  const double length2 = dx * dx + dy * dy;
+  if (!(length2 > 0.0)) return false;
+
+  // How close to a stop counts as on it: a billionth of the gradient's
+  // length, or for a gradient shorter than a pixel, where that is less
+  // than the arithmetic can tell apart, a ten-millionth of a unit.
+  const double eps = std::max(1e-9, 1e-7 / std::sqrt(length2));
+  colors.clear();
+  for (const Contour &contour : contours) {
+    std::vector<TCanvasColor> row;
+    double previous = 0.0;
+    for (std::size_t i = 0; i < contour.points.size(); ++i) {
+      const TCanvasPoint &p = contour.points[i];
+      double t = ((p.x - shader.p0.x) * dx + (p.y - shader.p0.y) * dy) / length2;
+      // A vertex that is on a stop has that stop's colour, to the bit.
+      TCanvasColor color;
+      bool onStop = false;
+      for (const TCanvasGradientStop &stop : shader.stops)
+        if (std::fabs(t - stop.offset) < eps) {
+          color = stop.color, t = stop.offset, onStop = true;
+          break;
+        }
+      if (!onStop) color = colorAt(shader.stops, t);
+      color.a *= paint.color.a;
+      row.push_back(color);
+
+      if (i > 0) {
+        const double lo = std::min(previous, t), hi = std::max(previous, t);
+        for (const TCanvasGradientStop &stop : shader.stops)
+          if (stop.offset > lo + eps && stop.offset < hi - eps) return false;
+      }
+      previous = t;
+    }
+    colors.push_back(row);
+  }
+  return true;
+}
+
+}  // namespace
+
 void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
                              const TCanvasPaint &paint) {
-  const std::vector<Contour> contours = flatten(path, 0.1 * pixelSize());
+  std::vector<Contour> contours = flatten(path, 0.1 * pixelSize());
 
   ScopedAttributes attributes(m_state);
-  BoundPaint bound(paint, *m_textures);
 
-  GLfloat range[2] = {1.f, 1.f};
-  glGetFloatv(GL_LINE_WIDTH_RANGE, range);
+  // A contour that is one point, under a pen with round caps, is a dot.
+  std::vector<TCanvasPoint> dots;
+  if (pen.cap == TCanvasPen::Cap::Round) {
+    std::vector<Contour> lines;
+    for (const Contour &contour : contours) {
+      if (contour.points.size() == 1)
+        dots.push_back(contour.points[0]);
+      else
+        lines.push_back(contour);
+    }
+    contours.swap(lines);
+  }
+  if (!dots.empty()) drawDots(dots, pen, paint);
+  if (contours.empty()) return;
+
+  // The same for as long as the context lives; asking is not free, and a
+  // style may draw thousands of lines.
+  if (m_lineWidthRange[1] < m_lineWidthRange[0]) {
+    m_lineWidthRange[0] = m_lineWidthRange[1] = 1.f;
+    glGetFloatv(GL_LINE_WIDTH_RANGE, m_lineWidthRange);
+  }
+  const float *range = m_lineWidthRange;
   const double pixels =
       pen.unit == TCanvasPen::Unit::Device ? pen.width
                                            : pen.width / pixelSize();
@@ -801,8 +957,24 @@ void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
   }
   if (!pen.dash.empty()) setStipple(pen.dash);
 
-  blendOver(m_state, bound.premultiplied(),
-            [&] { drawLines(contours, bound.lookup()); });
+  std::vector<std::vector<TCanvasColor>> vertexColors;
+  if (gradientAtVertices(contours, paint, vertexColors)) {
+    // No texture: the gradient is a colour at each vertex.
+    blendOver(m_state, false, [&] {
+      for (std::size_t c = 0; c < contours.size(); ++c) {
+        glBegin(contours[c].closed ? GL_LINE_LOOP : GL_LINE_STRIP);
+        for (std::size_t i = 0; i < contours[c].points.size(); ++i) {
+          setColor(vertexColors[c][i]);
+          glVertex2d(contours[c].points[i].x, contours[c].points[i].y);
+        }
+        glEnd();
+      }
+    });
+  } else {
+    BoundPaint bound(paint, *m_textures);
+    blendOver(m_state, bound.premultiplied(),
+              [&] { drawLines(contours, bound.lookup()); });
+  }
 
   if (m_state == State::Callers) {
     // What the old line styles left behind them.
@@ -811,18 +983,56 @@ void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
   }
 }
 
+// Dots. With a pen in device units they are OpenGL points of the pen's
+// width; with a pen in local units, discs of half that radius, in the 60
+// slices the old tglDrawDisk() cut every disc into.
+void TGlCanvas::drawDots(const std::vector<TCanvasPoint> &dots,
+                         const TCanvasPen &pen, const TCanvasPaint &paint) {
+  BoundPaint bound(paint, *m_textures);
+
+  if (pen.unit == TCanvasPen::Unit::Local) {
+    blendOver(m_state, bound.premultiplied(), [&] {
+      for (const TCanvasPoint &dot : dots) {
+        glPushMatrix();
+        glTranslated(dot.x, dot.y, 0.0);
+        GLUquadric *quadric = gluNewQuadric();
+        gluDisk(quadric, 0, 0.5 * pen.width, 60, 1);
+        gluDeleteQuadric(quadric);
+        glPopMatrix();
+      }
+    });
+    return;
+  }
+
+  GLfloat sizeBefore = 1.f;
+  glGetFloatv(GL_POINT_SIZE, &sizeBefore);
+  if (paint.antialias) {
+    // As tglEnablePointSmooth() did, the blending it switched on included.
+    glEnable(GL_BLEND);
+    glEnable(GL_POINT_SMOOTH);
+    glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+  } else if (m_state == State::Own) {
+    glDisable(GL_POINT_SMOOTH);
+  }
+  glPointSize((GLfloat)pen.width);
+  blendOver(m_state, bound.premultiplied(), [&] {
+    glBegin(GL_POINTS);
+    for (const TCanvasPoint &dot : dots) {
+      bound.lookup().send(dot.x, dot.y);
+      glVertex2d(dot.x, dot.y);
+    }
+    glEnd();
+  });
+  if (m_state == State::Callers) glPointSize(sizeBefore);
+}
+
 void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
   ScopedAttributes attributes(m_state);
   BoundPaint bound(paint, *m_textures);
 
   const GLsizei count = (GLsizei)mesh.positions.size();
   const bool strip    = mesh.mode == TCanvasMesh::Mode::TriangleStrip;
-  // An even strip is a strip of quads, and goes out as one (see the header).
-  const GLenum mode = mesh.mode == TCanvasMesh::Mode::Triangles
-                          ? GL_TRIANGLES
-                          : !strip          ? GL_TRIANGLE_FAN
-                            : count % 2 == 0 ? GL_QUAD_STRIP
-                                             : GL_TRIANGLE_STRIP;
+  const GLenum mode   = primitive(mesh);
 
   // The paint's opacity applies to the vertex colours too.
   std::vector<TCanvasColor> colors = mesh.colors;
@@ -831,6 +1041,14 @@ void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
     if (bound.premultiplied())
       color.r *= color.a, color.g *= color.a, color.b *= color.a;
   }
+
+  // As bytes, if that is what they all are (see wholeBytes()).
+  std::vector<GLubyte> byteColors(colors.size() * 4);
+  for (std::size_t i = 0; i < colors.size(); ++i)
+    if (!wholeBytes(colors[i], &byteColors[i * 4])) {
+      byteColors.clear();
+      break;
+    }
 
   // The texture coordinate of each vertex: where it is looked up (its own
   // coordinates, or the position), taken through the paint's lookup.
@@ -846,13 +1064,30 @@ void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
       mapped.empty() ? lookedUpAt : mapped;
 
   const auto drawTriangles = [&] {
+    if (!colors.empty() && !bound.textured()) {
+      // Vertex by vertex, the way the old styles sent the primitives they
+      // coloured themselves.
+      glBegin(mode);
+      for (std::size_t i = 0; i < mesh.positions.size(); ++i) {
+        if (!byteColors.empty())
+          glColor4ubv(&byteColors[i * 4]);
+        else
+          glColor4f(colors[i].r, colors[i].g, colors[i].b, colors[i].a);
+        glVertex2d(mesh.positions[i].x, mesh.positions[i].y);
+      }
+      glEnd();
+      return;
+    }
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(2, GL_DOUBLE, sizeof(TCanvasPoint), &mesh.positions[0].x);
     if (bound.textured()) {
       glEnableClientState(GL_TEXTURE_COORD_ARRAY);
       glTexCoordPointer(2, GL_DOUBLE, sizeof(TCanvasPoint), &texCoords[0].x);
     }
-    if (!colors.empty()) {
+    if (!byteColors.empty()) {
+      glEnableClientState(GL_COLOR_ARRAY);
+      glColorPointer(4, GL_UNSIGNED_BYTE, 0, byteColors.data());
+    } else if (!colors.empty()) {
       glEnableClientState(GL_COLOR_ARRAY);
       glColorPointer(4, GL_FLOAT, sizeof(TCanvasColor), &colors[0].r);
     }

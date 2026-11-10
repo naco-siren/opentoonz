@@ -230,6 +230,129 @@ TEST(SkiaCanvasClip, IsSmoothOnlyWhenAskedTo) {
   EXPECT_EQ(hard.alpha(4, 3), 0);
 }
 
+// What a mesh covers, with hard edges: for drawing next to a mesh that has
+// just been drawn without antialiasing, and not on it.
+TEST(SkiaCanvasClip, AMeshKeepsDrawingOffOrOnWhatItCovers) {
+  const TCanvasPath all = rectPath(0, 0, 12, 8);
+  TCanvasMesh quads;
+  quads.mode = TCanvasMesh::Mode::Quads;
+  // Two quads that overlap, the second wound the other way.
+  quads.positions = {{2, 2}, {6.25, 2}, {6.25, 6}, {2, 6},
+                     {5, 3}, {5, 5},    {10, 5},   {10, 3}};
+
+  Target outside(12, 8);
+  TSkiaCanvas a(outside.pixels(), 12, 8, outside.rowBytes());
+  a.clipMesh(quads, TCanvasClipOp::Difference);
+  a.fillPath(all, TCanvasFillRule::NonZero, paintOf(0.f, 0.f, 0.f));
+
+  Target inside(12, 8);
+  TSkiaCanvas b(inside.pixels(), 12, 8, inside.rowBytes());
+  b.clipMesh(quads, TCanvasClipOp::Intersect);
+  b.fillPath(all, TCanvasFillRule::NonZero, paintOf(0.f, 0.f, 0.f));
+
+  for (int y = 0; y < 8; ++y)
+    for (int x = 0; x < 12; ++x) {
+      const bool covered = (x >= 2 && x < 6 && y >= 2 && y < 6) ||
+                           (x >= 5 && x < 10 && y >= 3 && y < 5);
+      EXPECT_EQ(outside.alpha(x, y), covered ? 0 : 255)
+          << "at (" << x << ", " << y << ")";
+      EXPECT_EQ(inside.alpha(x, y), covered ? 255 : 0)
+          << "at (" << x << ", " << y << ")";
+    }
+}
+
+//-----------------------------------------------------------------------------
+// A fill that is also a clip
+
+// What is drawn on such a fill is put together with it before the edge is
+// worked out, so nothing of the fill shows along the edge of what covers
+// it. A fill followed by a clip to the same path cannot do that.
+TEST(SkiaCanvasCutout, WhatIsDrawnOnAFillSharesItsEdge) {
+  const TCanvasPath shape = rectPath(2, 2, 6.5, 6);
+  const TCanvasPath all   = rectPath(0, 0, 10, 8);
+  const TCanvasPaint red  = paintOf(1.f, 0.f, 0.f);
+  TCanvasPaint blue       = paintOf(0.f, 0.f, 1.f);
+  blue.antialias          = false;
+
+  Target together(10, 8);
+  {
+    TSkiaCanvas canvas(together.pixels(), 10, 8, together.rowBytes());
+    canvas.save();
+    canvas.fillPathAndClip(shape, TCanvasFillRule::NonZero, red);
+    // Blue over the lower half of the shape.
+    canvas.fillPath(rectPath(0, 0, 10, 4), TCanvasFillRule::NonZero, blue);
+    canvas.restore();
+    // The clip has ended.
+    canvas.fillPath(rectPath(9, 7, 10, 8), TCanvasFillRule::NonZero, blue);
+  }
+  EXPECT_TRUE(pixelIs(together, 3, 5, 255, 0, 0, 255)) << "the fill";
+  EXPECT_TRUE(pixelIs(together, 3, 3, 0, 0, 255, 255)) << "what is on it";
+  EXPECT_TRUE(pixelIs(together, 6, 5, 128, 0, 0, 128)) << "half a pixel";
+  EXPECT_TRUE(pixelIs(together, 6, 3, 0, 0, 128, 128)) << "and no red in it";
+  EXPECT_EQ(together.alpha(7, 3), 0);
+  EXPECT_EQ(together.alpha(3, 1), 0) << "kept to the fill";
+  EXPECT_EQ(together.alpha(9, 7), 255);
+
+  Target oneByOne(10, 8);
+  {
+    TSkiaCanvas canvas(oneByOne.pixels(), 10, 8, oneByOne.rowBytes());
+    canvas.fillPath(shape, TCanvasFillRule::NonZero, red);
+    canvas.clipPath(shape, TCanvasFillRule::NonZero, TCanvasClipOp::Intersect,
+                    true);
+    canvas.fillPath(rectPath(0, 0, 10, 4), TCanvasFillRule::NonZero, blue);
+  }
+  EXPECT_TRUE(pixelIs(oneByOne, 6, 3, 64, 0, 128, 191))
+      << "red under half a pixel of blue";
+}
+
+TEST(SkiaCanvasCutout, TheFillIsPaintedOnceAndMayGrow) {
+  const TCanvasPath shape = rectPath(2, 2, 6.5, 6);
+  TCanvasPaint faint      = paintOf(1.f, 0.f, 0.f, 0.5f);
+
+  Target target(10, 8);
+  {
+    TSkiaCanvas canvas(target.pixels(), 10, 8, target.rowBytes());
+    canvas.fillPathAndClip(shape, TCanvasFillRule::NonZero, faint);
+    // Never restored: the canvas ends it.
+  }
+  EXPECT_TRUE(pixelIs(target, 3, 3, 128, 0, 0, 128));
+  EXPECT_TRUE(pixelIs(target, 6, 3, 64, 0, 0, 64));
+
+  // Grown by half a pixel the edge reaches x = 7, whatever the transform.
+  faint.growDevice = 0.5;
+  Target grown(20, 16);
+  {
+    TSkiaCanvas canvas(grown.pixels(), 20, 16, grown.rowBytes());
+    canvas.concat(TCanvasAffine::scale(2, 2));
+    canvas.save();
+    canvas.fillPathAndClip(shape, TCanvasFillRule::NonZero, faint);
+    // A transform set on the fill ends with it, and does not move the cut.
+    canvas.concat(TCanvasAffine::translation(100, 0));
+    canvas.restore();
+  }
+  EXPECT_TRUE(pixelIs(grown, 12, 6, 128, 0, 0, 128));
+  EXPECT_TRUE(pixelIs(grown, 13, 6, 64, 0, 0, 64)) << "13 to 13.5";
+  EXPECT_EQ(grown.alpha(14, 6), 0);
+}
+
+// Hard edges when the paint says so: a pixel is in or out.
+TEST(SkiaCanvasCutout, IsHardEdgedWithoutAntialiasing) {
+  TCanvasPaint red = paintOf(1.f, 0.f, 0.f);
+  red.antialias    = false;
+  Target target(10, 8);
+  {
+    TSkiaCanvas canvas(target.pixels(), 10, 8, target.rowBytes());
+    canvas.fillPathAndClip(rectPath(2, 2, 6.75, 6), TCanvasFillRule::NonZero,
+                           red);
+    canvas.fillPath(rectPath(0, 0, 10, 8), TCanvasFillRule::NonZero,
+                    paintOf(0.f, 0.f, 1.f));
+  }
+  EXPECT_TRUE(pixelIs(target, 6, 3, 0, 0, 255, 255));
+  EXPECT_EQ(target.alpha(7, 3), 0);
+}
+
+//-----------------------------------------------------------------------------
+
 TEST(SkiaCanvasClip, AnEmptyPathLeavesNothingToDrawOn) {
   Target target(8, 8);
   TSkiaCanvas canvas(target.pixels(), 8, 8, target.rowBytes());
@@ -472,6 +595,58 @@ std::string coveredColumns(const Target &target) {
 }
 
 }  // namespace
+
+// A contour that is one point has no direction to be a line in. Under a pen
+// with round caps it is a dot as wide as the pen; with flat caps, nothing.
+TEST(SkiaCanvasStroke, APointUnderARoundPenIsADot) {
+  TCanvasPath points;
+  points.moveTo({4, 4}).moveTo({12, 4});
+
+  TCanvasPen pen;
+  pen.width = 3.0;
+  pen.unit  = TCanvasPen::Unit::Local;
+  pen.cap   = TCanvasPen::Cap::Round;
+
+  Target target(16, 8);
+  TSkiaCanvas canvas(target.pixels(), 16, 8, target.rowBytes());
+  TCanvasPaint hard = paintOf(0.f, 0.f, 0.f);
+  hard.antialias    = false;
+  canvas.strokePath(points, pen, hard);
+
+  // Radius 1.5 around (4, 4) and around (12, 4): the four pixels that meet
+  // there have their centres inside.
+  for (int cx : {4, 12}) {
+    EXPECT_EQ(target.alpha(cx, 4), 255);
+    EXPECT_EQ(target.alpha(cx - 1, 4), 255);
+    EXPECT_EQ(target.alpha(cx - 1, 3), 255);
+    EXPECT_EQ(target.alpha(cx - 3, 4), 0) << "centre 2.5 away";
+    EXPECT_EQ(target.alpha(cx + 2, 4), 0);
+    EXPECT_EQ(target.alpha(cx, 7), 0);
+  }
+  EXPECT_EQ(target.alpha(8, 4), 0) << "the points are not joined";
+
+  // Twice the size under twice the transform; a device pen stays.
+  for (bool device : {false, true}) {
+    SCOPED_TRACE(device ? "device pen" : "local pen");
+    Target scaled(16, 16);
+    TSkiaCanvas big(scaled.pixels(), 16, 16, scaled.rowBytes());
+    big.concat(TCanvasAffine::scale(2, 2));
+    pen.unit = device ? TCanvasPen::Unit::Device : TCanvasPen::Unit::Local;
+    TCanvasPath one;
+    one.moveTo({4, 4});
+    big.strokePath(one, pen, hard);
+    EXPECT_EQ(scaled.alpha(8, 8), 255);
+    EXPECT_EQ(scaled.alpha(5, 8), device ? 0 : 255) << "centre 2.5 away";
+    EXPECT_EQ(scaled.alpha(3, 8), 0) << "centre 4.5 away";
+  }
+
+  Target none(16, 8);
+  TSkiaCanvas flat(none.pixels(), 16, 8, none.rowBytes());
+  pen.cap  = TCanvasPen::Cap::Butt;
+  pen.unit = TCanvasPen::Unit::Local;
+  flat.strokePath(points, pen, hard);
+  for (unsigned char byte : none.bytes) ASSERT_EQ(byte, 0);
+}
 
 TEST(SkiaCanvasStroke, DashesAreMeasuredInDevicePixels) {
   TCanvasPath line;

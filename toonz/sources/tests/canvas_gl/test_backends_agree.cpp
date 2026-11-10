@@ -11,10 +11,7 @@
 // The OpenGL canvas's line or band lies half outside the shape, whatever
 // the paint says. The pictures here ask for that explicitly (a paint that
 // grows by half a pixel), as code that wants the old look on both canvases
-// would. One difference is left out of them on purpose: Skia interpolates
-// vertex colours after multiplying them by their alpha, OpenGL before, so a
-// mesh whose neighbouring vertices differ in colour and in alpha is not the
-// same on both.
+// would.
 
 #ifdef NEXTTOONZ_HAVE_SKIA
 
@@ -264,9 +261,90 @@ TEST(CanvasBackends, AgreeOnClips) {
     canvas.fillPath(rectPath(150, 30, 220, 90), TCanvasFillRule::NonZero,
                     grown(paintOf(0.5f, 0.1f, 0.6f)));
   });
-  EXPECT_LT(d.noticeable, 0.015);
+  // An antialiased clip is the widest gap between the two: through OpenGL
+  // it is a stencil mask that takes in every pixel the smooth line along
+  // the path touches, so what is drawn inside reaches a pixel further out,
+  // at full strength. That is the mask the old styles had.
+  EXPECT_LT(d.noticeable, 0.035);
+  EXPECT_LT(d.gross, 0.02);
+  EXPECT_LT(d.mean, 6.5);
+}
+
+// What the styles that fill a region with a pattern are made of: hard-edged
+// meshes that bring their colours, discs, smooth lines kept off a mesh, a
+// line that fades along its length. Nothing here is antialiased on one
+// canvas and not on the other, so this is the closest the two get.
+TEST(CanvasBackends, AgreeOnPatternsInsideARegion) {
+  const Difference d = bothWays("patterns", 240, 120, [](TCanvas &canvas) {
+    canvas.save();
+    canvas.clipPath(blob(120, 60, 110), TCanvasFillRule::NonZero,
+                    TCanvasClipOp::Intersect, false);
+
+    TCanvasPaint plain = paintOf(1.f, 1.f, 1.f);
+    plain.antialias    = false;
+
+    // Stripes, with a smooth line along each edge on the outside.
+    TCanvasMesh stripes;
+    stripes.mode        = TCanvasMesh::Mode::Quads;
+    stripes.smoothEdges = false;
+    TCanvasPath edges;
+    for (int i = 0; i < 6; ++i) {
+      const double y = 6 + 20 * i;
+      stripes.positions.insert(stripes.positions.end(),
+                               {{0, y}, {0, y + 8}, {110, y + 38}, {110, y + 30}});
+      edges.moveTo({0, y}).lineTo({110, y + 30});
+      edges.moveTo({0, y + 8}).lineTo({110, y + 38});
+    }
+    stripes.colors.assign(stripes.positions.size(),
+                          TCanvasColor(0.1f, 0.3f, 0.8f, 0.7f));
+    canvas.drawMesh(stripes, plain);
+    canvas.save();
+    canvas.clipMesh(stripes, TCanvasClipOp::Difference);
+    canvas.strokePath(edges, TCanvasPen(), paintOf(0.1f, 0.3f, 0.8f, 0.7f));
+    canvas.restore();
+
+    // Discs.
+    TCanvasPath centres;
+    for (int j = 0; j < 5; ++j)
+      for (int i = 0; i < 5; ++i)
+        centres.moveTo({125.0 + 14 * i + (j % 2) * 7, 12.0 + 12 * j});
+    TCanvasPen disc;
+    disc.width = 9.0;
+    disc.unit  = TCanvasPen::Unit::Local;
+    disc.cap   = TCanvasPen::Cap::Round;
+    TCanvasPaint red = paintOf(0.8f, 0.1f, 0.1f);
+    red.antialias    = false;
+    canvas.strokePath(centres, disc, red);
+
+    // A blend across a quad, and hatching that fades at both ends.
+    TCanvasMesh blend;
+    blend.mode        = TCanvasMesh::Mode::Quads;
+    blend.smoothEdges = false;
+    blend.positions   = {{120, 70}, {230, 70}, {230, 112}, {120, 112}};
+    // From an opaque colour to a translucent one of another hue.
+    blend.colors      = {TCanvasColor(1.f, 0.9f, 0.2f), TCanvasColor(1.f, 0.9f, 0.2f),
+                         TCanvasColor(0.2f, 0.3f, 0.9f, 0.3f), TCanvasColor(0.2f, 0.3f, 0.9f, 0.3f)};
+    canvas.drawMesh(blend, plain);
+
+    TCanvasPath hatching;
+    for (int i = 0; i < 26; ++i) {
+      const double x = 124 + 4 * i;
+      hatching.moveTo({x, 72}).lineTo({x + 6, 90}).lineTo({x + 12, 108});
+    }
+    TCanvasPaint fading  = paintOf(1.f, 1.f, 1.f);
+    fading.shader.kind   = TCanvasShader::Kind::LinearGradient;
+    fading.shader.p0     = {0, 72};
+    fading.shader.p1     = {0, 108};
+    fading.shader.stops  = {{0.0, TCanvasColor(0.f, 0.f, 0.f, 0.f)},
+                            {0.5, TCanvasColor(0.f, 0.f, 0.f, 1.f)},
+                            {1.0, TCanvasColor(0.f, 0.f, 0.f, 0.f)}};
+    canvas.strokePath(hatching, TCanvasPen(), fading);
+
+    canvas.restore();
+  });
+  EXPECT_LT(d.noticeable, 0.005);
   EXPECT_LT(d.gross, 0.005);
-  EXPECT_LT(d.mean, 2.5);
+  EXPECT_LT(d.mean, 1.5);
 }
 
 // The picture the Skia tests hash, four times as large. It asks for things
@@ -279,9 +357,9 @@ TEST(CanvasBackends, AgreeOnAPictureOfEverything) {
     canvas.concat(TCanvasAffine::scale(4, 4));
     drawScene(canvas, colours);
   });
-  EXPECT_LT(d.noticeable, 0.05);
-  EXPECT_LT(d.gross, 0.02);
-  EXPECT_LT(d.mean, 6.0);
+  EXPECT_LT(d.noticeable, 0.07);
+  EXPECT_LT(d.gross, 0.035);
+  EXPECT_LT(d.mean, 9.0);
 }
 
 #endif  // NEXTTOONZ_HAVE_SKIA

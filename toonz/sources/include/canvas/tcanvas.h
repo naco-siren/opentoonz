@@ -44,9 +44,24 @@ public:
   //! (Difference) of \p path, until the enclosing restore().
   void clipPath(const TCanvasPath &path, TCanvasFillRule rule,
                 TCanvasClipOp op, bool antialias);
+  //! The same with what \p mesh covers, the union of its triangles, and
+  //! hard edges: for drawing next to a mesh that has just been drawn, or on
+  //! top of it, and nowhere else. A path with the same corners would not
+  //! do: a backend is free to cut a quad into triangles its own way.
+  void clipMesh(const TCanvasMesh &mesh, TCanvasClipOp op);
 
   void fillPath(const TCanvasPath &path, TCanvasFillRule rule,
                 const TCanvasPaint &paint);
+  //! Fills \p path and, until the enclosing restore(), keeps drawing to
+  //! where that fill is: what is drawn afterwards lies on the fill like
+  //! print on a shape cut out of paper. This is not the same as a fill
+  //! followed by a clip to the same path. There, a smooth edge is worked
+  //! out twice, once for the fill and once for what is drawn on it, and
+  //! the fill shows through along it; here the edge belongs to the two
+  //! together. (A backend that cannot put them together first draws the
+  //! fill and clips to it.)
+  void fillPathAndClip(const TCanvasPath &path, TCanvasFillRule rule,
+                       const TCanvasPaint &paint);
   void strokePath(const TCanvasPath &path, const TCanvasPen &pen,
                   const TCanvasPaint &paint);
   void drawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint);
@@ -77,8 +92,11 @@ protected:
   virtual void onConcat(const TCanvasAffine &aff) = 0;
   virtual void onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
                           TCanvasClipOp op, bool antialias) = 0;
+  virtual void onClipMesh(const TCanvasMesh &mesh, TCanvasClipOp op) = 0;
   virtual void onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
                           const TCanvasPaint &paint)        = 0;
+  virtual void onFillPathAndClip(const TCanvasPath &path, TCanvasFillRule rule,
+                                 const TCanvasPaint &paint) = 0;
   virtual void onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
                             const TCanvasPaint &paint)      = 0;
   virtual void onDrawMesh(const TCanvasMesh &mesh,

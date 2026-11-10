@@ -57,6 +57,65 @@ TEST(SkiaCanvasMesh, TakesTrianglesAndFans) {
     }
 }
 
+// Quads come four vertices at a time, going round each.
+TEST(SkiaCanvasMesh, TakesQuads) {
+  TCanvasMesh quads;
+  quads.mode      = TCanvasMesh::Mode::Quads;
+  quads.positions = {{1, 1}, {5, 1}, {5, 5}, {1, 5},
+                     {7, 1}, {7, 5}, {11, 5}, {11, 1}};  // the other way round
+
+  Target target(12, 6);
+  TSkiaCanvas canvas(target.pixels(), 12, 6, target.rowBytes());
+  canvas.drawMesh(quads, paintOf(0.f, 0.f, 0.f));
+
+  for (int y = 0; y < 6; ++y)
+    for (int x = 0; x < 12; ++x) {
+      const bool inside =
+          y >= 1 && y < 5 && ((x >= 1 && x < 5) || (x >= 7 && x < 11));
+      EXPECT_NEAR(target.alpha(x, y), inside ? 255 : 0, 1)
+          << "at (" << x << ", " << y << ")";
+    }
+}
+
+// The styles that draw their own primitives give every vertex the colour:
+// that keeps the OpenGL canvas from treating the mesh as a stroke outline.
+// Here it is the same thing as the colour in the paint.
+TEST(SkiaCanvasMesh, AMeshOfOneColourIsAShape) {
+  TCanvasMesh plain;
+  plain.mode        = TCanvasMesh::Mode::Quads;
+  plain.smoothEdges = false;
+  // Two quads that overlap from x = 4 to x = 6, with edges through pixels.
+  plain.positions = {{1.5, 1.25}, {6, 1.25}, {6, 6.75}, {1.5, 6.75},
+                     {4, 3},      {10.5, 3}, {10.5, 5}, {4, 5}};
+  TCanvasMesh coloured = plain;
+  coloured.colors.assign(8, TCanvasColor(0.f, 0.f, 1.f, 0.5f));
+
+  TCanvasPaint blue = paintOf(0.f, 0.f, 1.f, 0.5f);
+  blue.antialias    = false;
+  TCanvasPaint white = paintOf(1.f, 1.f, 1.f);
+  white.antialias    = false;
+
+  Target a(12, 8), b(12, 8);
+  TSkiaCanvas first(a.pixels(), 12, 8, a.rowBytes());
+  first.drawMesh(plain, blue);
+  TSkiaCanvas second(b.pixels(), 12, 8, b.rowBytes());
+  second.drawMesh(coloured, white);
+
+  EXPECT_EQ(a.bytes, b.bytes);
+  EXPECT_TRUE(pixelIs(b, 5, 4, 0, 0, 128, 128)) << "painted once";
+  EXPECT_EQ(b.alpha(1, 3), 0) << "hard edges: more than half outside";
+  EXPECT_EQ(b.alpha(10, 3), 128);
+
+  // The paint's opacity counts as well.
+  Target c(12, 8);
+  TSkiaCanvas third(c.pixels(), 12, 8, c.rowBytes());
+  coloured.colors.assign(8, TCanvasColor(0.f, 0.f, 1.f));
+  TCanvasPaint half = paintOf(1.f, 1.f, 1.f, 0.5f);
+  half.antialias    = false;
+  third.drawMesh(coloured, half);
+  EXPECT_EQ(a.bytes, c.bytes);
+}
+
 TEST(SkiaCanvasMesh, EdgesAreSmoothUnlessTheMeshOrThePaintSaysOtherwise) {
   TCanvasMesh mesh = rectMesh(2, 2, 5.25, 6);
   {
@@ -126,6 +185,33 @@ TEST(SkiaCanvasShadedMesh, ColoursAreInterpolatedAcrossTheTriangles) {
 // Skia itself draws such triangles with hard edges. The canvas has to make
 // them smooth on both sides of a pixel's centre: where the centre is inside
 // the mesh, and where it is outside and no triangle gives the pixel a colour.
+// Between a colour and a more transparent one of another hue, the hue and
+// the opacity change evenly and independently: halfway is half of each
+// colour at half the opacity, not mostly the opaque one.
+TEST(SkiaCanvasShadedMesh, ColoursAndAlphasAreBlendedEachOnItsOwn) {
+  TCanvasMesh mesh = rectMesh(0, 0, 8, 4);
+  mesh.smoothEdges = false;
+  // Opaque red on the left, transparent blue on the right.
+  mesh.colors = {TCanvasColor(1.f, 0.f, 0.f, 1.f), TCanvasColor(1.f, 0.f, 0.f, 1.f),
+                 TCanvasColor(0.f, 0.f, 1.f, 0.f), TCanvasColor(0.f, 0.f, 1.f, 0.f)};
+
+  Target target(8, 4);
+  TSkiaCanvas canvas(target.pixels(), 8, 4, target.rowBytes());
+  canvas.drawMesh(mesh, TCanvasPaint());
+
+  // The middle of pixel 3 is 7/16 of the way: (9/16 red, 7/16 blue) at an
+  // opacity of 9/16, stored premultiplied.
+  EXPECT_TRUE(pixelIs(target, 3, 2, 81, 0, 63, 143, 3));
+  EXPECT_TRUE(pixelIs(target, 0, 2, 225, 0, 15, 239, 3));
+  EXPECT_TRUE(pixelIs(target, 7, 2, 1, 0, 15, 16, 3));
+
+  // The paint's opacity on top of it all.
+  Target faint(8, 4);
+  TSkiaCanvas second(faint.pixels(), 8, 4, faint.rowBytes());
+  second.drawMesh(mesh, paintOf(1.f, 1.f, 1.f, 0.5f));
+  EXPECT_TRUE(pixelIs(faint, 3, 2, 40, 0, 31, 72, 3));
+}
+
 TEST(SkiaCanvasShadedMesh, EdgesAreSmooth) {
   const TCanvasColor green(0.f, 1.f, 0.f);
   {
@@ -203,7 +289,10 @@ TEST(SkiaCanvasShadedMesh, IsPaintedOnceWhereItsTrianglesOverlap) {
 
 TEST(SkiaCanvasShadedMesh, IsDrawnWhereTheTransformPutsIt) {
   TCanvasMesh mesh = rectMesh(1, 1, 3, 2);
+  // Two colours: with one the mesh would be a plain shape (see
+  // AMeshOfOneColourIsAShape below).
   mesh.colors.assign(4, TCanvasColor(0.f, 1.f, 0.f));
+  mesh.colors[0] = TCanvasColor(0.f, 0.5f, 0.f);
 
   Target target(16, 8);
   TSkiaCanvas canvas(target.pixels(), 16, 8, target.rowBytes());

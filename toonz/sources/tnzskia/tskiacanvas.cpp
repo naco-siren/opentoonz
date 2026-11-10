@@ -118,6 +118,13 @@ SkPath makePath(const TCanvasPath &path, TCanvasFillRule rule,
   };
   const auto addContour = [&](std::size_t c) {
     std::size_t i = contours[c].point;
+    // A contour of one point is drawn as a line of no length: stroked with
+    // round caps that is a dot, and Skia draws nothing for a bare point.
+    if (contours[c + 1].verb - contours[c].verb == 1) {
+      builder.moveTo(at(i));
+      builder.lineTo(at(i));
+      return;
+    }
     for (std::size_t v = contours[c].verb; v < contours[c + 1].verb; ++v) {
       switch (verbs[v]) {
       case TCanvasPath::MoveTo:
@@ -157,6 +164,13 @@ void forEachTriangle(const TCanvasMesh &mesh, F f) {
     break;
   case TCanvasMesh::Mode::TriangleFan:
     for (std::size_t i = 1; i + 1 < n; ++i) f(0, i, i + 1, i > 1);
+    break;
+  case TCanvasMesh::Mode::Quads:
+    // The second triangle of a quad shares the diagonal 0-2 with the first.
+    for (std::size_t i = 0; i + 3 < n; i += 4) {
+      f(i, i + 1, i + 2, false);
+      f(i + 2, i + 3, i, false);
+    }
     break;
   }
 }
@@ -294,6 +308,22 @@ struct TSkiaCanvas::Imp {
   SkCanvas *canvas = nullptr;
   int width = 0, height = 0;
 
+  // A fill that is also a clip (fillPathAndClip) is a layer: filled whole
+  // with the paint, drawn on, and cut to the shape of the path when the
+  // clip ends. This is what is kept of each until then, for every save()
+  // not yet restored and, at the front, for the canvas itself.
+  struct Cutout {
+    TCanvasPath path;
+    TCanvasFillRule rule;
+    bool antialias;
+    double growDevice;
+    TCanvasAffine transform;
+  };
+  std::vector<std::vector<Cutout>> cutouts{1};
+  void beginCutout(const TCanvasPath &path, TCanvasFillRule rule,
+                   const TCanvasPaint &paint, const TCanvasAffine &transform);
+  void endCutouts(std::vector<Cutout> &ended);
+
   template <class MakePath>
   void fill(MakePath makeShape, bool evenOdd, const TCanvasPaint &paint,
             bool antialias, const TCanvasAffine &transform);
@@ -348,6 +378,68 @@ void TSkiaCanvas::Imp::fill(MakePath makeShape, bool evenOdd,
   }
 }
 
+void TSkiaCanvas::Imp::beginCutout(const TCanvasPath &path,
+                                   TCanvasFillRule rule,
+                                   const TCanvasPaint &paint,
+                                   const TCanvasAffine &transform) {
+  // No larger than it has to be: the path in device coordinates, control
+  // points and all, with room for the growth and for smooth edges.
+  SkRect bounds = SkRect::MakeEmpty();
+  bool first    = true;
+  for (const TCanvasPoint &p : path.points()) {
+    const SkPoint at = toSk(transform * p);
+    if (first) bounds.setLTRB(at.x(), at.y(), at.x(), at.y()), first = false;
+    bounds.setLTRB(std::min(bounds.left(), at.x()),
+                   std::min(bounds.top(), at.y()),
+                   std::max(bounds.right(), at.x()),
+                   std::max(bounds.bottom(), at.y()));
+  }
+  const float room = (float)std::max(paint.growDevice, 0.0) + 2.f;
+  bounds.outset(room, room);
+
+  const SkMatrix matrix = canvas->getTotalMatrix();
+  canvas->save();
+  canvas->resetMatrix();
+  canvas->saveLayer(&bounds, nullptr);
+  canvas->setMatrix(matrix);
+  // What is set from here on (transforms, further clips) ends before the
+  // layer is cut.
+  canvas->save();
+
+  // The fill, all over: its shape comes from the cut.
+  TCanvasPaint whole = paint;
+  whole.growDevice   = 0.0;
+  canvas->drawPaint(makePaint(whole, false, nullptr));
+
+  cutouts.back().push_back(
+      {path, rule, paint.antialias, paint.growDevice, transform});
+}
+
+void TSkiaCanvas::Imp::endCutouts(std::vector<Cutout> &ended) {
+  for (auto cutout = ended.rbegin(); cutout != ended.rend(); ++cutout) {
+    canvas->restore();
+
+    // Kept: where the shape is, by as much as it covers each pixel.
+    SkPaint keep;
+    keep.setBlendMode(SkBlendMode::kDstIn);
+    canvas->saveLayer(nullptr, &keep);
+    canvas->setMatrix(toSk(cutout->transform));
+    TCanvasPaint shape(TCanvasColor(0.f, 0.f, 0.f, 1.f));
+    shape.growDevice = cutout->growDevice;
+    fill(
+        [&](const TCanvasAffine *map) {
+          return makePath(cutout->path, cutout->rule, map, map != nullptr);
+        },
+        cutout->rule == TCanvasFillRule::EvenOdd, shape, cutout->antialias,
+        cutout->transform);
+    canvas->restore();
+
+    canvas->restore();  // the layer, onto what is underneath
+    canvas->restore();
+  }
+  ended.clear();
+}
+
 // A mesh whose colour changes from vertex to vertex. Skia's rasteriser
 // draws such triangles without antialiasing and blends each one separately,
 // while the mesh is meant to be one shape: smooth at its silhouette and
@@ -377,12 +469,33 @@ void TSkiaCanvas::Imp::drawShadedMesh(const TCanvasMesh &mesh,
       mesh.uvs.empty() ? mesh.positions : mesh.uvs;
   const bool smooth = paint.antialias && mesh.smoothEdges;
 
+  // Skia blends vertex colours after multiplying them by their alpha.
+  // Between a colour and a more transparent one of another hue that gives
+  // a different blend from the one the old renderer drew, which blended
+  // colour and alpha each on its own. Where the alphas differ, the two are
+  // therefore drawn apart: the colours opaque, the alphas as a mask on
+  // top.
+  bool apart = false;
+  if (hasColors && !shader)
+    for (const TCanvasColor &color : mesh.colors)
+      if (color.a != mesh.colors[0].a) {
+        apart = true;
+        break;
+      }
+
   std::vector<SkPoint> positions, texs;
-  std::vector<SkColor> colors;
+  std::vector<SkColor> colors, alphas;
   const auto add = [&](const TCanvasPoint &at, std::size_t source) {
     positions.push_back(toSk(at));
     if (shader) texs.push_back(toSk(lookups[source]));
-    if (hasColors) colors.push_back(toSkColor(mesh.colors[source]));
+    if (!hasColors) return;
+    const SkColor color = toSkColor(mesh.colors[source]);
+    if (apart) {
+      colors.push_back(SkColorSetA(color, 0xFF));
+      alphas.push_back(SkColorSetARGB(SkColorGetA(color), 0, 0, 0));
+    } else {
+      colors.push_back(color);
+    }
   };
   const auto addQuad = [&](const TCanvasPoint &p0, std::size_t s0,
                            const TCanvasPoint &p1, std::size_t s1,
@@ -465,6 +578,18 @@ void TSkiaCanvas::Imp::drawShadedMesh(const TCanvasMesh &mesh,
                      true);
   canvas->saveLayer(&bounds, &layer);
   canvas->drawVertices(vertices, mix, inside);
+  if (!apart) return;
+
+  // The alphas, in a layer of their own that then keeps of the colours
+  // what it is opaque for.
+  const sk_sp<SkVertices> mask = SkVertices::MakeCopy(
+      SkVertices::kTriangles_VertexMode, (int)positions.size(),
+      positions.data(), nullptr, alphas.data());
+  if (!mask) return;
+  SkPaint keep;
+  keep.setBlendMode(SkBlendMode::kDstIn);
+  canvas->saveLayer(&bounds, &keep);
+  canvas->drawVertices(mask, mix, inside);
 }
 
 //=============================================================================
@@ -496,7 +621,13 @@ TSkiaCanvas::TSkiaCanvas(void *pixels, int width, int height,
   }
 }
 
-TSkiaCanvas::~TSkiaCanvas() {}
+TSkiaCanvas::~TSkiaCanvas() {
+  // What was begun and never restored ends here.
+  while (!m_imp->cutouts.empty()) {
+    m_imp->endCutouts(m_imp->cutouts.back());
+    m_imp->cutouts.pop_back();
+  }
+}
 
 bool TSkiaCanvas::isValid() const { return m_imp->surface != nullptr; }
 
@@ -504,9 +635,16 @@ TCanvasIRect TSkiaCanvas::deviceBounds() const {
   return TCanvasIRect(0, 0, m_imp->width, m_imp->height);
 }
 
-void TSkiaCanvas::onSave() { m_imp->canvas->save(); }
+void TSkiaCanvas::onSave() {
+  m_imp->canvas->save();
+  m_imp->cutouts.emplace_back();
+}
 
-void TSkiaCanvas::onRestore() { m_imp->canvas->restore(); }
+void TSkiaCanvas::onRestore() {
+  m_imp->endCutouts(m_imp->cutouts.back());
+  m_imp->cutouts.pop_back();
+  m_imp->canvas->restore();
+}
 
 void TSkiaCanvas::onConcat(const TCanvasAffine &aff) {
   m_imp->canvas->concat(toSk(aff));
@@ -521,6 +659,14 @@ void TSkiaCanvas::onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
                           antialias);
 }
 
+void TSkiaCanvas::onClipMesh(const TCanvasMesh &mesh, TCanvasClipOp op) {
+  m_imp->canvas->clipPath(unionOfTriangles(mesh, mesh.positions),
+                          op == TCanvasClipOp::Intersect
+                              ? SkClipOp::kIntersect
+                              : SkClipOp::kDifference,
+                          false);
+}
+
 void TSkiaCanvas::onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
                              const TCanvasPaint &paint) {
   m_imp->fill(
@@ -528,6 +674,12 @@ void TSkiaCanvas::onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
         return makePath(path, rule, map, map != nullptr);
       },
       rule == TCanvasFillRule::EvenOdd, paint, paint.antialias, transform());
+}
+
+void TSkiaCanvas::onFillPathAndClip(const TCanvasPath &path,
+                                    TCanvasFillRule rule,
+                                    const TCanvasPaint &paint) {
+  m_imp->beginCutout(path, rule, paint, transform());
 }
 
 void TSkiaCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
@@ -577,10 +729,28 @@ void TSkiaCanvas::onDrawMesh(const TCanvasMesh &mesh,
   const bool shaded =
       !mesh.colors.empty() ||
       (!mesh.uvs.empty() && paint.shader.kind != TCanvasShader::Kind::None);
-  if (shaded) {
+  // The same colour at every vertex is one colour, said at length: what a
+  // style does that wants its mesh hard-edged and blended on its own.
+  TCanvasPaint flat = paint;
+  bool isFlat       = paint.shader.kind == TCanvasShader::Kind::None;
+  if (isFlat && !mesh.colors.empty()) {
+    const TCanvasColor &first = mesh.colors[0];
+    for (const TCanvasColor &color : mesh.colors)
+      if (color.r != first.r || color.g != first.g || color.b != first.b ||
+          color.a != first.a) {
+        isFlat = false;
+        break;
+      }
+    if (isFlat) {
+      flat.color   = first;
+      flat.color.a = first.a * paint.color.a;
+    }
+  }
+  if (shaded && !isFlat) {
     m_imp->drawShadedMesh(mesh, paint, transform());
     return;
   }
+  const TCanvasPaint &shapePaint = isFlat ? flat : paint;
 
   // One colour, or a shader looked up where the mesh is: the mesh is just a
   // shape, the union of its triangles.
@@ -592,7 +762,7 @@ void TSkiaCanvas::onDrawMesh(const TCanvasMesh &mesh,
           mapped.push_back(*map * p);
         return unionOfTriangles(mesh, mapped);
       },
-      false, paint, paint.antialias && mesh.smoothEdges, transform());
+      false, shapePaint, paint.antialias && mesh.smoothEdges, transform());
 }
 
 void TSkiaCanvas::onDrawImage(const TCanvasImage &image,

@@ -14,17 +14,27 @@
 
 //! Calls draw(canvas) with a TGlCanvas over an offscreen OpenGL buffer of
 //! transparent pixels, and returns what is in the buffer afterwards.
+//!
+//! With State::Callers the canvas draws with the state it finds, as it
+//! does for the old drawing code; that state is here what the old code
+//! sets up around a region: blending by alpha, smooth lines.
 template <class Draw>
-Target drawWithGl(int width, int height, Draw draw) {
+Target drawWithGl(int width, int height, Draw draw,
+                  TGlCanvas::State state = TGlCanvas::State::Own) {
   TOfflineGL gl(TDimension(width, height));
   gl.makeCurrent();
   gl.initMatrix();
   gl.clear(TPixel32(0, 0, 0, 0));
   glClearStencil(0);
   glClear(GL_STENCIL_BUFFER_BIT);
+  if (state == TGlCanvas::State::Callers) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    tglEnableLineSmooth(true);
+  }
   {
     TGlStencilMasks masks;
-    TGlCanvas canvas(TCanvasIRect(0, 0, width, height), masks);
+    TGlCanvas canvas(TCanvasIRect(0, 0, width, height), masks, state);
     draw(canvas);
   }
   const TRaster32P raster = gl.getRaster();
