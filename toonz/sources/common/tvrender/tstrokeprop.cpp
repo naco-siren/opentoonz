@@ -128,17 +128,11 @@ TStrokeProp *TRasterImagePatternStrokeProp::clone(const TStroke *stroke) const {
 
 //-----------------------------------------------------------------------------
 
-void TRasterImagePatternStrokeProp::draw(
-    const TVectorRenderData &rd) /*assenza di const non e' una
-                                    dimenticanza! Alcune
-                                    sottoclassi devono
-                                    ridefinire questo metodo e
-                                    serbve che non sia const*/
-{
+bool TRasterImagePatternStrokeProp::prepare(const TVectorRenderData &rd) {
   if (rd.m_clippingRect != TRect() && !rd.m_is3dView &&
       !convert(rd.m_aff * m_colorStyle->getStrokeBBox(m_stroke))
            .overlaps(rd.m_clippingRect))
-    return;
+    return false;
 
   if (m_strokeChanged ||
       m_styleVersionNumber != m_colorStyle->getVersionNumber()) {
@@ -146,7 +140,21 @@ void TRasterImagePatternStrokeProp::draw(
     m_styleVersionNumber = m_colorStyle->getVersionNumber();
     m_colorStyle->computeTransformations(m_transformations, m_stroke);
   }
-  m_colorStyle->drawStroke(rd, m_transformations, m_stroke);
+  return true;
+}
+
+//-----------------------------------------------------------------------------
+
+void TRasterImagePatternStrokeProp::draw(const TVectorRenderData &rd) {
+  if (prepare(rd)) m_colorStyle->drawStroke(rd, m_transformations, m_stroke);
+}
+
+//-----------------------------------------------------------------------------
+
+void TRasterImagePatternStrokeProp::drawOnCanvas(TCanvas &canvas,
+    const TVectorRenderData &rd) {
+  if (prepare(rd))
+    m_colorStyle->drawStrokeOnCanvas(canvas, rd, m_transformations, m_stroke);
 }
 
 //-----------------------------------------------------------------------------
@@ -183,17 +191,11 @@ TStrokeProp *TVectorImagePatternStrokeProp::clone(const TStroke *stroke) const {
 
 //-----------------------------------------------------------------------------
 
-void TVectorImagePatternStrokeProp::draw(
-    const TVectorRenderData &rd) /*assenza di const non e' una
-                                    dimenticanza! Alcune
-                                    sottoclassi devono
-                                    ridefinire questo metodo e
-                                    serbve che non sia const*/
-{
+bool TVectorImagePatternStrokeProp::prepare(const TVectorRenderData &rd) {
   if (rd.m_clippingRect != TRect() && !rd.m_is3dView &&
       !convert(rd.m_aff * m_colorStyle->getStrokeBBox(m_stroke))
            .overlaps(rd.m_clippingRect))
-    return;
+    return false;
 
   if (m_strokeChanged ||
       m_styleVersionNumber != m_colorStyle->getVersionNumber()) {
@@ -201,7 +203,21 @@ void TVectorImagePatternStrokeProp::draw(
     m_styleVersionNumber = m_colorStyle->getVersionNumber();
     m_colorStyle->computeTransformations(m_transformations, m_stroke);
   }
-  m_colorStyle->drawStroke(rd, m_transformations, m_stroke);
+  return true;
+}
+
+//-----------------------------------------------------------------------------
+
+void TVectorImagePatternStrokeProp::draw(const TVectorRenderData &rd) {
+  if (prepare(rd)) m_colorStyle->drawStroke(rd, m_transformations, m_stroke);
+}
+
+//-----------------------------------------------------------------------------
+
+void TVectorImagePatternStrokeProp::drawOnCanvas(TCanvas &canvas,
+    const TVectorRenderData &rd) {
+  if (prepare(rd))
+    m_colorStyle->drawStrokeOnCanvas(canvas, rd, m_transformations, m_stroke);
 }
 
 //=============================================================================

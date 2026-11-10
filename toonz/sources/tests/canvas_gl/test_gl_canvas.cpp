@@ -332,6 +332,7 @@ TEST(GlCanvas, AnImageShaderRepeatsAndFollowsTextureCoordinates) {
 
   TCanvasMesh mesh          = rectMesh(4, 4, 12, 12);
   mesh.uvs                  = {{0, 0}, {0, 2}, {2, 0}, {2, 2}};
+  mesh.smoothEdges          = false;  // or its sides get a textured line
   paint.shader.imageToLocal = TCanvasAffine();
   paint.shader.tile         = TCanvasTile::Clamp;
   const Target mapped = drawWithGl(16, 16, [&](TCanvas &canvas) {

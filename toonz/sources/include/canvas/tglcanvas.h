@@ -55,14 +55,21 @@ public:
     sides). A translucent one is drawn through the stencil buffer so that
     it covers each pixel once.
   - A mesh with colours per vertex or texture coordinates is drawn triangle
-    by triangle: no fringe, and blended twice where triangles overlap.
+    by triangle, blended twice where triangles overlap. A textured strip
+    that wants smooth edges gets a textured line down each side first, as
+    the old renderer gave its textured strokes; other such meshes get no
+    fringe.
   - A strip with an even number of vertices is sent as a quad strip, which
     is what the old renderer sent: how a quad that is not convex gets
     split is the driver's choice, and stays the one it has always made.
   - Lines are OpenGL lines: no caps, no joins, a width the driver may
     clamp, and dashes rounded to a 16-bit stipple pattern.
   - A clip is a stencil mask, without antialiasing.
-  - Gradients are textures of 256 steps.
+  - Gradients are textures of 256 steps. Texture coordinates are computed
+    here and sent with the vertices; the texture matrix is not used.
+  - The texture of an image that names what keeps its pixels alive
+    (TCanvasImage::keepAlive) is kept for the next call, so that a picture
+    stamped many times is uploaded once.
 
   The canvas draws into the OpenGL context that is current when it is
   created, and that context has to be current for every call. Coordinates
@@ -102,6 +109,8 @@ public:
   TCanvasIRect deviceBounds() const override { return m_bounds; }
   double pixelSize() const override;
 
+  struct Textures;  //!< Not for callers: what the canvas keeps of images.
+
 protected:
   void onSave() override;
   void onRestore() override;
@@ -121,6 +130,7 @@ private:
   TCanvasIRect m_bounds;
   TGlCanvasMasks &m_masks;
   State m_state;
+  Textures *m_textures;
   // For each save() not yet restored, and for the canvas itself at the
   // front: how many clips have been set since.
   std::vector<int> m_clips;

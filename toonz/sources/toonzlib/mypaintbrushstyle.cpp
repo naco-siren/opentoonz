@@ -24,6 +24,8 @@
 
 #include "toonz/mypaintbrushstyle.h"
 
+#include "tcanvasutil.h"
+
 #include <QDebug>
 
 #include <sstream>
@@ -74,17 +76,7 @@ void MyPaintBrushStrokeProp::draw(const TVectorRenderData &rd) {
     appStyle->drawStroke(rd.m_cf, m_stroke);
     delete appStyle;
   } else {
-    if (!isAlmostZero(pixelSize - m_outlinePixelSize, 1e-5) ||
-        m_strokeChanged ||
-        m_styleVersionNumber != m_colorStyle->getVersionNumber()) {
-      m_strokeChanged    = false;
-      m_outlinePixelSize = pixelSize;
-      TOutlineUtil::OutlineParameter param;
-
-      m_outline.getArray().clear();
-      m_altStyle.computeOutline(m_stroke, m_outline, param);
-      m_styleVersionNumber = m_colorStyle->getVersionNumber();
-    }
+    updateOutline(pixelSize);
 
     if (rd.m_antiAliasing)
       m_altStyle.drawStroke(rd.m_cf, &m_outline, m_stroke);
@@ -93,6 +85,51 @@ void MyPaintBrushStrokeProp::draw(const TVectorRenderData &rd) {
   }
 
   glPopMatrix();
+}
+
+//-----------------------------------------------------------------------------
+
+void MyPaintBrushStrokeProp::updateOutline(double pixelSize) {
+  if (!isAlmostZero(pixelSize - m_outlinePixelSize, 1e-5) || m_strokeChanged ||
+      m_styleVersionNumber != m_colorStyle->getVersionNumber()) {
+    m_strokeChanged    = false;
+    m_outlinePixelSize = pixelSize;
+    // The pixel size goes along: computing the outline used to read it
+    // from OpenGL once more, and on a canvas there may be none.
+    TOutlineUtil::OutlineParameter param(0, pixelSize);
+
+    m_outline.getArray().clear();
+    m_altStyle.computeOutline(m_stroke, m_outline, param);
+    m_styleVersionNumber = m_colorStyle->getVersionNumber();
+  }
+}
+
+//-----------------------------------------------------------------------------
+
+// draw() without OpenGL. Keep the two in step.
+void MyPaintBrushStrokeProp::drawOnCanvas(TCanvas &canvas,
+                                          const TVectorRenderData &rd) {
+  if (rd.m_clippingRect != TRect() && !rd.m_is3dView &&
+      !convert(rd.m_aff * m_stroke->getBBox()).overlaps(rd.m_clippingRect))
+    return;
+
+  canvas.save();
+  canvas.concat(toCanvas(rd.m_aff));
+
+  const double pixelSize = canvas.pixelSize();
+
+  if (m_stroke->isCenterLine()) {
+    TCenterLineStrokeStyle *appStyle =
+        new TCenterLineStrokeStyle(m_colorStyle->getAverageColor(), 0, 0);
+    appStyle->drawStrokeOnCanvas(canvas, rd.m_cf, m_stroke, rd.m_antiAliasing);
+    delete appStyle;
+  } else {
+    updateOutline(pixelSize);
+    m_altStyle.drawStrokeOnCanvas(canvas, rd.m_cf, &m_outline, m_stroke,
+                                  rd.m_antiAliasing);
+  }
+
+  canvas.restore();
 }
 
 //*************************************************************************************

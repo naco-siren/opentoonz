@@ -34,6 +34,7 @@ class TRegionOutline;
 class TTessellator;
 class TColorFunction;
 class TCanvas;
+class TVectorRenderData;
 class TVectorImage;
 
 //=================================================
@@ -308,9 +309,16 @@ public:
 
   void computeTransformations(std::vector<TAffine> &positions,
                               const TStroke *stroke) const;
+  //! Strokes: every stamp is a picture drawn on a quad.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+
+  // The OpenGL version is the canvas version seen through a TGlCanvas.
   void drawStroke(const TVectorRenderData &rd,
                   const std::vector<TAffine> &positions,
                   const TStroke *stroke) const;
+  void drawStrokeOnCanvas(TCanvas &canvas, const TVectorRenderData &rd,
+                          const std::vector<TAffine> &positions,
+                          const TStroke *stroke) const;
 
   void invalidate(){};
 
@@ -411,9 +419,26 @@ public:
 
   void computeTransformations(std::vector<TAffine> &positions,
                               const TStroke *stroke) const;
+  //! Strokes, when every image the stamps are taken from can itself be
+  //! drawn on a canvas: they have styles of their own.
+  int canvasSupport() const override;
+
+  // The two share everything but how a stamp, a vector image, gets drawn.
   void drawStroke(const TVectorRenderData &rd,
                   const std::vector<TAffine> &positions,
                   const TStroke *stroke) const;
+  void drawStrokeOnCanvas(TCanvas &canvas, const TVectorRenderData &rd,
+                          const std::vector<TAffine> &positions,
+                          const TStroke *stroke) const;
+
+private:
+  typedef void (*StampPainter)(TCanvas &canvas, const TVectorRenderData &rd,
+                               const TVectorImage *stamp);
+  void drawStamps(TCanvas &canvas, const TVectorRenderData &rd,
+                  const std::vector<TAffine> &positions, const TStroke *stroke,
+                  StampPainter paintStamp) const;
+
+public:
 
   void invalidate(){};
 

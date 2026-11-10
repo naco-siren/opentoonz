@@ -85,24 +85,53 @@ std::vector<Contour> flatten(const TCanvasPath &path, double tolerance) {
 }
 
 //-----------------------------------------------------------------------------
-// GLU tessellation. Every vertex is sent as position and as texture
-// coordinate: a paint with a shader looks the shader up where the shape is.
+// Texture coordinates
 
-typedef std::deque<std::array<GLdouble, 3>> TessVertices;
+// Where in the texture a point of a shape is looked up. The coordinate is
+// worked out here, in double precision, and sent with the vertex; OpenGL's
+// own texture matrix is left alone. (It would do the same sum in single
+// precision, and the old renderer, which sent coordinates it had computed
+// itself, could then not be matched to the bit.)
+struct Lookup {
+  bool textured = false;  // without a texture nothing is sent
+  bool identity = true;   // the point is the coordinate
+  TCanvasAffine map;
+
+  void send(double x, double y) const {
+    if (!textured) return;
+    if (identity)
+      glTexCoord2d(x, y);
+    else
+      glTexCoord2d(map.a11 * x + map.a12 * y + map.a13,
+                   map.a21 * x + map.a22 * y + map.a23);
+  }
+};
+
+//-----------------------------------------------------------------------------
+// GLU tessellation. Every vertex is sent as position and, when the paint has
+// a shader, as the texture coordinate of that position: a shader is looked
+// up where the shape is.
+
+struct Tessellation {
+  // A deque: GLU keeps pointers into it.
+  std::deque<std::array<GLdouble, 3>> vertices;
+  const Lookup *lookup = nullptr;
+};
 
 extern "C" {
 static void CALLBACK tessBegin(GLenum type) { glBegin(type); }
 static void CALLBACK tessEnd() { glEnd(); }
-static void CALLBACK tessVertex(void *vertex) {
-  glTexCoord2dv((const GLdouble *)vertex);
-  glVertex2dv((const GLdouble *)vertex);
+static void CALLBACK tessVertex(void *vertex, void *polygonData) {
+  const GLdouble *v = (const GLdouble *)vertex;
+  ((const Tessellation *)polygonData)->lookup->send(v[0], v[1]);
+  glVertex2dv(v);
 }
 // Where contours cross, GLU asks for a vertex of its own.
 static void CALLBACK tessCombine(GLdouble coords[3], void *[4], GLfloat[4],
                                  void **out, void *polygonData) {
-  TessVertices &vertices = *(TessVertices *)polygonData;
-  vertices.push_back({coords[0], coords[1], 0.0});
-  *out = vertices.back().data();
+  Tessellation &tessellation = *(Tessellation *)polygonData;
+  tessellation.vertices.push_back({coords[0], coords[1], 0.0});
+  *out = tessellation.vertices.back().data();
 }
 }
 
@@ -112,25 +141,28 @@ typedef GLvoid(CALLBACK *GluCallback)(void);
 typedef GLvoid (*GluCallback)();
 #endif
 
-void tessellate(const std::vector<Contour> &contours, TCanvasFillRule rule) {
+void tessellate(const std::vector<Contour> &contours, TCanvasFillRule rule,
+                const Lookup &lookup) {
   GLUtesselator *tess = gluNewTess();
   if (!tess) return;
 
-  TessVertices vertices;  // a deque: GLU keeps pointers into it
+  Tessellation tessellation;
+  tessellation.lookup = &lookup;
   gluTessCallback(tess, GLU_TESS_BEGIN, (GluCallback)tessBegin);
   gluTessCallback(tess, GLU_TESS_END, (GluCallback)tessEnd);
-  gluTessCallback(tess, GLU_TESS_VERTEX, (GluCallback)tessVertex);
+  gluTessCallback(tess, GLU_TESS_VERTEX_DATA, (GluCallback)tessVertex);
   gluTessCallback(tess, GLU_TESS_COMBINE_DATA, (GluCallback)tessCombine);
   gluTessProperty(tess, GLU_TESS_WINDING_RULE,
                   rule == TCanvasFillRule::NonZero ? GLU_TESS_WINDING_NONZERO
                                                    : GLU_TESS_WINDING_ODD);
 
-  gluTessBeginPolygon(tess, &vertices);
+  gluTessBeginPolygon(tess, &tessellation);
   for (const Contour &contour : contours) {
     gluTessBeginContour(tess);
     for (const TCanvasPoint &point : contour.points) {
-      vertices.push_back({point.x, point.y, 0.0});
-      gluTessVertex(tess, vertices.back().data(), vertices.back().data());
+      tessellation.vertices.push_back({point.x, point.y, 0.0});
+      gluTessVertex(tess, tessellation.vertices.back().data(),
+                    tessellation.vertices.back().data());
     }
     gluTessEndContour(tess);
   }
@@ -138,11 +170,11 @@ void tessellate(const std::vector<Contour> &contours, TCanvasFillRule rule) {
   gluDeleteTess(tess);
 }
 
-void drawLines(const std::vector<Contour> &contours) {
+void drawLines(const std::vector<Contour> &contours, const Lookup &lookup) {
   for (const Contour &contour : contours) {
     glBegin(contour.closed ? GL_LINE_LOOP : GL_LINE_STRIP);
     for (const TCanvasPoint &point : contour.points) {
-      glTexCoord2d(point.x, point.y);
+      lookup.send(point.x, point.y);
       glVertex2d(point.x, point.y);
     }
     glEnd();
@@ -171,6 +203,11 @@ void multiply(GLdouble out[16], const GLdouble a[16], const GLdouble b[16]) {
 }
 
 TCanvasAffine inverse(const TCanvasAffine &m) {
+  // A plain scale, the usual way of placing a texture, without the detour
+  // through the determinant and its rounding.
+  if (m.a12 == 0.0 && m.a21 == 0.0 && m.a13 == 0.0 && m.a23 == 0.0 &&
+      m.a11 != 0.0 && m.a22 != 0.0)
+    return TCanvasAffine::scale(1.0 / m.a11, 1.0 / m.a22);
   const double det = m.det();
   if (det == 0.0) return TCanvasAffine();
   const double a = m.a22 / det, b = -m.a12 / det;
@@ -244,20 +281,83 @@ GLuint makeTexture(int width, int height, const void *bgra,
   // Rows bottom up is also what OpenGL takes: no flip.
   glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
   glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(rowBytes / 4));
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA,
+  struct ResetRowLength {  // the rest of the tree expects it to be 0
+    ~ResetRowLength() { glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); }
+  } resetRowLength;
+  // "4" for four components, the way the old code asks for its textures:
+  // which sized format that becomes is the driver's choice, and stays it.
+  glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0, GL_BGRA,
                GL_UNSIGNED_BYTE, bgra);
   return texture;
 }
 
-// Sets up OpenGL for a paint: the colour and, for a shader, a texture with
-// a texture matrix that takes the point a vertex is looked up at (sent as
-// its texture coordinate) to where in the texture that is.
+}  // namespace
+
+// The texture of the image drawn last, kept for as long as the canvas lives
+// in case the next call draws the same image: a pattern stroke puts the
+// same picture down hundreds of times. Only an image that says what keeps
+// its pixels alive is kept; for any other, the same address may by now hold
+// other pixels.
+struct TGlCanvas::Textures {
+  std::shared_ptr<const void> owner;
+  const void *pixels      = nullptr;
+  int width = 0, height = 0;
+  std::ptrdiff_t rowBytes = 0;
+  TCanvasFilter filter    = TCanvasFilter::Linear;
+  TCanvasTile tile        = TCanvasTile::Repeat;
+  GLuint texture          = 0;
+
+  ~Textures() { clear(); }
+
+  void clear() {
+    if (texture) glDeleteTextures(1, &texture);
+    texture = 0;
+    owner.reset();
+  }
+
+  // The texture for the image, bound; \p kept says whether it stays here
+  // or is the caller's to delete.
+  GLuint get(const TCanvasImage &image, TCanvasFilter imageFilter,
+             TCanvasTile imageTile, bool &kept);
+};
+
+GLuint TGlCanvas::Textures::get(const TCanvasImage &image,
+                                TCanvasFilter imageFilter,
+                                TCanvasTile imageTile, bool &kept) {
+  kept = image.keepAlive != nullptr;
+  if (kept && texture && owner == image.keepAlive && pixels == image.pixels &&
+      width == image.width && height == image.height &&
+      rowBytes == image.rowBytes && filter == imageFilter &&
+      tile == imageTile) {
+    glBindTexture(GL_TEXTURE_2D, texture);
+    return texture;
+  }
+  const GLuint made = makeTexture(image.width, image.height, image.pixels,
+                                  image.rowBytes, imageFilter, imageTile);
+  if (!kept) return made;
+  clear();
+  owner    = image.keepAlive;
+  pixels   = image.pixels;
+  width    = image.width;
+  height   = image.height;
+  rowBytes = image.rowBytes;
+  filter   = imageFilter;
+  tile     = imageTile;
+  texture  = made;
+  return made;
+}
+
+namespace {
+
+// Sets up OpenGL for a paint: the colour and, for a shader, a texture, with
+// the map from the point a vertex is looked up at to where in the texture
+// that is.
 class BoundPaint {
 public:
-  explicit BoundPaint(const TCanvasPaint &paint) {
+  BoundPaint(const TCanvasPaint &paint, TGlCanvas::Textures &textures) {
     TCanvasColor color          = paint.color;
     const TCanvasShader &shader = paint.shader;
-    TCanvasAffine lookup;
+    TCanvasAffine &lookup       = m_lookup.map;
 
     switch (shader.kind) {
     case TCanvasShader::Kind::None:
@@ -278,11 +378,14 @@ public:
       const TCanvasImage &image = shader.image;
       if (image.isEmpty() || image.rowBytes < (std::ptrdiff_t)image.width * 4)
         break;
-      m_texture = makeTexture(image.width, image.height, image.pixels,
-                              image.rowBytes, shader.filter, shader.tile);
+      m_texture = textures.get(image, shader.filter, shader.tile, m_kept);
       m_premultiplied = image.premultiplied;
-      lookup = TCanvasAffine::scale(1.0 / image.width, 1.0 / image.height) *
-               inverse(shader.imageToLocal);
+      // An image laid over the unit square is looked up at the point
+      // itself: exactly, not by a product that only comes close to 1.
+      const TCanvasAffine unit =
+          TCanvasAffine::scale(1.0 / image.width, 1.0 / image.height);
+      m_lookup.identity = shader.imageToLocal == unit;
+      lookup            = unit * inverse(shader.imageToLocal);
       break;
     }
     }
@@ -300,33 +403,28 @@ public:
     m_textureWasOn = glIsEnabled(GL_TEXTURE_2D);
     glEnable(GL_TEXTURE_2D);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    GLdouble matrix[16];
-    toGl(lookup, matrix);
-    glMatrixMode(GL_TEXTURE);
-    glPushMatrix();
-    glLoadMatrixd(matrix);
-    glMatrixMode(GL_MODELVIEW);
+    m_lookup.textured = true;
   }
 
   ~BoundPaint() {
     if (!m_texture) return;
-    glMatrixMode(GL_TEXTURE);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
     if (!m_textureWasOn) glDisable(GL_TEXTURE_2D);
-    glDeleteTextures(1, &m_texture);
+    if (!m_kept) glDeleteTextures(1, &m_texture);
   }
 
   BoundPaint(const BoundPaint &)            = delete;
   BoundPaint &operator=(const BoundPaint &) = delete;
 
   bool textured() const { return m_texture != 0; }
+  const Lookup &lookup() const { return m_lookup; }
   //! Whether what comes out of the texture already has its alpha in it.
   bool premultiplied() const { return m_premultiplied; }
 
 private:
   GLuint m_texture     = 0;
+  Lookup m_lookup;
   bool m_premultiplied = false;
+  bool m_kept          = false;  // the canvas keeps the texture
   GLboolean m_textureWasOn = GL_FALSE;
 
   enum { kSteps = 256 };
@@ -347,6 +445,7 @@ private:
       putBgra(&row[i * 4], colorAt(shader.stops, i / (kSteps - 1.0)));
     m_texture = makeTexture(kSteps, 1, row.data(), kSteps * 4,
                             TCanvasFilter::Linear, TCanvasTile::Clamp);
+    m_lookup.identity = false;
     // How far along the gradient a point is; the texture has one row.
     lookup = toTexels() *
              TCanvasAffine(dx / length2, dy / length2,
@@ -368,6 +467,7 @@ private:
       }
     m_texture = makeTexture(kSteps, kSteps, square.data(), kSteps * 4,
                             TCanvasFilter::Linear, TCanvasTile::Clamp);
+    m_lookup.identity = false;
     const double k = 0.5 / shader.radius;
     lookup         = toTexels() * TCanvasAffine(k, 0.0, 0.5 - shader.p0.x * k,
                                                 0.0, k, 0.5 - shader.p0.y * k);
@@ -593,12 +693,14 @@ TGlCanvas::TGlCanvas(const TCanvasIRect &deviceBounds, TGlCanvasMasks &masks,
     , m_bounds(deviceBounds)
     , m_masks(masks)
     , m_state(state)
-    , m_clips(1, 0) {
+    , m_clips(1, 0)
+    , m_textures(new Textures) {
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
 }
 
 TGlCanvas::~TGlCanvas() {
+  delete m_textures;
   glMatrixMode(GL_MODELVIEW);
   for (int count : m_clips) {
     dropClips(count);
@@ -644,7 +746,7 @@ void TGlCanvas::onConcat(const TCanvasAffine &aff) {
 void TGlCanvas::onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
                            TCanvasClipOp op, bool) {
   m_masks.beginMask(false);
-  tessellate(flatten(path, 0.1 * pixelSize()), rule);
+  tessellate(flatten(path, 0.1 * pixelSize()), rule, Lookup());
   m_masks.endMask();
   m_masks.enableMask(op == TCanvasClipOp::Intersect);
   ++m_clips.back();
@@ -655,18 +757,18 @@ void TGlCanvas::onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
   const std::vector<Contour> contours = flatten(path, 0.1 * pixelSize());
 
   ScopedAttributes attributes(m_state);
-  BoundPaint bound(paint);
+  BoundPaint bound(paint, *m_textures);
   if (m_state == State::Own) glDisable(GL_POLYGON_SMOOTH);
   if (paint.antialias) smoothLines();
 
   blendOver(m_state, bound.premultiplied(), [&] {
-    tessellate(contours, rule);
+    tessellate(contours, rule, bound.lookup());
     if (!paint.antialias) return;
     // The fringe: every contour once more, as a smooth closed line.
     for (const Contour &contour : contours) {
       glBegin(GL_LINE_LOOP);
       for (const TCanvasPoint &point : contour.points) {
-        glTexCoord2d(point.x, point.y);
+        bound.lookup().send(point.x, point.y);
         glVertex2d(point.x, point.y);
       }
       glEnd();
@@ -679,7 +781,7 @@ void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
   const std::vector<Contour> contours = flatten(path, 0.1 * pixelSize());
 
   ScopedAttributes attributes(m_state);
-  BoundPaint bound(paint);
+  BoundPaint bound(paint, *m_textures);
 
   GLfloat range[2] = {1.f, 1.f};
   glGetFloatv(GL_LINE_WIDTH_RANGE, range);
@@ -699,7 +801,8 @@ void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
   }
   if (!pen.dash.empty()) setStipple(pen.dash);
 
-  blendOver(m_state, bound.premultiplied(), [&] { drawLines(contours); });
+  blendOver(m_state, bound.premultiplied(),
+            [&] { drawLines(contours, bound.lookup()); });
 
   if (m_state == State::Callers) {
     // What the old line styles left behind them.
@@ -710,7 +813,7 @@ void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
 
 void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
   ScopedAttributes attributes(m_state);
-  BoundPaint bound(paint);
+  BoundPaint bound(paint, *m_textures);
 
   const GLsizei count = (GLsizei)mesh.positions.size();
   const bool strip    = mesh.mode == TCanvasMesh::Mode::TriangleStrip;
@@ -729,14 +832,25 @@ void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
       color.r *= color.a, color.g *= color.a, color.b *= color.a;
   }
 
-  const std::vector<TCanvasPoint> &lookups =
+  // The texture coordinate of each vertex: where it is looked up (its own
+  // coordinates, or the position), taken through the paint's lookup.
+  const Lookup &lookup = bound.lookup();
+  const std::vector<TCanvasPoint> &lookedUpAt =
       mesh.uvs.empty() ? mesh.positions : mesh.uvs;
+  std::vector<TCanvasPoint> mapped;
+  if (bound.textured() && !lookup.identity) {
+    mapped.reserve(lookedUpAt.size());
+    for (const TCanvasPoint &p : lookedUpAt) mapped.push_back(lookup.map * p);
+  }
+  const std::vector<TCanvasPoint> &texCoords =
+      mapped.empty() ? lookedUpAt : mapped;
+
   const auto drawTriangles = [&] {
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(2, GL_DOUBLE, sizeof(TCanvasPoint), &mesh.positions[0].x);
     if (bound.textured()) {
       glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-      glTexCoordPointer(2, GL_DOUBLE, sizeof(TCanvasPoint), &lookups[0].x);
+      glTexCoordPointer(2, GL_DOUBLE, sizeof(TCanvasPoint), &texCoords[0].x);
     }
     if (!colors.empty()) {
       glEnableClientState(GL_COLOR_ARRAY);
@@ -752,7 +866,30 @@ void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
   // renderer drew those.
   const bool flat = colors.empty() && !bound.textured();
   if (!flat) {
-    blendOver(m_state, bound.premultiplied(), drawTriangles);
+    // A textured strip that wants smooth edges gets what the old renderer
+    // gave a textured stroke: a line down each of its two sides, textured
+    // like the strip, drawn first.
+    const bool sides =
+        strip && mesh.smoothEdges && colors.empty() && bound.textured();
+    if (sides && m_state == State::Own) {
+      if (paint.antialias)
+        smoothLines();
+      else
+        glDisable(GL_LINE_SMOOTH), glLineWidth(1.f);
+    }
+    blendOver(m_state, bound.premultiplied(), [&] {
+      if (sides) {
+        for (std::size_t side = 0; side < 2; ++side) {
+          glBegin(GL_LINE_STRIP);
+          for (std::size_t i = side; i < mesh.positions.size(); i += 2) {
+            glTexCoord2d(texCoords[i].x, texCoords[i].y);
+            glVertex2d(mesh.positions[i].x, mesh.positions[i].y);
+          }
+          glEnd();
+        }
+      }
+      drawTriangles();
+    });
     return;
   }
 
@@ -819,18 +956,21 @@ void TGlCanvas::onDrawImage(const TCanvasImage &image,
   paint.shader.filter       = options.filter;
 
   ScopedAttributes attributes(m_state);
-  BoundPaint bound(paint);
+  BoundPaint bound(paint, *m_textures);
   const TCanvasPoint corners[4] = {
       imageToLocal * TCanvasPoint(0, 0),
       imageToLocal * TCanvasPoint(image.width, 0),
       imageToLocal * TCanvasPoint(image.width, image.height),
       imageToLocal * TCanvasPoint(0, image.height)};
+  // The corners of the image are the corners of the texture: said outright
+  // rather than looked up.
+  const double texCoords[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 
   blendOver(m_state, bound.premultiplied(), [&] {
     glBegin(GL_TRIANGLE_FAN);
-    for (const TCanvasPoint &corner : corners) {
-      glTexCoord2d(corner.x, corner.y);
-      glVertex2d(corner.x, corner.y);
+    for (int i = 0; i < 4; ++i) {
+      glTexCoord2dv(texCoords[i]);
+      glVertex2d(corners[i].x, corners[i].y);
     }
     glEnd();
   });

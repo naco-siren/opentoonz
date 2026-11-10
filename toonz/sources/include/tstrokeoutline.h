@@ -213,7 +213,8 @@ DVAPI void makeOutline(const TStroke &path, const TStroke &brush,
                        const OutlineParameter &param);
 
 DVAPI void makeOutline(const TStroke &path, const TRegion &brush,
-                       const TRectD &brushBox, TRegionOutline &outline);
+                       const TRectD &brushBox, TRegionOutline &outline,
+                       const OutlineParameter &param = OutlineParameter());
 
 DVAPI TRectD computeBBox(const TStroke &stroke);
 }

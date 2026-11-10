@@ -853,10 +853,10 @@ OOpts::MITER_JOIN)
 namespace {
 
 void makeCenterline(const TStroke &path, const TEdge &edge,
-                    const TRectD &regionBox, std::vector<T3DPointD> &outline) {
+                    const TRectD &regionBox, std::vector<T3DPointD> &outline,
+                    const TOutlineUtil::OutlineParameter &options) {
   int initialOutlineSize = outline.size();
 
-  static const TOutlineUtil::OutlineParameter options;
   const TStroke &stroke = *edge.m_s;
 
   double w0 = edge.m_w0, w1 = edge.m_w1;
@@ -952,11 +952,12 @@ void makeCenterline(const TStroke &path, const TEdge &edge,
 //--------------------------------------------------------------------------------------------
 
 void makeOutlineRaw(const TStroke &path, const TRegion &region,
-                    const TRectD &regionBox, std::vector<T3DPointD> &outline) {
+                    const TRectD &regionBox, std::vector<T3DPointD> &outline,
+                    const TOutlineUtil::OutlineParameter &options) {
   // Deal with each edge independently
   int e, edgesCount = region.getEdgeCount();
   for (e = 0; e < edgesCount; ++e)
-    makeCenterline(path, *region.getEdge(e), regionBox, outline);
+    makeCenterline(path, *region.getEdge(e), regionBox, outline, options);
 }
 
 }  // namespace
@@ -964,8 +965,8 @@ void makeOutlineRaw(const TStroke &path, const TRegion &region,
 //--------------------------------------------------------------------------------------------
 
 void TOutlineUtil::makeOutline(const TStroke &path, const TRegion &region,
-                               const TRectD &regionBox,
-                               TRegionOutline &outline) {
+                               const TRectD &regionBox, TRegionOutline &outline,
+                               const TOutlineUtil::OutlineParameter &options) {
   outline.m_doAntialiasing = true;
 
   // Build the external boundary
@@ -973,7 +974,7 @@ void TOutlineUtil::makeOutline(const TStroke &path, const TRegion &region,
     outline.m_exterior.resize(1);
     outline.m_exterior[0].clear();
 
-    makeOutlineRaw(path, region, regionBox, outline.m_exterior[0]);
+    makeOutlineRaw(path, region, regionBox, outline.m_exterior[0], options);
   }
 
   // Build internal boundaries
@@ -985,7 +986,7 @@ void TOutlineUtil::makeOutline(const TStroke &path, const TRegion &region,
 
     for (i = 0; i < subRegionNumber; i++)
       makeOutlineRaw(path, *region.getSubregion(i), regionBox,
-                     outline.m_interior[i]);
+                     outline.m_interior[i], options);
   }
 
   outline.m_bbox = region.getBBox();

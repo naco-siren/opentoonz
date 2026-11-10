@@ -50,6 +50,9 @@ public:
 
   int getTagId() const override { return 3000; }
 
+  //! The brush image is drawn with plain colours, whatever its own styles.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+
   TVectorImageP getImage() const { return m_brush; }
 
   bool isRegionStyle() const override { return false; }

@@ -4,7 +4,6 @@
 
 #include "tsimplecolorstyles.h"
 
-#include "ttessellator.h"
 #include "trop.h"
 #include "drawutil.h"
 #include "tpixelutils.h"
@@ -14,6 +13,14 @@
 #include "tvectorimage.h"
 #include "toonz/toonzscene.h"
 #include "toonz/imagestyles.h"
+
+#include "tcanvasutil.h"
+#include "tglcanvasbridge.h"
+#include "tregionoutline.h"
+#include "tgl.h"
+#include "tcg/tcg_numeric_ops.h"
+
+#include <memory>
 
 //*************************************************************************************
 //    TTextureStyle  implementation
@@ -77,7 +84,6 @@ TPointD getTexCoords(const TOutlinePoint &p) { return TPointD(p.u, p.v); }
 TTextureStyle::TTextureStyle(const TRasterP &ras, const TFilePath &texturePath)
     : m_texture(ras)
     , m_texturePath(texturePath)
-    , m_tessellator(new TglTessellator)
     , m_params()
     , m_texturePathLoaded() {
   setAverageColor();
@@ -97,14 +103,13 @@ TTextureStyle::TTextureStyle(const TTextureStyle &other)
     , m_texture(other.m_texture)
     , m_texturePath(other.m_texturePath)
     , m_texturePathLoaded(other.m_texturePathLoaded)
-    , m_params(other.m_params)
-    , m_tessellator(new TglTessellator) {
+    , m_params(other.m_params) {
   setAverageColor();
 }
 
 //-----------------------------------------------------------------------------
 
-TTextureStyle::~TTextureStyle() { delete m_tessellator; }
+TTextureStyle::~TTextureStyle() {}
 
 //-----------------------------------------------------------------------------
 
@@ -180,9 +185,6 @@ void TTextureStyle::setAverageColor() {
 
 void TTextureStyle::setTexture(const TRasterP &ras) {
   m_texture = ras;
-  delete m_tessellator;
-  m_tessellator = new TglTessellator;
-
   setAverageColor();
 }
 //-----------------------------------------------------------------------------
@@ -212,147 +214,150 @@ void TTextureStyle::computeOutline(const TStroke *stroke,
 }
 
 //-----------------------------------------------------------------------------
+namespace {
+
+// The texture as the shader of a paint. The texture's alpha is applied when
+// it is blended, as the old renderer applied it; nothing else is added (no
+// colour function either: this style never applied one).
+TCanvasPaint texturePaint(const TRaster32P &texture,
+                          const TCanvasAffine &imageToLocal) {
+  TCanvasPaint paint(TCanvasColor(1.f, 1.f, 1.f, 1.f));
+  paint.antialias     = false;
+  paint.shader.kind   = TCanvasShader::Kind::Image;
+  paint.shader.tile   = TCanvasTile::Repeat;
+  paint.shader.filter = TCanvasFilter::Linear;
+
+  TCanvasImage &image = paint.shader.image;
+  image.keepAlive     = std::make_shared<TRaster32P>(texture);
+  image.pixels        = texture->getRawData();
+  image.width         = texture->getLx();
+  image.height        = texture->getLy();
+  image.rowBytes      = (std::ptrdiff_t)texture->getWrap() * 4;
+  image.premultiplied = false;
+
+  paint.shader.imageToLocal = imageToLocal;
+  return paint;
+}
+
+}  // namespace
+
+//-----------------------------------------------------------------------------
+
 void TTextureStyle::drawStroke(const TColorFunction *cf,
                                TStrokeOutline *outline,
                                const TStroke *stroke) const {
-  /*struct locals {
-static float adaptToGLTextureFunction( USHORT style )
-{
-switch( style )
-{
-case TTextureStyle::DECAL:
-  return GL_DECAL;
-  break;
-case TTextureStyle::MODULATE:
-  return GL_MODULATE;
-  break;
-case TTextureStyle::BLEND:
-  return GL_BLEND;
-  break;
-}
-return GL_DECAL;
-}
-};    // locals;*/
-
-  UINT i;
-
-  std::vector<TOutlinePoint> &v = outline->getArray();
-  if (v.empty()) return;
-
-  const TRasterP texture = m_texture;
-
-  assert(!v.empty() || !texture);
-
-  if (v.empty() || !texture) return;
-
-  static const int stride = sizeof(TOutlinePoint);
-
-  glColor4d(1.0, 1.0, 1.0, 1.0);
-
-  // information about vertex
-  glEnableClientState(GL_VERTEX_ARRAY);
-  glVertexPointer(2, GL_DOUBLE, stride, &v[0]);
-
-  glEnable(GL_TEXTURE_2D);
-
-#ifdef _DEBUG
-  GLboolean blendEnabled;
-  glGetBooleanv(GL_BLEND, &blendEnabled);
-  assert(blendEnabled);
-#endif
-
-  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-  glTexCoordPointer(2, GL_DOUBLE, stride, &(v[0].u));
-
-  TextureInfoForGL texInfo;
-
-  m_texture->lock();
-  TRasterP texImage = prepareTexture(m_texture, texInfo);
-
-  // Generate a texture id and bind it.
-  GLuint texId;
-  glGenTextures(1, &texId);
-
-  glBindTexture(GL_TEXTURE_2D, texId);
-
-  // Specify texture parameters
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,
-            GL_MODULATE);  // change texture blending function
-
-  glPixelStorei(GL_UNPACK_ROW_LENGTH, texImage->getWrap() != texImage->getLx()
-                                          ? texImage->getWrap()
-                                          : 0);
-
-  if (texImage != m_texture) texImage->lock();
-
-  // Load texture
-  glTexImage2D(GL_TEXTURE_2D,
-               0,                       // one level only
-               texInfo.internalformat,  // pixel channels count
-               texInfo.width,           // width
-               texInfo.height,          // height
-               0,                       // border size
-               texInfo.type,    // pixel format           // crappy names
-               texInfo.format,  // pixel data type        // oh, SO much
-               texImage->getRawData());
-
-  m_texture->unlock();
-  if (texImage != m_texture) texImage->lock();
-
-  // Step 1: draw outline
-  glBegin(GL_LINE_STRIP);
-  for (i = 0; i < v.size(); i += 2) glArrayElement(i);
-  glEnd();
-  glBegin(GL_LINE_STRIP);
-  for (i = 1; i < v.size(); i += 2) glArrayElement(i);
-  glEnd();
-
-  // Step 2: draw texturized stroke
-  /*
-#ifdef MACOSX                   //NON SI CAPISCE PERCHE DRAWARRAY E DISPLAY LIST
-PROVOCHINO UN CRASH SU MAC
-#warning "INDAGARE ANCORA!!!!"  //PER ADESSO CHIEDO SE STA REGISTANDO UNA
-DISPLAYLIST E IN QUEL CASO NON USO GLI ARRAY
-GLuint listId;
-glGetIntegerv(GL_LIST_INDEX,(GLint*)&listId);
-if(listId==0)
-{
-#endif
-*/
-  glDrawArrays(QUAD_PRIMITIVE, 0, v.size());
-  /*
-#ifdef MACOSX
-}
-else
-{
-glBegin( GL_QUAD_STRIP );
-for(UINT i=0; i< v.size(); i++)
-glVertex2dv( &v[i].x );
-glEnd();
-}
-#endif
-*/
-
-  // Delete texture
-  glDeleteTextures(1, &texId);
-
-  glDisableClientState(GL_VERTEX_ARRAY);
-  glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-  glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+  {
+    TLegacyGlCanvas gl;
+    // The old function drew its two side lines with whatever line smoothing
+    // its caller had set, which is what the canvas does through OpenGL.
+    drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke,
+                       glIsEnabled(GL_LINE_SMOOTH));
+  }
   glDisable(GL_TEXTURE_2D);
 }
+
+//-----------------------------------------------------------------------------
+
+// The outline as a strip, with the texture coordinates computeOutline() gave
+// its points: the texture runs along the stroke, once across its width.
+void TTextureStyle::drawStrokeOnCanvas(TCanvas &canvas,
+                                       const TColorFunction *cf,
+                                       TStrokeOutline *outline,
+                                       const TStroke *stroke,
+                                       bool antialias) const {
+  std::vector<TOutlinePoint> &v = outline->getArray();
+  if (v.empty() || !m_texture) return;
+
+  TCanvasMesh mesh;
+  mesh.mode = TCanvasMesh::Mode::TriangleStrip;
+  mesh.positions.reserve(v.size());
+  mesh.uvs.reserve(v.size());
+  for (const TOutlinePoint &p : v) {
+    mesh.positions.push_back(TCanvasPoint(p.x, p.y));
+    mesh.uvs.push_back(TCanvasPoint(p.u, p.v));
+  }
+
+  // The coordinates count in whole textures: the texture lies over the unit
+  // square, and repeats.
+  TCanvasPaint paint = texturePaint(
+      m_texture, TCanvasAffine::scale(1.0 / m_texture->getLx(),
+                                      1.0 / m_texture->getLy()));
+  paint.antialias = antialias;
+  canvas.drawMesh(mesh, paint);
+}
+
 //-----------------------------------------------------------------------------
 // drawRegion( const TVectorRenderData &rd,  TRegionOutline &boundary ) const
 void TTextureStyle::drawRegion(const TColorFunction *cf,
                                const bool antiAliasing,
                                TRegionOutline &boundary) const {
-  if (m_tessellator)
-    m_tessellator->tessellate(cf, antiAliasing, boundary, m_texture);
+  {
+    TLegacyGlCanvas gl;
+    drawRegionOnCanvas(gl.canvas(), cf, antiAliasing, boundary);
+  }
+  glDisable(GL_TEXTURE_2D);
+}
+
+//-----------------------------------------------------------------------------
+
+// The region filled with the texture, one copy of it every 100 units, with
+// hard edges. What follows is TglTessellator::tessellate() for a texture,
+// step for step.
+void TTextureStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                       const TColorFunction *cf,
+                                       bool antiAliasing,
+                                       TRegionOutline &outline) const {
+  TRaster32P texture = m_texture;
+  if (!texture) return;
+
+  // The texture is brought to a size that is a power of two. The region is
+  // then drawn in coordinates scaled the same way, under the inverse
+  // transform, so that it stays where it is while the texture coordinates
+  // (a hundredth of the scaled position) follow the scaling.
+  int pow2Lx = tcg::numeric_ops::GE_2Power((unsigned int)texture->getLx());
+  int pow2Ly = tcg::numeric_ops::GE_2Power((unsigned int)texture->getLy());
+
+  TAffine aff;
+  const bool scaled = texture->getLx() != pow2Lx || texture->getLy() != pow2Ly;
+  if (scaled) {
+    TRaster32P r(pow2Lx, pow2Ly);
+    aff = TScale((double)pow2Lx / texture->getLx(),
+                 (double)pow2Ly / texture->getLy());
+    TRop::resample(r, texture,
+                   aff.place(texture->getCenterD(), r->getCenterD()));
+    texture = r;
+    canvas.save();
+    canvas.concat(toCanvas(aff.inv()));
+  }
+
+  // One path: the outer contours as they come, the holes turned round (the
+  // tessellator filled where the winding number was positive).
+  TCanvasPath path;
+  std::vector<TCanvasPoint> points;
+  const auto place = [&](const T3DPointD &p) {
+    if (!scaled) return TCanvasPoint(p.x, p.y);
+    // As the tessellator computed it, y from the new x included.
+    const double x = aff.a11 * p.x + aff.a12 * p.y;
+    const double y = aff.a21 * x + aff.a22 * p.y;
+    return TCanvasPoint(x, y);
+  };
+  for (const TRegionOutline::PointVector &contour : outline.m_exterior) {
+    points.clear();
+    for (const T3DPointD &p : contour) points.push_back(place(p));
+    path.addPolygon(points.data(), points.size());
+  }
+  for (const TRegionOutline::PointVector &contour : outline.m_interior) {
+    points.clear();
+    for (auto p = contour.rbegin(); p != contour.rend(); ++p)
+      points.push_back(place(*p));
+    path.addPolygon(points.data(), points.size());
+  }
+
+  canvas.fillPath(path, TCanvasFillRule::NonZero,
+                  texturePaint(texture, TCanvasAffine::scale(100.0 / pow2Lx,
+                                                             100.0 / pow2Ly)));
+
+  if (scaled) canvas.restore();
 }
 
 //-----------------------------------------------------------------------------
@@ -825,9 +830,6 @@ void TTextureStyle::loadData(TInputStreamInterface &is) {
   is >> m_params.m_displacement.x;
   is >> m_params.m_displacement.y;
   is >> m_params.m_contrast;
-
-  delete m_tessellator;
-  m_tessellator = new TglTessellator;
 
   setAverageColor();
 }

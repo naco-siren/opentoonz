@@ -99,6 +99,9 @@ NEXTTOONZ_VECTOR_RASTERIZER=skia python3 ../sources/tests/golden/run_golden.py \
 
 `core/test_vector_canvas.cpp` covers the same code without a rasteriser: it
 records what drawing an image asks of a canvas and compares the text.
+`toonzlib/test_style_canvas.cpp` does the same for the styles that draw with
+a picture or another vector image (patterns, vector brushes, textures,
+MyPaint brushes), taken from the reference project's `vec_styles` level.
 
 ## Canvas tests
 

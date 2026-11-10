@@ -40,6 +40,11 @@ public:
 
   TStrokeProp *clone(const TStroke *stroke) const override;
   void draw(const TVectorRenderData &rd) override;
+  void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) override;
+
+private:
+  //! Brings the outline up to date for a pixel of this size.
+  void updateOutline(double pixelSize);
 };
 
 //=============================================================================
@@ -90,6 +95,9 @@ public:
   void setMainColor(const TPixel32 &color) override { m_color = color; }
 
   int getTagId() const override { return 4001; }
+
+  //! On a vector level a MyPaint brush is drawn as a stroke of its colour.
+  int canvasSupport() const override { return StrokesOnCanvas; }
 
   QString getDescription() const override;
   std::string getBrushIdName() const override;

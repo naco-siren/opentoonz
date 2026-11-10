@@ -13,6 +13,7 @@
 #include "tenv.h"
 
 #include "tvectorbrushstyle.h"
+#include "tcanvasutil.h"
 
 //**********************************************************************
 //    Vector Brush Style  static members
@@ -39,10 +40,14 @@ public:
   TStrokeProp *clone(const TStroke *stroke) const override;
 
   void draw(const TVectorRenderData &rd) override;
+  void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) override;
 
   const TColorStyle *getColorStyle() const override;
 
 private:
+  void buildOutlines(double pixelSize);
+  void drawOutlines(TCanvas *canvas);
+
   // not implemented
   VectorBrushProp(const VectorBrushProp &);
   VectorBrushProp &operator=(const VectorBrushProp &);
@@ -74,55 +79,89 @@ void VectorBrushProp::draw(const TVectorRenderData &rd) {
       !convert(rd.m_aff * m_stroke->getBBox()).overlaps(rd.m_clippingRect))
     return;
 
-  TPaletteP palette(m_brush->getPalette());
-  if (!palette) return;
-
-  static TOutlineUtil::OutlineParameter param;  // unused, but requested
-
-  // Build a solid color style to draw each m_vi's stroke with.
-  TSolidColorStyle colorStyle;
+  if (!m_brush->getPalette()) return;
 
   // Push the specified rd affine before drawing
   glPushMatrix();
   tglMultMatrix(rd.m_aff);
 
-  // 1. If necessary, build the outlines
-  double currentPixelSize = sqrt(tglGetPixelSize2());
+  buildOutlines(sqrt(tglGetPixelSize2()));
+  drawOutlines(0);
+
+  glPopMatrix();
+}
+
+//-----------------------------------------------------------------
+
+// draw() without OpenGL. Keep the two in step.
+void VectorBrushProp::drawOnCanvas(TCanvas &canvas,
+                                   const TVectorRenderData &rd) {
+  if (rd.m_clippingRect != TRect() && !rd.m_is3dView &&
+      !convert(rd.m_aff * m_stroke->getBBox()).overlaps(rd.m_clippingRect))
+    return;
+
+  if (!m_brush->getPalette()) return;
+
+  canvas.save();
+  canvas.concat(toCanvas(rd.m_aff));
+
+  buildOutlines(canvas.pixelSize());
+  drawOutlines(&canvas);
+
+  canvas.restore();
+}
+
+//-----------------------------------------------------------------
+
+// 1. If necessary, build the outlines: the brush image bent along the stroke.
+void VectorBrushProp::buildOutlines(double currentPixelSize) {
   bool differentPixelSize = !isAlmostZero(currentPixelSize - m_pixelSize, 1e-5);
   m_pixelSize             = currentPixelSize;
+  if (!differentPixelSize && !m_strokeChanged) return;
+  m_strokeChanged = false;
+
+  // The pixel size goes along: the outline builders used to read it from
+  // OpenGL themselves, and on a canvas there may be none.
+  const TOutlineUtil::OutlineParameter param(0, currentPixelSize);
 
   int i, viRegionsCount = m_brush->getRegionCount(),
          viStrokesCount = m_brush->getStrokeCount();
-  if (differentPixelSize || m_strokeChanged) {
-    m_strokeChanged = false;
 
-    // 1a. First, the regions
-    m_regionOutlines.resize(viRegionsCount);
+  // 1a. First, the regions
+  m_regionOutlines.resize(viRegionsCount);
 
-    for (i = 0; i < viRegionsCount; ++i) {
-      TRegionOutline &outline    = m_regionOutlines[i];
-      const TRegion *brushRegion = m_brush->getRegion(i);
+  for (i = 0; i < viRegionsCount; ++i) {
+    TRegionOutline &outline    = m_regionOutlines[i];
+    const TRegion *brushRegion = m_brush->getRegion(i);
 
-      // Build the outline
-      outline.clear();
-      TOutlineUtil::makeOutline(*getStroke(), *brushRegion, m_brushBox,
-                                outline);
-    }
-
-    // 1b. Then, the strokes
-    m_strokeOutlines.resize(viStrokesCount);
-
-    for (i = 0; i < viStrokesCount; ++i) {
-      TStrokeOutline &outline    = m_strokeOutlines[i];
-      const TStroke *brushStroke = m_brush->getStroke(i);
-
-      outline.getArray().clear();
-      TOutlineUtil::makeOutline(*getStroke(), *brushStroke, m_brushBox, outline,
-                                param);
-    }
+    // Build the outline
+    outline.clear();
+    TOutlineUtil::makeOutline(*getStroke(), *brushRegion, m_brushBox, outline,
+                              param);
   }
 
-  // 2. Draw the outlines
+  // 1b. Then, the strokes
+  m_strokeOutlines.resize(viStrokesCount);
+
+  for (i = 0; i < viStrokesCount; ++i) {
+    TStrokeOutline &outline    = m_strokeOutlines[i];
+    const TStroke *brushStroke = m_brush->getStroke(i);
+
+    outline.getArray().clear();
+    TOutlineUtil::makeOutline(*getStroke(), *brushStroke, m_brushBox, outline,
+                              param);
+  }
+}
+
+//-----------------------------------------------------------------
+
+// 2. Draw the outlines, each with a plain colour: on \p canvas, or with a
+// null canvas through OpenGL as it is set up.
+void VectorBrushProp::drawOutlines(TCanvas *canvas) {
+  TPaletteP palette(m_brush->getPalette());
+
+  // Build a solid color style to draw each m_vi's stroke with.
+  TSolidColorStyle colorStyle;
 
   UINT s, t, r, strokesCount = m_brush->getStrokeCount(),
                 regionCount = m_brush->getRegionCount();
@@ -141,7 +180,10 @@ void VectorBrushProp::draw(const TVectorRenderData &rd) {
 
         // Draw the outline
         colorStyle.setMainColor(brushStyle->getMainColor());
-        colorStyle.drawRegion(0, false, m_regionOutlines[r]);
+        if (canvas)
+          colorStyle.drawRegionOnCanvas(*canvas, 0, false, m_regionOutlines[r]);
+        else
+          colorStyle.drawRegion(0, false, m_regionOutlines[r]);
       }
     }
 
@@ -153,12 +195,14 @@ void VectorBrushProp::draw(const TVectorRenderData &rd) {
       if (!brushStyle) continue;
 
       colorStyle.setMainColor(brushStyle->getMainColor());
-      colorStyle.drawStroke(0, &m_strokeOutlines[t],
-                            brushStroke);  // brushStroke unused but requested
+      // brushStroke unused but requested
+      if (canvas)
+        colorStyle.drawStrokeOnCanvas(*canvas, 0, &m_strokeOutlines[t],
+                                      brushStroke, true);
+      else
+        colorStyle.drawStroke(0, &m_strokeOutlines[t], brushStroke);
     }
   }
-
-  glPopMatrix();
 }
 
 //-----------------------------------------------------------------

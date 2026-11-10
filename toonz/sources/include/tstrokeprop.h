@@ -61,6 +61,12 @@ public:
 
   TStrokeProp *clone(const TStroke *stroke) const override;
   void draw(const TVectorRenderData &rd) override;
+  void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) override;
+
+private:
+  //! False when the stroke is outside the picture; otherwise brings the
+  //! places of the stamps up to date.
+  bool prepare(const TVectorRenderData &rd);
 };
 
 //=============================================================================
@@ -79,6 +85,12 @@ public:
 
   TStrokeProp *clone(const TStroke *stroke) const override;
   void draw(const TVectorRenderData &rd) override;
+  void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) override;
+
+private:
+  //! False when the stroke is outside the picture; otherwise brings the
+  //! places of the stamps up to date.
+  bool prepare(const TVectorRenderData &rd);
 };
 
 //=============================================================================

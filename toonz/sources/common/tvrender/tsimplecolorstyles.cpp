@@ -37,7 +37,9 @@
 #include "tcanvasutil.h"
 #include "tglcanvasbridge.h"
 #include "tvectorrasterizer.h"
+#include "tvectorcanvas.h"
 
+#include <memory>
 #include <typeinfo>
 
 #ifndef _WIN32
@@ -124,6 +126,27 @@ TLevel::Iterator getPatternFrameIterator(const TLevelP &level,
                                          const TStroke *stroke);
 void advancePatternFrameIterator(TLevel::Iterator &it, const TLevelP &level,
                                  int step);
+
+}  // namespace
+
+namespace {
+
+// The 16 bits of an OpenGL line stipple as lengths of dashes and gaps in
+// pixels, starting with a dash (of no length if the pattern starts with a
+// gap).
+std::vector<double> stippleToDash(USHORT stipple) {
+  std::vector<double> dash;
+  if (stipple == 0) return dash;
+  bool on = true;
+  dash.push_back(0.0);
+  for (int bit = 0; bit < 16; ++bit) {
+    const bool set = (stipple >> bit) & 1;
+    if (set != on) dash.push_back(0.0), on = set;
+    dash.back() += 1.0;
+  }
+  if (dash.size() % 2 != 0) dash.push_back(0.0);
+  return dash;
+}
 
 }  // namespace
 
@@ -558,27 +581,6 @@ TColorStyle *TCenterLineStrokeStyle::clone() const {
 }
 
 //------------------------------------------------------------------------------------
-
-namespace {
-
-// The 16 bits of an OpenGL line stipple as lengths of dashes and gaps in
-// pixels, starting with a dash (of no length if the pattern starts with a
-// gap).
-std::vector<double> stippleToDash(USHORT stipple) {
-  std::vector<double> dash;
-  if (stipple == 0) return dash;
-  bool on = true;
-  dash.push_back(0.0);
-  for (int bit = 0; bit < 16; ++bit) {
-    const bool set = (stipple >> bit) & 1;
-    if (set != on) dash.push_back(0.0), on = set;
-    dash.back() += 1.0;
-  }
-  if (dash.size() % 2 != 0) dash.push_back(0.0);
-  return dash;
-}
-
-}  // namespace
 
 //------------------------------------------------------------------------------------
 
@@ -1204,9 +1206,6 @@ void TRasterImagePatternStrokeStyle::loadLevel(const std::string &patternName) {
       // lo rasterizzo creando una texture 256x256 (N.B. le dimensioni
       // delle textures openGL devono essere potenze di due)
       TRaster32P ras(256, 256);
-      // se serve creo il contesto OpenGL offline (l'idea e' di crearne
-      // uno solo per tutto il livello
-      if (!glContext) glContext = new TOfflineGL(ras->getSize());
       // camera di default 640x480. probabilmente non e' la scelta
       // migliore.
       // TDimension cameraSize(768, 576);
@@ -1215,9 +1214,16 @@ void TRasterImagePatternStrokeStyle::loadLevel(const std::string &patternName) {
       // definisco i renderdata
       const TVectorRenderData rd(locals::getAffine(cameraSize, ras->getSize()),
                                  TRect(), level->getPalette(), 0, true, true);
-      // rasterizzo
-      glContext->draw(vi, rd);
-      ras->copy(glContext->getRaster());
+      // rasterizzo: on the CPU if vectors are to be rasterised there,
+      // otherwise through an offscreen OpenGL context
+      if (!TVectorRasterizer::isSelected() ||
+          !TVectorRasterizer::rasterize(ras, vi, rd)) {
+        // se serve creo il contesto OpenGL offline (l'idea e' di crearne
+        // uno solo per tutto il livello
+        if (!glContext) glContext = new TOfflineGL(ras->getSize());
+        glContext->draw(vi, rd);
+        ras->copy(glContext->getRaster());
+      }
       m_level->setFrame(frameIt->first, new TRasterImage(ras));
     }
   }
@@ -1268,10 +1274,28 @@ void TRasterImagePatternStrokeStyle::computeTransformations(
 void TRasterImagePatternStrokeStyle::drawStroke(
     const TVectorRenderData &rd, const std::vector<TAffine> &transformations,
     const TStroke *stroke) const {
-  TStopWatch sw;
-  sw.start();
-  CHECK_GL_ERROR
+  if (m_level->getFrameCount() == 0) return;
 
+  // The blending is this style's own, in both of the passes the caller
+  // makes: TRop's indexed-color conversion is premultiplied, so its alpha
+  // is applied once; pre-existing full-color Trail sources keep the legacy
+  // blend mode. The canvas draws with what is set here.
+  glEnable(GL_BLEND);
+  glBlendFunc(m_toonzRasterSource ? GL_ONE : GL_SRC_ALPHA,
+              GL_ONE_MINUS_SRC_ALPHA);
+  {
+    TLegacyGlCanvas gl;
+    drawStrokeOnCanvas(gl.canvas(), rd, transformations, stroke);
+  }
+  glDisable(GL_TEXTURE_2D);
+  glDisable(GL_BLEND);
+}
+
+//-----------------------------------------------------------------------------
+
+void TRasterImagePatternStrokeStyle::drawStrokeOnCanvas(
+    TCanvas &canvas, const TVectorRenderData &rd,
+    const std::vector<TAffine> &transformations, const TStroke *stroke) const {
   const int frameCount = m_level->getFrameCount();
   if (frameCount == 0) return;
 
@@ -1279,29 +1303,20 @@ void TRasterImagePatternStrokeStyle::drawStroke(
   // contenute in level, posizionando ognuna secondo transformations[i]
   UINT size = transformations.size();
 
-  glEnable(GL_TEXTURE_2D);
-  glEnable(GL_BLEND);
+  // Each stamp is a quad twice the size of its picture, the whole picture
+  // on it. As a mesh: the picture is laid over the unit square, and the
+  // corners of the quad look it up at the corners of that square.
+  TCanvasMesh quad;
+  quad.mode        = TCanvasMesh::Mode::TriangleStrip;
+  quad.smoothEdges = false;
+  quad.uvs         = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
 
-  // TRop's indexed-color conversion is premultiplied. Apply its alpha once;
-  // retain the legacy blend mode for pre-existing full-color Trail sources.
-  glBlendFunc(m_toonzRasterSource ? GL_ONE : GL_SRC_ALPHA,
-              GL_ONE_MINUS_SRC_ALPHA);
-
-  GLuint texId;
-  glGenTextures(1, &texId);
-
-  glBindTexture(GL_TEXTURE_2D, texId);
-
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-  // l'utilizzo di modulate, con un colore di 1,1,1,1 permette di
-  // tenere in conto il canale alfa delle texture
-  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-  glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+  // The paint adds nothing of its own (no colour function either: this
+  // style never applied one).
+  TCanvasPaint paint(TCanvasColor(1.f, 1.f, 1.f, 1.f));
+  paint.shader.kind   = TCanvasShader::Kind::Image;
+  paint.shader.tile   = TCanvasTile::Repeat;
+  paint.shader.filter = TCanvasFilter::Linear;
 
   // visto che cambiare texture costa tempo il ciclo esterno e' sulle textures
   // piuttosto che sulle trasformazioni
@@ -1312,51 +1327,34 @@ void TRasterImagePatternStrokeStyle::drawStroke(
     TLevel::Iterator currentFrame = frameIt;
     advancePatternFrameIterator(frameIt, m_level, frameStep);
     TRasterImageP ri = currentFrame->second;
-    TRasterP ras;
+    TRaster32P ras;
     if (ri) ras = ri->getRaster();
     if (!ras) continue;
-    TextureInfoForGL texInfo;
-    TRasterP texImage = prepareTexture(ras, texInfo);
 
-    glTexImage2D(GL_TEXTURE_2D,
-                 0,                       // one level only
-                 texInfo.internalformat,  // pixel channels count
-                 texInfo.width,           // width
-                 texInfo.height,          // height
-                 0,                       // border size
-                 texInfo.type,    // pixel format           // crappy names
-                 texInfo.format,  // pixel data type        // oh, SO much
-                 texImage->getRawData());
+    const double rx = ras->getLx();
+    const double ry = ras->getLy();
+
+    // The canvas may keep the picture for the stamps that follow, so it is
+    // told what keeps the pixels alive.
+    TCanvasImage &image = paint.shader.image;
+    image.keepAlive     = std::make_shared<TRaster32P>(ras);
+    image.pixels        = ras->getRawData();
+    image.width         = ras->getLx();
+    image.height        = ras->getLy();
+    image.rowBytes      = (std::ptrdiff_t)ras->getWrap() * 4;
+    // What the two blend modes of the OpenGL version amount to.
+    image.premultiplied       = m_toonzRasterSource;
+    paint.shader.imageToLocal = TCanvasAffine::scale(1.0 / rx, 1.0 / ry);
+
+    quad.positions = {{-rx, -ry}, {rx, -ry}, {-rx, ry}, {rx, ry}};
 
     for (int j = i; j < (int)size; j += distinctFrameCount) {
-      TAffine aff = rd.m_aff * transformations[j];
-      glPushMatrix();
-      tglMultMatrix(aff);
-
-      double rx = ras->getLx();
-      double ry = ras->getLy();
-
-      glColor4d(1, 1, 1, 1);
-
-      glBegin(QUAD_PRIMITIVE);
-      glTexCoord2d(0, 0);
-      glVertex2d(-rx, -ry);
-      glTexCoord2d(1, 0);
-      glVertex2d(rx, -ry);
-      glTexCoord2d(0, 1);
-      glVertex2d(-rx, ry);
-      glTexCoord2d(1, 1);
-      glVertex2d(rx, ry);
-      glEnd();
-
-      glPopMatrix();
+      canvas.save();
+      canvas.concat(toCanvas(rd.m_aff * transformations[j]));
+      canvas.drawMesh(quad, paint);
+      canvas.restore();
     }
   }
-
-  glDeleteTextures(1, &texId);
-
-  glDisable(GL_TEXTURE_2D);
-  glDisable(GL_BLEND);
 }
 
 //-----------------------------------------------------------------------------
@@ -1812,9 +1810,67 @@ void TVectorImagePatternStrokeStyle::clearGlDisplayLists() {
 
 //--------------------------------------------------------------------------------------------------
 
+namespace {
+
+// How a stamp of a vector pattern gets drawn once the transform is in place:
+// by the old renderer straight to OpenGL, or on the canvas.
+void paintStampWithGl(TCanvas &, const TVectorRenderData &rd,
+                      const TVectorImage *stamp) {
+  tglDraw(rd, stamp);
+}
+
+void paintStampOnCanvas(TCanvas &canvas, const TVectorRenderData &rd,
+                        const TVectorImage *stamp) {
+  tcanvasDraw(canvas, rd, stamp);
+}
+
+// The settings every stamp is drawn with.
+TVectorRenderData stampRenderData(const TVectorImage *stamp,
+                                  const TColorFunction *cf) {
+  return TVectorRenderData(TAffine(), TRect(), stamp->getPalette(), cf, true,
+                           true);
+}
+
+}  // namespace
+
+//--------------------------------------------------------------------------------------------------
+
+int TVectorImagePatternStrokeStyle::canvasSupport() const {
+  for (TLevel::Iterator it = m_level->begin(); it != m_level->end(); ++it) {
+    const TVectorImageP stamp = it->second;
+    if (!stamp) continue;
+    if (!tcanvasCanDraw(stampRenderData(stamp.getPointer(), 0),
+                        stamp.getPointer()))
+      return NoCanvas;
+  }
+  return StrokesOnCanvas;
+}
+
+//--------------------------------------------------------------------------------------------------
+
 void TVectorImagePatternStrokeStyle::drawStroke(
     const TVectorRenderData &rd, const std::vector<TAffine> &transformations,
     const TStroke *stroke) const {
+  // The canvas only places the stamps; they are drawn by the old renderer,
+  // which sets up OpenGL for each of their styles as it always did.
+  TLegacyGlCanvas gl;
+  drawStamps(gl.canvas(), rd, transformations, stroke, &paintStampWithGl);
+}
+
+//--------------------------------------------------------------------------------------------------
+
+void TVectorImagePatternStrokeStyle::drawStrokeOnCanvas(
+    TCanvas &canvas, const TVectorRenderData &rd,
+    const std::vector<TAffine> &transformations, const TStroke *stroke) const {
+  drawStamps(canvas, rd, transformations, stroke, &paintStampOnCanvas);
+}
+
+//--------------------------------------------------------------------------------------------------
+
+void TVectorImagePatternStrokeStyle::drawStamps(
+    TCanvas &canvas, const TVectorRenderData &rd,
+    const std::vector<TAffine> &transformations, const TStroke *stroke,
+    StampPainter paintStamp) const {
   const int frameCount = m_level->getFrameCount();
   if (frameCount == 0) return;
   //------------------------------------------
@@ -1830,21 +1886,17 @@ void TVectorImagePatternStrokeStyle::drawStroke(
   }
   double averageThick =
       TrailScale::apply(thickSum / (double)count, m_trailSizeMultiplier);
-  glPushMatrix();
-  tglMultMatrix(rd.m_aff);
-  double pixelSize2 = tglGetPixelSize2();
-  glPopMatrix();
+  canvas.save();
+  canvas.concat(toCanvas(rd.m_aff));
+  const double pixelSize = canvas.pixelSize();
+  double pixelSize2      = pixelSize * pixelSize;
+  canvas.restore();
   // A single stamp has no useful line-strip approximation: short carriers
   // produce zero vertices in that path. Draw the source at its actual size.
   if (transformations.size() > 1 &&
       averageThick * averageThick < 4 * pixelSize2) {
-    CHECK_GL_ERROR
-
-    glPushMatrix();
-
-    CHECK_GL_ERROR
-
-    tglMultMatrix(rd.m_aff);
+    canvas.save();
+    canvas.concat(toCanvas(rd.m_aff));
 
     TLevel::Iterator lit = getPatternFrameIterator(m_level, stroke);
 
@@ -1885,28 +1937,29 @@ void TVectorImagePatternStrokeStyle::drawStroke(
     } else
       averageColor = TPixel32::Black;
 
-    tglColor(averageColor);
-
-    glLineStipple(2, 0xAAAA);
-    glEnable(GL_LINE_STIPPLE);
+    // Too small to show the stamps: a dashed line of their average colour,
+    // one pixel wide, two pixels on and two off (the stipple 0xAAAA taken
+    // twice over).
+    TCanvasPaint paint(toCanvas(averageColor));
+    paint.antialias = rd.m_antiAliasing;
+    TCanvasPen pen;
+    pen.width = 1.0;
+    pen.unit  = TCanvasPen::Unit::Device;
+    pen.dash  = stippleToDash(0xAAAA);
+    for (double &length : pen.dash) length *= 2.0;
 
     UINT n = stroke->getLength() *
              0.05;  // TODO: funzione di stroke length e pixelsize
-    glBegin(GL_LINE_STRIP);
+    TCanvasPath path;
     for (UINT i = 0; i < n; i++) {
       if (n != 1) {
         TThickPoint p = stroke->getPoint(i / (double)(n - 1));
-        glVertex2d(p.x, p.y);
+        path.lineTo(TCanvasPoint(p.x, p.y));
       }
     }
-    glEnd();
+    canvas.strokePath(path, pen, paint);
 
-    glDisable(GL_LINE_STIPPLE);
-
-    CHECK_GL_ERROR
-
-    glPopMatrix();
-
+    canvas.restore();
   } else {
     //--------------------------------------------
     assert(m_level->begin() != m_level->end());
@@ -1928,40 +1981,12 @@ void TVectorImagePatternStrokeStyle::drawStroke(
                 .overlaps(rd.m_clippingRect)))
         continue;
       // drawing
-      CHECK_GL_ERROR
+      assert(imgPointer->getPalette());
 
-      glPushMatrix();
-
-      CHECK_GL_ERROR
-
-      tglMultMatrix(totalTransformation);
-
-      CHECK_GL_ERROR
-#ifdef _WIN32
-      // currently drawing with the display list doesn't work properly
-
-      // GLuint listId = DisplayListManager::instance()->getDisplayListId(
-      //    imgPointer, m_name, fid, rd);
-      // if (listId != 0) {
-      //  CHECK_GL_ERROR
-      //  glCallList(listId);
-      //  CHECK_GL_ERROR
-      //} else
-#endif
-
-      {
-        TAffine identity;
-        TRect rect;
-        TPalette *vPalette = imgPointer->getPalette();
-        assert(vPalette);
-        TVectorRenderData rd2(identity, rect, vPalette, rd.m_cf, true, true);
-        CHECK_GL_ERROR
-
-        tglDraw(rd2, imgPointer);
-
-        CHECK_GL_ERROR
-      }
-      glPopMatrix();
+      canvas.save();
+      canvas.concat(toCanvas(totalTransformation));
+      paintStamp(canvas, stampRenderData(imgPointer, rd.m_cf), imgPointer);
+      canvas.restore();
     }
   }
 }

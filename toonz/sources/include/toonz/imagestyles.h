@@ -90,7 +90,6 @@ private:
   TRaster32P m_texture;
   TFilePath m_texturePath, m_texturePathLoaded;
 
-  TTessellator *m_tessellator;
   TPixel32 m_averageColor;
 
 protected:
@@ -145,12 +144,24 @@ public:
   }
 
   // void draw(const TVectorRenderData &rd,  TStrokeOutline* outline) const;
+  //! Strokes and regions: both are the texture, as an image shader.
+  int canvasSupport() const override {
+    return StrokesOnCanvas | RegionsOnCanvas;
+  }
+
+  // The OpenGL versions are the canvas versions seen through a TGlCanvas.
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &outline) const override;
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
   // void drawRegion( const TVectorRenderData &rd, TRegionOutline &boundary )
   // const;
   void drawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                   const TStroke *stroke) const override;
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          TStrokeOutline *outline, const TStroke *stroke,
+                          bool antialias) const override;
 
   TRasterStyleFx *getRasterStyleFx() override { return this; }
 
