@@ -502,8 +502,8 @@ void TSolidColorStyle::drawStrokeOnCanvas(TCanvas &canvas,
 
   TCanvasPaint paint(toCanvas(color));
   paint.antialias = antialias;
-  // Whether strokes keep the weight the old fringe gave them is still to be
-  // decided (doc/nexttoonz_canvas_ir.md, Q2).
+  // Grown, so that strokes keep the weight the old fringe gave them
+  // (doc/nexttoonz_canvas_ir.md, Q2).
   if (antialias) paint.growDevice = TVectorRasterizer::strokeGrow();
   canvas.drawMesh(mesh, paint);
 }

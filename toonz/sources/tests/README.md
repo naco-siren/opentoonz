@@ -79,8 +79,10 @@ In a build with `-DWITH_SKIA=ON`, two environment variables switch renders
 NEXTTOONZ_VECTOR_RASTERIZER=skia   rasterise vector levels with Skia; an image
                                    that uses a style not yet on the canvas
                                    still goes through OpenGL, as a whole
-NEXTTOONZ_STROKE_GROW=0.5          grow solid strokes by this many pixels
-                                   (default 0: their true width)
+NEXTTOONZ_STROKE_GROW=0            draw solid strokes at their true width
+                                   instead of grown by half a pixel, which
+                                   is the default and the weight they have
+                                   through OpenGL
 ```
 
 The golden baselines are OpenGL renders, so the golden tests of vector

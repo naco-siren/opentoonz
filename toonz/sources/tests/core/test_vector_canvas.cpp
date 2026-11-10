@@ -112,12 +112,16 @@ public:
   TColorStyle *clone() const override { return new DerivedColorStyle(*this); }
 };
 
-// Puts the stroke weight switch back, whatever a test does with it.
+// Sets the stroke weight switch for a test and puts it back afterwards.
+// Tests that read the calls set it themselves, so that they say the same
+// whatever NEXTTOONZ_STROKE_GROW happens to be.
 struct StrokeGrow {
   explicit StrokeGrow(double pixels) {
     TVectorRasterizer::setStrokeGrow(pixels);
   }
-  ~StrokeGrow() { TVectorRasterizer::setStrokeGrow(0.0); }
+  ~StrokeGrow() {
+    TVectorRasterizer::setStrokeGrow(TVectorRasterizer::defaultStrokeGrow());
+  }
 };
 
 }  // namespace
@@ -142,7 +146,11 @@ TEST(VectorCanvas, ASolidStrokeIsOneMeshUnderTheImagesTransform) {
   EXPECT_EQ(calls(record(vi, production(palette))), expected);
 }
 
-TEST(VectorCanvas, StrokeWeightAndAntialiasingTravelInThePaint) {
+// Strokes keep the weight the old renderer's fringe gave them: half a pixel
+// more on each side (the owner's decision on question Q2 of the design).
+TEST(VectorCanvas, StrokesAreGrownByHalfAPixelUnlessToldOtherwise) {
+  EXPECT_EQ(TVectorRasterizer::defaultStrokeGrow(), 0.5);
+
   TPalette *palette = new TPalette();
   TVectorImageP vi  = new TVectorImage();
   vi->setPalette(palette);
@@ -151,16 +159,29 @@ TEST(VectorCanvas, StrokeWeightAndAntialiasingTravelInThePaint) {
   vi->addStroke(s);
 
   {
-    const StrokeGrow half(0.5);
+    const StrokeGrow usual(TVectorRasterizer::defaultStrokeGrow());
+    EXPECT_EQ(TVectorRasterizer::strokeGrow(), 0.5);
     EXPECT_EQ(count(record(vi, production(palette)),
                     "drawMesh strip color=(0 0 0 1) grow=0.5px"),
               1);
   }
-  const StrokeGrow none(0.0);
+  {
+    const StrokeGrow trueWidth(0.0);
+    EXPECT_EQ(count(record(vi, production(palette)),
+                    "drawMesh strip color=(0 0 0 1)"),
+              1);
+    EXPECT_EQ(count(record(vi, production(palette)),
+                    "drawMesh strip color=(0 0 0 1) grow"),
+              0);
+  }
+  // Without antialiasing there is no soft edge to keep the weight of.
+  const StrokeGrow usual(TVectorRasterizer::defaultStrokeGrow());
   TVectorRenderData jaggy = production(palette);
   jaggy.m_antiAliasing    = false;
   EXPECT_EQ(count(record(vi, jaggy), "drawMesh strip color=(0 0 0 1) noaa"),
             1);
+  EXPECT_EQ(
+      count(record(vi, jaggy), "drawMesh strip color=(0 0 0 1) noaa grow"), 0);
 }
 
 TEST(VectorCanvas, ARegionIsOneFilledPathUnderItsStrokes) {

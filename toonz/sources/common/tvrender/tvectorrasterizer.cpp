@@ -18,7 +18,8 @@ namespace {
 // -1: not decided yet, the environment is asked on first use.
 std::atomic<int> s_selected(-1);
 std::atomic<bool> s_growRead(false);
-std::atomic<double> s_strokeGrow(0.0);
+const double kDefaultStrokeGrow = 0.5;
+std::atomic<double> s_strokeGrow(kDefaultStrokeGrow);
 
 }  // namespace
 
@@ -53,9 +54,12 @@ void TVectorRasterizer::select(bool on) { s_selected.store(on ? 1 : 0); }
 
 double TVectorRasterizer::strokeGrow() {
   if (!s_growRead.exchange(true)) {
-    if (const char *value = std::getenv("NEXTTOONZ_STROKE_GROW")) {
-      const double pixels = std::atof(value);
-      if (pixels > 0.0) s_strokeGrow.store(pixels);
+    const char *value = std::getenv("NEXTTOONZ_STROKE_GROW");
+    if (value && *value) {
+      char *end           = 0;
+      const double pixels = std::strtod(value, &end);
+      // Anything that is not a number, or less than nothing, is not heard.
+      if (end != value && pixels >= 0.0) s_strokeGrow.store(pixels);
     }
   }
   return s_strokeGrow.load();
@@ -65,6 +69,8 @@ void TVectorRasterizer::setStrokeGrow(double pixels) {
   s_growRead.store(true);
   s_strokeGrow.store(pixels > 0.0 ? pixels : 0.0);
 }
+
+double TVectorRasterizer::defaultStrokeGrow() { return kDefaultStrokeGrow; }
 
 //-----------------------------------------------------------------------------
 

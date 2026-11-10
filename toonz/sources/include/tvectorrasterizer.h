@@ -50,13 +50,17 @@ DVAPI bool rasterize(const TRasterP &raster, const TVectorImageP &image,
 //! By how many pixels solid strokes are grown when they are antialiased
 //! on a canvas. The old renderer's fringe added about half a pixel on each
 //! side of a stroke; a rasteriser that computes coverage draws strokes at
-//! their true width unless told to grow them. Which of the two the renders
-//! should have is an open question (doc/nexttoonz_canvas_ir.md, Q2), and
-//! this is the switch to compare them: 0 unless the environment has
-//! NEXTTOONZ_STROKE_GROW=<pixels> or setStrokeGrow() was called. The OpenGL
-//! canvas ignores it.
+//! their true width unless told to grow them.
+/*!
+  Half a pixel, the weight strokes have always had: the owner's decision of
+  2026-11-09 on question Q2 of doc/nexttoonz_canvas_ir.md, taken from
+  pictures of both. NEXTTOONZ_STROKE_GROW=<pixels> in the environment (0 for
+  the true width) or setStrokeGrow() changes it, to make such pictures
+  again. The OpenGL canvas ignores it; its fringe is what this imitates.
+*/
 DVAPI double strokeGrow();
 DVAPI void setStrokeGrow(double pixels);
+DVAPI double defaultStrokeGrow();
 
 }  // namespace TVectorRasterizer
 
