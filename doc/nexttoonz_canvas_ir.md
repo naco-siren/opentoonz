@@ -459,7 +459,7 @@ Phase 3 的 QRhi 后端和 Phase 4 的 Metal 后端消费的是网格级 IR。�
 | `stage_showcase` | 3.23% | （背景不透明，量不出） | 0.08% | |
 | `particles_basic` | 0.48% | （同上） | 0.10% | |
 
-"墨量"是整张图 alpha 的总和。按真实宽度画，线明显变细变淡，细线（`sound_column`）少了六分之一的墨；外扩半个像素之后和今天的样子几乎分不出来。对照图在 `toonz/build-phase1/review/step2/`（不进版本库）：每个场景一张三联图，另有三张放大的局部。
+"墨量"是整张图 alpha 的总和。按真实宽度画，线明显变细变淡，细线（`sound_column`）少了六分之一的墨；外扩半个像素之后和今天的样子几乎分不出来。对照图在主检出根目录的 `samples/review/step2/`（不进版本库，见 `toonz/sources/tests/README.md`）：每个场景一张三联图，另有三张放大的局部。
 
 开关是环境变量 `NEXTTOONZ_STROKE_GROW`（像素数，默认 0），只对 Skia 路径起作用。所有者定下之后，把选中的值写成默认值，开关可以留着也可以去掉。
 

@@ -45,6 +45,26 @@ ctest -R TFilePath
 ./bin/nexttoonz_core_tests --gtest_filter='TAffine.*'
 ```
 
+## Sample files (not in the repository)
+
+Files for looking at the application by hand, and pictures made for a
+review, live in `samples/` at the root of the main checkout. The directory
+is not part of the repository: it is ignored through `.git/info/exclude`,
+which every worktree shares, and its own `README.md` lists what is there.
+Each machine needs that one line once:
+
+```
+echo /samples/ >> "$(git rev-parse --git-common-dir)/info/exclude"
+```
+
+Do not open `tests/fixtures/reference_project` in the application: it writes
+backups and scene icons into the project, and the tests read that project.
+Work on a copy:
+
+```
+cp -R toonz/sources/tests/fixtures/reference_project samples/reference_project
+```
+
 ## Vector images without OpenGL
 
 Since migration step 2 of `doc/nexttoonz_canvas_ir.md`, solid colours and
