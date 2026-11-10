@@ -75,9 +75,10 @@ public:
   - A clip is a stencil mask: the path filled as a region is, which with
     antialiasing includes the smooth line along its contours. A clip to a
     mesh is the mesh drawn into the mask as the primitive it is drawn as.
-    A fill that is also a clip is the fill followed by a clip to it: every
-    pixel the fill touched takes what is drawn on it afterwards at full
-    strength, so the edge of the whole is as jagged as a mask is.
+    A fill that is also a clip is the fill drawn to the screen and into
+    the mask in one pass: every pixel the fill touched takes what is drawn
+    on it afterwards at full strength, so the edge of the whole is as
+    jagged as a mask is.
   - Gradients are textures of 256 steps. Texture coordinates are computed
     here and sent with the vertices; the texture matrix is not used.
   - The texture of an image that names what keeps its pixels alive

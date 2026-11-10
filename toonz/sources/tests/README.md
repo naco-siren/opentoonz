@@ -67,10 +67,13 @@ cp -R toonz/sources/tests/fixtures/reference_project samples/reference_project
 
 ## Vector images without OpenGL
 
-Since migration step 2 of `doc/nexttoonz_canvas_ir.md`, solid colours and
-constant lines draw through the canvas interface. By default nothing
-changes: renders still go through `TOfflineGL`, where the migrated styles
-reach OpenGL through `tnzglcanvas` and come out bit for bit as before.
+Since migration step 2 of `doc/nexttoonz_canvas_ir.md`, styles draw through
+the canvas interface: solid colours and constant lines, then patterns,
+textures, vector and MyPaint brushes (step 3), then the sixteen region
+styles of colorfx (step 4). The stroke styles of colorfx do not yet. By
+default nothing changes: renders still go through `TOfflineGL`, where the
+migrated styles reach OpenGL through `tnzglcanvas` and come out bit for bit
+as before.
 
 In a build with `-DWITH_SKIA=ON`, two environment variables switch renders
 (tcomposer, tconverter) to the CPU rasteriser:
@@ -102,6 +105,10 @@ records what drawing an image asks of a canvas and compares the text.
 `toonzlib/test_style_canvas.cpp` does the same for the styles that draw with
 a picture or another vector image (patterns, vector brushes, textures,
 MyPaint brushes), taken from the reference project's `vec_styles` level.
+`toonzlib/test_region_style_canvas.cpp` does it for the region styles of
+colorfx, made by their tags; its last test also rasterises all sixteen
+without OpenGL (in a build that has Skia) and checks that each covers about
+the area of the region.
 
 ## Canvas tests
 
@@ -138,7 +145,8 @@ GoogleTest, pass a checkout of its sources instead.
 `nexttoonz_canvas_skia_tests` links `tnzskia`, the canvas that rasterises on
 the CPU with Skia, and checks pixels: coverage at edges, what growing a
 shape does to a seam and to a hole, line widths and dashes under a
-transform, meshes painted once where they overlap, images and gradients.
+transform, dots, meshes painted once where they overlap, clips to paths and
+to meshes, a fill that is also a clip, images and gradients.
 It is built only with `-DWITH_SKIA=ON`, which needs Skia itself:
 `-DNEXTTOONZ_SKIA_PACK_DIR=<unpacked skia-pack archive>` for the prebuilt
 one, see `skia_spike/README.md` and `doc/nexttoonz_phase1_skia.md`.
@@ -171,7 +179,9 @@ ctest -L canvas_gl
 ```
 
 The `GlCanvas` tests check what any driver should agree on: the inside of
-shapes, premultiplied results, clips, where images and gradients land.
+shapes, premultiplied results, clips, where images and gradients land. One
+of them draws the way the old code does (`TGlCanvas::State::Callers`): there
+the non-zero rule fills by positive winding, as the old tessellator did.
 
 The `CanvasBackends` tests (built when `WITH_SKIA` is on as well) record a
 picture once and replay it through both canvases. The two are not meant to
