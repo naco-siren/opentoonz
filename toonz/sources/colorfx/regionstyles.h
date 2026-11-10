@@ -24,6 +24,7 @@
 //    Forward declarations
 
 class TRandom;
+struct TCanvasPen;
 
 //======================================================
 
@@ -76,6 +77,11 @@ public:
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
 protected:
   void loadData(TInputStreamInterface &is) override;
@@ -124,13 +130,19 @@ public:
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
 protected:
   void loadData(TInputStreamInterface &is) override;
   void saveData(TOutputStreamInterface &os) const override;
 
 private:
-  void drawPolyline(const TColorFunction *cf, std::vector<T3DPointD> &polyline,
+  void drawPolyline(TCanvas &canvas, const TColorFunction *cf,
+                    std::vector<T3DPointD> &polyline,
                     TPointD shadowDirection) const;
 };
 
@@ -174,13 +186,18 @@ public:
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
 protected:
   void loadData(TInputStreamInterface &is) override;
   void saveData(TOutputStreamInterface &os) const override;
 
 private:
-  void drawPolyline(const TColorFunction *cf,
+  void drawPolyline(TCanvas &canvas, const TColorFunction *cf,
                     const std::vector<T3DPointD> &polyline,
                     TPointD shadowDirection) const;
 };
@@ -236,6 +253,11 @@ public:
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
 protected:
   void loadData(TInputStreamInterface &is) override;
@@ -291,6 +313,11 @@ void setMainColor(const TPixel32 &color){ m_shadowColor=color; }
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
 protected:
   void loadData(TInputStreamInterface &is) override;
@@ -299,8 +326,17 @@ protected:
 private:
   double triangleArea(const TPointD &a, const TPointD &b,
                       const TPointD &c) const;
-  void shadowOnEdge_parallel(const TPointD &p0, const TPointD &p1,
+  void shadowOnEdge_parallel(TCanvas &canvas, const TCanvasPen &pen,
+                             const TPointD &p0, const TPointD &p1,
                              const TPointD &p2, TRandom &rnd) const;
+
+  // The smallest and the largest smooth point of the OpenGL driver the
+  // style is drawn with, in pixels; without OpenGL, these.
+  static constexpr float kSmallestPoint = 1.f;
+  static constexpr float kLargestPoint  = 64.f;
+  void drawOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                    bool antiAliasing, TRegionOutline &boundary,
+                    float smallestPoint, float largestPoint) const;
 
   void deleteSameVerts(TRegionOutline::Boundary::iterator &rit,
                        std::vector<T3DPointD> &pv) const;
@@ -345,6 +381,11 @@ void setMainColor(const TPixel32 &color){ m_pointColor=color; }
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   int getTagId() const override { return 1130; };
   QString getDescription() const override {
@@ -399,6 +440,11 @@ void setMainColor(const TPixel32 &color){ m_pointColor=color; }
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   int getTagId() const override { return 1131; };
   QString getDescription() const override {
@@ -470,6 +516,11 @@ public:
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
 protected:
   void loadData(TInputStreamInterface &is) override;
@@ -511,6 +562,11 @@ void setMainColor(const TPixel32 &color){ m_color0=color; }
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   QString getDescription() const override {
     return QCoreApplication::translate("TChalkFillStyle", "Chalk");
@@ -563,6 +619,11 @@ void setMainColor(const TPixel32 &color){ m_pointColor=color; }
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   int getTagId() const override { return 1136; };
   QString getDescription() const override {
@@ -615,6 +676,11 @@ void setMainColor(const TPixel32 &color){ m_pointColor=color; }
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   int getTagId() const override { return 1137; };
   QString getDescription() const override {
@@ -671,6 +737,11 @@ void setMainColor(const TPixel32 &color){ m_pointColor=color; }
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   int getTagId() const override { return 1138; };
   QString getDescription() const override {
@@ -725,6 +796,11 @@ public:
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   int getTagId() const override { return 1139; };
   QString getDescription() const override {
@@ -774,6 +850,11 @@ void setMainColor(const TPixel32 &color){ m_pointColor=color; }
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   int getTagId() const override { return 1140; };
   QString getDescription() const override {
@@ -790,7 +871,8 @@ protected:
 private:
   void getCircleStripeQuads(const TPointD &center, const double r1,
                             const double r2, std::vector<TPointD> &pv) const;
-  void drawCircleStripe(const TPointD &center, const double r1, const double r2,
+  void drawCircleStripe(TCanvas &canvas, const TPointD &center,
+                        const double r1, const double r2,
                         const TPixel32 &col) const;
 };
 
@@ -833,6 +915,11 @@ void setMainColor(const TPixel32 &color){ m_pointColor[0]=color; }
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   int getTagId() const override { return 1141; };
   QString getDescription() const override {
@@ -884,6 +971,11 @@ public:
 
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
+  //! On a canvas; drawRegion() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return RegionsOnCanvas; }
+  void drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          bool antiAliasing,
+                          TRegionOutline &outline) const override;
 
   int getTagId() const override { return 1142; };
   QString getDescription() const override {
@@ -896,7 +988,6 @@ private:
                   TRandom &rand) const;
   bool getQuadLine(const TPointD &a, const TPointD &b, const double thickn,
                    TPointD *quad) const;
-  void drawGLQuad(const TPointD *quad) const;
   int nbClip(const int lX, const int lY, const std::vector<TPointD> &v) const;
 
 protected:

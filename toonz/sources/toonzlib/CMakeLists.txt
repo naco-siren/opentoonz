@@ -398,6 +398,5 @@ elseif(BUILD_ENV_UNIXLIKE)
     target_link_libraries(toonzlib Qt5::Core Qt5::Gui Qt5::OpenGL Qt5::Script Qt5::Multimedia ${GLUT_LIB} ${GL_LIB} ${GLEW_LIB} ${EXTRA_LIBS} ${MYPAINT_LIB_LDFLAGS})
 endif()
 
-# Styles of this library draw on the canvas interface; their old OpenGL
-# entry points reach it through the OpenGL canvas.
-target_link_libraries(toonzlib tnzcanvas tnzglcanvas)
+# Styles of this library draw on the canvas interface.
+target_link_libraries(toonzlib tnzcanvas)

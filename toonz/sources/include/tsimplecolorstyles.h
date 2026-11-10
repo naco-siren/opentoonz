@@ -202,6 +202,18 @@ public:
                           TStrokeOutline *outline, const TStroke *stroke,
                           bool antialias) const override;
 
+  //! What the styles that put a pattern on a region start with: saves the
+  //! canvas, draws the region in this style's colour (if that shows) and
+  //! clips to the region. The caller draws its pattern and restores.
+  void drawRegionAndClipOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                                 bool antiAliasing,
+                                 TRegionOutline &outline) const;
+  //! The same, for a style that has its own idea of whether the region
+  //! shows.
+  void drawRegionAndClipOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                                 bool antiAliasing, TRegionOutline &outline,
+                                 bool regionShows) const;
+
   void drawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                   const TStroke *s) const override {
     doDrawStroke(cf, outline, s, true);

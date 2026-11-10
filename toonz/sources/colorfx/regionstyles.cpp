@@ -8,7 +8,73 @@
 #include "tregion.h"
 #include "tcurves.h"
 #include "tmathutil.h"
-#include "tstencilcontrol.h"
+
+#include "colorfxcanvas.h"
+#include "tglcanvasbridge.h"
+
+using colorfxcanvas::addQuad;
+using colorfxcanvas::addVertex;
+using colorfxcanvas::drawQuad;
+using colorfxcanvas::drawQuads;
+using colorfxcanvas::plainMesh;
+using colorfxcanvas::plainPaint;
+
+namespace {
+
+// The OpenGL entry point of a style that draws on a canvas. The old
+// versions of these styles left OpenGL as they had found it: whatever they
+// changed, they changed between the pushes and pops of their stencil masks.
+// The canvas version draws the region before it sets its clip, so the
+// attributes are kept here.
+template <class Draw>
+void drawThroughGl(Draw draw) {
+  glPushAttrib(GL_ALL_ATTRIB_BITS);
+  {
+    TLegacyGlCanvas gl;
+    draw(gl.canvas());
+  }
+  glPopAttrib();
+}
+
+// A disc of this radius around each point, in the plain colour: what the
+// styles drew with tglDrawDisk(). Translucent discs go out one by one, so
+// that the colour is laid on twice where two overlap (see drawQuads()).
+void drawDiscs(TCanvas &canvas, const std::vector<TPointD> &centres,
+               double radius, const TPixel32 &color) {
+  if (centres.empty() || !(radius > 0.0)) return;
+  TCanvasPen pen;
+  pen.width = 2.0 * radius;
+  pen.unit  = TCanvasPen::Unit::Local;
+  pen.cap   = TCanvasPen::Cap::Round;
+  TCanvasPaint paint(toCanvas(color));
+  paint.antialias = false;
+
+  TCanvasPath discs;
+  for (const TPointD &centre : centres) {
+    discs.moveTo(toCanvas(centre));
+    if (color.m == 255) continue;
+    canvas.strokePath(discs, pen, paint);
+    discs = TCanvasPath();
+  }
+  if (!discs.isEmpty()) canvas.strokePath(discs, pen, paint);
+}
+
+// The pen and the paint of the smooth lines, one pixel wide, that the
+// styles with stripes draw along the edges of their stripes.
+TCanvasPen thinPen() {
+  TCanvasPen pen;
+  pen.width = 1.0;
+  pen.unit  = TCanvasPen::Unit::Device;
+  return pen;
+}
+
+TCanvasPaint smoothPaint(const TPixel32 &color) {
+  TCanvasPaint paint(toCanvas(color));
+  paint.antialias = true;
+  return paint;
+}
+
+}  // namespace
 
 //***************************************************************************
 //    MovingModifier  implementation
@@ -158,6 +224,13 @@ void MovingSolidColor::drawRegion(const TColorFunction *cf,
   TSolidColorStyle::drawRegion(cf, true, boundary);
 }
 
+//------------------------------------------------------------
+
+void MovingSolidColor::drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    bool antiAliasing, TRegionOutline &outline) const {
+  TSolidColorStyle::drawRegionOnCanvas(canvas, cf, true, outline);
+}
+
 //***************************************************************************
 //    ShadowStyle  implementation
 //***************************************************************************
@@ -298,7 +371,9 @@ void ShadowStyle::setParamValue(int index, double value) {
 
 //------------------------------------------------------------
 
-void ShadowStyle::drawPolyline(const TColorFunction *cf,
+// Thin lines from the edges that face the light into the region, along the
+// light, each fading in and out along its length.
+void ShadowStyle::drawPolyline(TCanvas &canvas, const TColorFunction *cf,
                                std::vector<T3DPointD> &polyline,
                                TPointD shadowDirection) const {
   int i;
@@ -314,11 +389,11 @@ void ShadowStyle::drawPolyline(const TColorFunction *cf,
   else
     color = m_shadowColor;
 
-  tglColor(color);
-
-  // glEnable(GL_BLEND);
-  // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  //// <-- tglEnableBlending();
+  // Transparent at both ends of a line, the colour in the middle.
+  TCanvasPaint paint = smoothPaint(TPixel32::White);
+  paint.shader.kind  = TCanvasShader::Kind::LinearGradient;
+  const TCanvasColor faded = toCanvas(TPixel32(color.r, color.g, color.b, 0));
+  paint.shader.stops = {{0.0, faded}, {0.5, toCanvas(color)}, {1.0, faded}};
 
   TRegionOutline::PointVector::iterator it;
   TRegionOutline::PointVector::iterator it_b = polyline.begin();
@@ -342,60 +417,52 @@ void ShadowStyle::drawPolyline(const TColorFunction *cf,
       midPoint   = v1;
       stepNumber = (int)distance;
 
+      // All the lines of an edge in one path. They start on the edge and
+      // run the same way for the same length, so one gradient across the
+      // band they cover, from the edge to its far side, is the gradient
+      // along each of them.
+      TCanvasPath lines;
       for (i = 0; i < stepNumber; i++) {
-        glBegin(GL_LINE_STRIP);
-
-        tglColor(TPixel32(color.r, color.g, color.b, 0));
-        tglVertex(midPoint);
-
-        tglColor(color);
-        tglVertex(midPoint + (shadowDirection * len * m_len * 0.5));
-
-        tglColor(TPixel32(color.r, color.g, color.b, 0));
-        tglVertex(midPoint + (shadowDirection * len * m_len));
+        lines.moveTo(toCanvas(midPoint));
+        lines.lineTo(toCanvas(midPoint + (shadowDirection * len * m_len * 0.5)));
+        lines.lineTo(toCanvas(midPoint + (shadowDirection * len * m_len)));
 
         midPoint += ratio;
-
-        glEnd();
+      }
+      const double depth = len * len * m_len;
+      if (stepNumber > 0 && depth != 0.0) {
+        paint.shader.p0 = toCanvas(v1);
+        paint.shader.p1 = toCanvas(v1 + diff * depth);
+        canvas.strokePath(lines, thinPen(), paint);
       }
     }
 
     v1 = v2;
   }
-  // tglColor(TPixel32::White);
 }
 
 //------------------------------------------------------------
 
-void ShadowStyle::drawRegion(const TColorFunction *cf, const bool antiAliasing,
-                             TRegionOutline &regionOutline) const {
-  TStencilControl *stenc = TStencilControl::instance();
+void ShadowStyle::drawRegion(const TColorFunction *cf,
+                            const bool antiAliasing,
+                            TRegionOutline &regionOutline) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, regionOutline);
+  });
+}
 
+//------------------------------------------------------------
+
+
+// The region, hatched inwards from its outer edges; and the holes of the
+// region, hatched from their edges.
+void ShadowStyle::drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                                     bool antiAliasing,
+                                     TRegionOutline &regionOutline) const {
   TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
   if (cf) backgroundColor  = (*(cf))(backgroundColor);
 
-  ////stenc->beginMask();
-  /*
-glBegin(GL_QUADS);
-glVertex2d (regionOutline.m_bbox.getP00().x, regionOutline.m_bbox.getP00().y);
-glVertex2d (regionOutline.m_bbox.getP01().x, regionOutline.m_bbox.getP01().y);
-glVertex2d (regionOutline.m_bbox.getP11().x, regionOutline.m_bbox.getP11().y);
-glVertex2d (regionOutline.m_bbox.getP10().x, regionOutline.m_bbox.getP10().y);
-glEnd();
-*/
-  ////stenc->endMask();
-  ////stenc->enableMask(TStencilControl::SHOW_INSIDE);
-
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();
-    appStyle.drawRegion(0, false, regionOutline);
-  } else {
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, regionOutline);
-  }
-  stenc->endMask();
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, regionOutline);
 
   TRegionOutline::Boundary::iterator regions_it;
   TRegionOutline::Boundary::iterator regions_it_b =
@@ -403,19 +470,27 @@ glEnd();
   TRegionOutline::Boundary::iterator regions_it_e =
       regionOutline.m_exterior.end();
   for (regions_it = regions_it_b; regions_it != regions_it_e; ++regions_it)
-    drawPolyline(cf, *regions_it, m_shadowDirection);
+    drawPolyline(canvas, cf, *regions_it, m_shadowDirection);
 
-  stenc->enableMask(TStencilControl::SHOW_OUTSIDE);
+  canvas.restore();
+
+  if (regionOutline.m_interior.empty()) return;
+
+  // The other side of the same clip: where the region, as it was drawn, is
+  // not.
+  canvas.save();
+  canvas.clipPath(toCanvasPath(regionOutline), TCanvasFillRule::NonZero,
+                  TCanvasClipOp::Difference,
+                  backgroundColor.m != 0 && antiAliasing &&
+                      regionOutline.m_doAntialiasing);
 
   regions_it_b = regionOutline.m_interior.begin();
   regions_it_e = regionOutline.m_interior.end();
 
   for (regions_it = regions_it_b; regions_it != regions_it_e; ++regions_it)
-    drawPolyline(cf, *regions_it, -m_shadowDirection);
+    drawPolyline(canvas, cf, *regions_it, -m_shadowDirection);
 
-  // tglColor(TPixel32::White);
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //------------------------------------------------------------
@@ -557,8 +632,10 @@ void ShadowStyle2::setParamValue(int index, double value) {
 
 namespace {
 
-void drawShadowLine(TPixel32 shadowColor, TPixel32 color, TPointD v1,
-                    TPointD v2, TPointD diff1, TPointD diff2) {
+// A band from the edge v1 v2 into the region, the colour of the shadow at
+// the edge and of the region at the far side.
+void drawShadowLine(TCanvas &canvas, TPixel32 shadowColor, TPixel32 color,
+                    TPointD v1, TPointD v2, TPointD diff1, TPointD diff2) {
   v1    = v1 + diff1;
   v2    = v2 + diff2;
   diff1 = -diff1;
@@ -567,7 +644,7 @@ void drawShadowLine(TPixel32 shadowColor, TPixel32 color, TPointD v1,
   double r1, r2;
   double t = 0.0;
 
-  glBegin(GL_QUAD_STRIP);
+  TCanvasMesh strip = plainMesh(TCanvasMesh::Mode::TriangleStrip);
 
   for (; t <= 1; t += 0.1) {
     r1 = t * t * t;
@@ -577,18 +654,17 @@ void drawShadowLine(TPixel32 shadowColor, TPixel32 color, TPointD v1,
                (int)(color.g * r2 + shadowColor.g * r1),
                (int)(color.b * r2 + shadowColor.b * r1),
                (int)(color.m * r2 + shadowColor.m * r1));
-    tglColor(c);
-    tglVertex(v1 + t * diff1);
-    tglVertex(v2 + t * diff2);
+    addVertex(strip, v1 + t * diff1, c);
+    addVertex(strip, v2 + t * diff2, c);
   }
 
-  glEnd();
+  canvas.drawMesh(strip, plainPaint());
 }
 }
 
 //------------------------------------------------------------
 
-void ShadowStyle2::drawPolyline(const TColorFunction *cf,
+void ShadowStyle2::drawPolyline(TCanvas &canvas, const TColorFunction *cf,
                                 const std::vector<T3DPointD> &polyline,
                                 TPointD shadowDirection) const {
   if (polyline.empty()) return;
@@ -607,11 +683,6 @@ void ShadowStyle2::drawPolyline(const TColorFunction *cf,
   else
     shadowColor = m_shadowColor;
 
-  tglColor(shadowColor);
-
-  // glEnable(GL_BLEND);
-  // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  //// <-- tglEnableBlending();
   TRegionOutline::PointVector::const_iterator it;
   TRegionOutline::PointVector::const_iterator it_b = polyline.begin();
   TRegionOutline::PointVector::const_iterator it_e = polyline.end();
@@ -650,7 +721,7 @@ void ShadowStyle2::drawPolyline(const TColorFunction *cf,
     len2 = lens[count + 1];
 
     if (v0 != v1 && len1 >= 0 && len2 >= 0 && (len1 + len2) > 0)
-      drawShadowLine(shadowColor, color, v0, v1,
+      drawShadowLine(canvas, shadowColor, color, v0, v1,
                      shadowDirection * len1 * m_shadowLength,
                      shadowDirection * len2 * m_shadowLength);
   }
@@ -661,11 +732,9 @@ void ShadowStyle2::drawPolyline(const TColorFunction *cf,
   len1 = lens[count];
   len2 = lens[0];
   if (v0 != v1 && len1 >= 0 && len2 >= 0 && (len1 + len2) > 0)
-    drawShadowLine(shadowColor, color, v0, v1,
+    drawShadowLine(canvas, shadowColor, color, v0, v1,
                    shadowDirection * len1 * m_shadowLength,
                    shadowDirection * len2 * m_shadowLength);
-
-  // tglColor(TPixel32::White);
 }
 
 //------------------------------------------------------------
@@ -686,34 +755,32 @@ void ShadowStyle2::setColorParamValue(int index, const TPixel32 &color) {
 
 //------------------------------------------------------------
 
-void ShadowStyle2::drawRegion(const TColorFunction *cf, const bool antiAliasing,
-                              TRegionOutline &boundary) const {
-  TStencilControl *stenc   = TStencilControl::instance();
-  TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
-  if (cf) backgroundColor  = (*(cf))(backgroundColor);
+void ShadowStyle2::drawRegion(const TColorFunction *cf,
+                             const bool antiAliasing,
+                             TRegionOutline &boundary) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
+}
 
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();  // does not draw on screen
-    appStyle.drawRegion(0, false, boundary);
-  } else {  // create stencil mask and draw on screen
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
+//------------------------------------------------------------
 
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
+
+// The region, and along its outer edges that face the light a band that
+// fades from the colour of the shadow into the region's own.
+void ShadowStyle2::drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                                      bool antiAliasing,
+                                      TRegionOutline &boundary) const {
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary);
 
   TRegionOutline::Boundary::iterator regions_it;
   TRegionOutline::Boundary::iterator regions_it_b = boundary.m_exterior.begin();
   TRegionOutline::Boundary::iterator regions_it_e = boundary.m_exterior.end();
 
   for (regions_it = regions_it_b; regions_it != regions_it_e; ++regions_it)
-    drawPolyline(cf, *regions_it, m_shadowDirection);
+    drawPolyline(canvas, cf, *regions_it, m_shadowDirection);
 
-  // tglColor(TPixel32::White);
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //***************************************************************************
@@ -852,6 +919,13 @@ void TRubberFillStyle::drawRegion(const TColorFunction *cf,
                                   const bool antiAliasing,
                                   TRegionOutline &boundary) const {
   TSolidColorStyle::drawRegion(cf, true, boundary);
+}
+
+//------------------------------------------------------------
+
+void TRubberFillStyle::drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    bool antiAliasing, TRegionOutline &outline) const {
+  TSolidColorStyle::drawRegionOnCanvas(canvas, cf, true, outline);
 }
 
 //***************************************************************************
@@ -1045,7 +1119,9 @@ double TPointShadowFillStyle::triangleArea(const TPointD &a, const TPointD &b,
 
 //------------------------------------------------------------
 
-void TPointShadowFillStyle::shadowOnEdge_parallel(const TPointD &p0,
+void TPointShadowFillStyle::shadowOnEdge_parallel(TCanvas &canvas,
+                                                  const TCanvasPen &pen,
+                                                  const TPointD &p0,
                                                   const TPointD &p1,
                                                   const TPointD &p2,
                                                   TRandom &rnd) const {
@@ -1069,9 +1145,14 @@ void TPointShadowFillStyle::shadowOnEdge_parallel(const TPointD &p0,
       TPointD u = p1 + (p2 - p1) * q;
       u         = u +
           r * (len1 * (1.0 - q) + len2 * q) * m_shadowDirection * m_shadowSize;
-      tglColor(TPixel32(m_shadowColor.r, m_shadowColor.g, m_shadowColor.b,
-                        (int)((1.0 - r) * (double)m_shadowColor.m)));
-      tglVertex(u);
+      // Each point has its own opacity, and they go down in this order.
+      TCanvasPath dot;
+      dot.moveTo(toCanvas(u));
+      canvas.strokePath(
+          dot, pen,
+          smoothPaint(TPixel32(m_shadowColor.r, m_shadowColor.g,
+                               m_shadowColor.b,
+                               (int)((1.0 - r) * (double)m_shadowColor.m))));
     }
   }
 }
@@ -1103,41 +1184,48 @@ void TPointShadowFillStyle::deleteSameVerts(
 void TPointShadowFillStyle::drawRegion(const TColorFunction *cf,
                                        const bool antiAliasing,
                                        TRegionOutline &boundary) const {
-  TStencilControl *stenc   = TStencilControl::instance();
-  TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
-  if (cf) backgroundColor  = (*(cf))(backgroundColor);
+  drawThroughGl([&](TCanvas &canvas) {
+    // The points are as large as this driver can make them, times the
+    // style's parameter: that is what the style has always meant by a size.
+    GLfloat sizes[2];
+    glGetFloatv(GL_POINT_SIZE_RANGE, sizes);
+    drawOnCanvas(canvas, cf, antiAliasing, boundary, sizes[0], sizes[1]);
+  });
+}
 
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();  // does not draw on screen
-    appStyle.drawRegion(0, false, boundary);
-  } else {  // create stencil mask and draw on screen
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
+//------------------------------------------------------------
 
-  GLfloat pointSizeSave;
-  glGetFloatv(GL_POINT_SIZE, &pointSizeSave);
-  GLfloat sizes[2];
-  glGetFloatv(GL_POINT_SIZE_RANGE, sizes);
-  // glEnable(GL_BLEND);
-  // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  // glEnable(GL_POINT_SMOOTH);
-  // glPointSize((float)(sizes[0]+(sizes[1]-sizes[0])*m_pointSize*0.01));
-  tglEnablePointSmooth(
-      (float)(sizes[0] + (sizes[1] - sizes[0]) * m_pointSize * 0.01));
+void TPointShadowFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                               const TColorFunction *cf,
+                                               bool antiAliasing,
+                                               TRegionOutline &boundary) const {
+  // Away from OpenGL there is no driver to ask: the sizes are those of the
+  // driver this was developed on (see doc/nexttoonz_canvas_ir.md).
+  drawOnCanvas(canvas, cf, antiAliasing, boundary, kSmallestPoint,
+               kLargestPoint);
+}
+
+//------------------------------------------------------------
+
+// The region, and along its outer edges that face the light a scatter of
+// round points that thins out and fades into the region.
+void TPointShadowFillStyle::drawOnCanvas(TCanvas &canvas,
+                                         const TColorFunction *cf,
+                                         bool antiAliasing,
+                                         TRegionOutline &boundary,
+                                         float smallestPoint,
+                                         float largestPoint) const {
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary);
+
+  TCanvasPen pen;
+  pen.width = (float)(smallestPoint +
+                      (largestPoint - smallestPoint) * m_pointSize * 0.01);
+  pen.unit  = TCanvasPen::Unit::Device;
+  pen.cap   = TCanvasPen::Cap::Round;
 
   TRegionOutline::Boundary::iterator regions_it;
   TRegionOutline::Boundary::iterator regions_it_b = boundary.m_exterior.begin();
   TRegionOutline::Boundary::iterator regions_it_e = boundary.m_exterior.end();
-
-  TPixel32 color;
-  if (cf)
-    color = (*(cf))(m_shadowColor);
-  else
-    color = m_shadowColor;
 
   TRandom rnd;
 
@@ -1149,19 +1237,17 @@ void TPointShadowFillStyle::drawRegion(const TColorFunction *cf,
     std::vector<T3DPointD>::iterator it_end  = pv.end();
     std::vector<T3DPointD>::iterator it_last = it_end - 1;
     std::vector<T3DPointD>::iterator it0, it1, it2;
-    glBegin(GL_POINTS);
     for (it1 = it_beg; it1 != it_end; it1++) {
       it0 = it1 == it_beg ? it_last : it1 - 1;
       it2 = it1 == it_last ? it_beg : it1 + 1;
 
-      shadowOnEdge_parallel(TPointD(it0->x, it0->y), TPointD(it1->x, it1->y),
-                            TPointD(it2->x, it2->y), rnd);
+      shadowOnEdge_parallel(canvas, pen, TPointD(it0->x, it0->y),
+                            TPointD(it1->x, it1->y), TPointD(it2->x, it2->y),
+                            rnd);
     }
-    glEnd();
   }
 
-  glPointSize(pointSizeSave);
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //***************************************************************************
@@ -1289,34 +1375,25 @@ void TDottedFillStyle::setColorParamValue(int index, const TPixel32 &color) {
 //------------------------------------------------------------
 
 void TDottedFillStyle::drawRegion(const TColorFunction *cf,
-                                  const bool antiAliasing,
-                                  TRegionOutline &boundary) const {
+                                 const bool antiAliasing,
+                                 TRegionOutline &boundary) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
+}
+
+//------------------------------------------------------------
+
+
+// The region, and on it a grid of discs.
+void TDottedFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                          const TColorFunction *cf,
+                                          bool antiAliasing,
+                                          TRegionOutline &boundary) const {
   double LDotDist = std::max(m_dotDist, 0.1);
-  // double LDotSize=m_dotSize;
-  bool LIsShifted          = m_isShifted;
-  const bool isTransparent = m_pointColor.m < 255;
+  bool LIsShifted = m_isShifted;
 
-  TStencilControl *stenc   = TStencilControl::instance();
-  TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
-  if (cf) backgroundColor  = (*(cf))(backgroundColor);
-
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();  // does not draw on screen
-    appStyle.drawRegion(0, false, boundary);
-  } else {  // create stencil mask and draw on screen
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
-
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
-
-  if (isTransparent) {
-    // glEnable(GL_BLEND);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    //// <-- tglEnableBlending();
-  }
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary);
 
   TPixel32 color;
   if (cf)
@@ -1324,24 +1401,18 @@ void TDottedFillStyle::drawRegion(const TColorFunction *cf,
   else
     color = m_pointColor;
 
-  tglColor(color);
-
+  std::vector<TPointD> centres;
   int i = 0;
   for (double y = boundary.m_bbox.y0; y <= boundary.m_bbox.y1;
        y += LDotDist, ++i) {
     double x = LIsShifted && (i % 2) == 1 ? boundary.m_bbox.x0 + LDotDist / 2.0
                                           : boundary.m_bbox.x0;
     for (; x <= boundary.m_bbox.x1; x += LDotDist)
-      tglDrawDisk(TPointD(x, y), m_dotSize);
-    //			tglDrawCircle(TPointD(x,y),m_dotSize);
+      centres.push_back(TPointD(x, y));
   }
+  drawDiscs(canvas, centres, m_dotSize, color);
 
-  if (isTransparent) {
-    // tglColor(TPixel32::White);
-    // glDisable(GL_BLEND);
-  }
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //------------------------------------------------------------
@@ -1574,38 +1645,28 @@ void TCheckedFillStyle::setColorParamValue(int index, const TPixel32 &color) {
 //------------------------------------------------------------
 
 void TCheckedFillStyle::drawRegion(const TColorFunction *cf,
-                                   const bool antiAliasing,
-                                   TRegionOutline &boundary) const {
-  TStencilControl *stenc   = TStencilControl::instance();
-  TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
-  if (cf) backgroundColor  = (*(cf))(backgroundColor);
+                                  const bool antiAliasing,
+                                  TRegionOutline &boundary) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
+}
 
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();  // does not draw on screen
-    appStyle.drawRegion(0, false, boundary);
-  } else {  // create stencil mask and draw on screen
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
+//------------------------------------------------------------
 
-  const bool isTransparent = m_pointColor.m < 255;
-  if (isTransparent) {
-    // glEnable(GL_BLEND);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    //// <-- tglEnableBlending();
-  }
 
-  glBegin(GL_QUADS);
+// The region, and on it two sets of thick lines that cross.
+void TCheckedFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                           const TColorFunction *cf,
+                                           bool antiAliasing,
+                                           TRegionOutline &boundary) const {
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary);
+
   TPixel32 color;
   if (cf)
     color = (*(cf))(m_pointColor);
   else
     color = m_pointColor;
-
-  tglColor(color);
 
   // Horizontal Lines
   double lx   = boundary.m_bbox.x1 - boundary.m_bbox.x0;
@@ -1615,13 +1676,11 @@ void TCheckedFillStyle::drawRegion(const TColorFunction *cf,
   beg         = m_HAngle <= 0 ? beg : beg - lx * tan(degree2rad(m_HAngle));
   end         = m_HAngle >= 0 ? end : end - lx * tan(degree2rad(m_HAngle));
   double dist = m_HDist / cos(degree2rad(m_HAngle));
+  TCanvasMesh horizontal = plainMesh(TCanvasMesh::Mode::Quads);
   for (double y = beg; y <= end; y += dist) {
     TPointD p0, p1, p2, p3;
     getHThickline(TPointD(boundary.m_bbox.x0, y), lx, p0, p1, p2, p3);
-    tglVertex(p0);
-    tglVertex(p1);
-    tglVertex(p2);
-    tglVertex(p3);
+    addQuad(horizontal, p0, p1, p2, p3, color);
   }
 
   // Vertical Lines
@@ -1630,23 +1689,19 @@ void TCheckedFillStyle::drawRegion(const TColorFunction *cf,
   beg  = (-m_VAngle) <= 0 ? beg : beg - ly * tan(degree2rad(-m_VAngle));
   end  = (-m_VAngle) >= 0 ? end : end - ly * tan(degree2rad(-m_VAngle));
   dist = m_VDist / cos(degree2rad(-m_VAngle));
+  TCanvasMesh vertical = plainMesh(TCanvasMesh::Mode::Quads);
   for (double x = beg; x <= end; x += dist) {
     TPointD p0, p1, p2, p3;
     getVThickline(TPointD(x, boundary.m_bbox.y0), ly, p0, p1, p2, p3);
-    tglVertex(p0);
-    tglVertex(p1);
-    tglVertex(p2);
-    tglVertex(p3);
+    addQuad(vertical, p0, p1, p2, p3, color);
   }
 
-  glEnd();
+  // One set after the other: where they cross, a translucent colour is
+  // laid on twice.
+  drawQuads(canvas, horizontal);
+  drawQuads(canvas, vertical);
 
-  if (isTransparent) {
-    // tglColor(TPixel32::White);
-    // glDisable(GL_BLEND);
-  }
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //------------------------------------------------------------
@@ -1879,6 +1934,13 @@ void ArtisticSolidColor::drawRegion(const TColorFunction *cf,
   TSolidColorStyle::drawRegion(cf, true, boundary);
 }
 
+//------------------------------------------------------------
+
+void ArtisticSolidColor::drawRegionOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    bool antiAliasing, TRegionOutline &outline) const {
+  TSolidColorStyle::drawRegionOnCanvas(canvas, cf, true, outline);
+}
+
 //***************************************************************************
 //    TChalkFillStyle  implementation
 //***************************************************************************
@@ -2023,43 +2085,30 @@ void TChalkFillStyle::setColorParamValue(int index, const TPixel32 &color) {
 //------------------------------------------------------------
 
 void TChalkFillStyle::drawRegion(const TColorFunction *cf,
-                                 const bool antiAliasing,
-                                 TRegionOutline &boundary) const {
-  // const bool isTransparent=m_color0.m<255;
+                                const bool antiAliasing,
+                                TRegionOutline &boundary) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
+}
 
-  // TRegionOutline::Boundary& exter=*(boundary.m_exterior);
-  // TRegionOutline::Boundary& inter=*(boundary.m_interior);
+//------------------------------------------------------------
 
+
+// The region, and scattered over it small squares of the second colour,
+// each with an opacity of its own.
+void TChalkFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                         const TColorFunction *cf,
+                                         bool antiAliasing,
+                                         TRegionOutline &boundary) const {
   TPixel32 color0;
   if (cf)
     color0 = (*(cf))(m_color0);
   else
     color0 = m_color0;
 
-  TStencilControl *stenc   = TStencilControl::instance();
-  TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
-  if (cf) backgroundColor  = (*(cf))(backgroundColor);
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary);
 
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();  // does not draw on screen
-    appStyle.drawRegion(0, false, boundary);
-  } else {  // create stencil mask and draw on screen
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
-
-  int chalkId = glGenLists(1);
-  glNewList(chalkId, GL_COMPILE);
-  glBegin(GL_QUADS);
-  glVertex2d(m_size, m_size);
-  glVertex2d(-m_size, m_size);
-  glVertex2d(-m_size, -m_size);
-  glVertex2d(m_size, -m_size);
-  glEnd();
-  glEndList();
   TRandom rnd;
 
   double lx = boundary.m_bbox.x1 - boundary.m_bbox.x0;
@@ -2074,18 +2123,16 @@ void TChalkFillStyle::drawRegion(const TColorFunction *cf,
     double shiftx     = boundary.m_bbox.x0 + rnd.getFloat() * lx;
     double shifty     = boundary.m_bbox.y0 + rnd.getFloat() * ly;
     tmpcolor.m        = (UCHAR)(tmpcolor.m * rnd.getFloat());
-    tglColor(tmpcolor);
-    glPushMatrix();
-    glTranslated(shiftx, shifty, 0.0);
-    glCallList(chalkId);
-    glPopMatrix();
+    // The square is moved into place by the transform, not by adding to its
+    // corners: that is how it has always been rounded to pixels.
+    canvas.save();
+    canvas.concat(TCanvasAffine::translation(shiftx, shifty));
+    drawQuad(canvas, TPointD(m_size, m_size), TPointD(-m_size, m_size),
+             TPointD(-m_size, -m_size), TPointD(m_size, -m_size), tmpcolor);
+    canvas.restore();
   }
 
-  // glEnd(); e questo che era???
-
-  glDeleteLists(chalkId, 1);
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //***************************************************************************
@@ -2264,33 +2311,28 @@ void TChessFillStyle::makeGrid(TRectD &bbox, TRotation &rotM,
 //------------------------------------------------------------
 
 void TChessFillStyle::drawRegion(const TColorFunction *cf,
-                                 const bool antiAliasing,
-                                 TRegionOutline &boundary) const {
-  //	const bool isTransparent=m_pointColor.m<255;
+                                const bool antiAliasing,
+                                TRegionOutline &boundary) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
+}
 
-  TStencilControl *stenc   = TStencilControl::instance();
-  TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
-  if (cf) backgroundColor  = (*(cf))(backgroundColor);
+//------------------------------------------------------------
 
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();  // does not draw on screen
-    appStyle.drawRegion(0, false, boundary);
-  } else {  // create stencil mask and draw on screen
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
 
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
+// The region, and on it every other square of a turned grid.
+void TChessFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                         const TColorFunction *cf,
+                                         bool antiAliasing,
+                                         TRegionOutline &boundary) const {
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary);
 
   TPixel32 color;
   if (cf)
     color = (*(cf))(m_pointColor);
   else
     color = m_pointColor;
-
-  tglColor(color);
 
   TPointD vert[4];
   vert[0].x = -0.5;
@@ -2306,16 +2348,6 @@ void TChessFillStyle::drawRegion(const TColorFunction *cf,
   TScale scaleM(m_HDist, m_VDist);
   for (int i = 0; i < 4; i++) vert[i] = rotM * scaleM * vert[i];
 
-  int chessId = glGenLists(1);
-  glNewList(chessId, GL_COMPILE);
-  glBegin(GL_QUADS);
-  glVertex2d(vert[0].x, vert[0].y);
-  glVertex2d(vert[1].x, vert[1].y);
-  glVertex2d(vert[2].x, vert[2].y);
-  glVertex2d(vert[3].x, vert[3].y);
-  glEnd();
-  glEndList();
-
   int nbClip = 1;
   std::vector<TPointD> grid;
   makeGrid(boundary.m_bbox, rotM, grid, nbClip);
@@ -2323,14 +2355,14 @@ void TChessFillStyle::drawRegion(const TColorFunction *cf,
   std::vector<TPointD>::const_iterator it  = grid.begin();
   std::vector<TPointD>::const_iterator ite = grid.end();
   for (; it != ite; it++) {
-    glPushMatrix();
-    glTranslated(it->x, it->y, 0.0);
-    glCallList(chessId);
-    glPopMatrix();
+    // Moved into place by the transform: see TChalkFillStyle.
+    canvas.save();
+    canvas.concat(TCanvasAffine::translation(it->x, it->y));
+    drawQuad(canvas, vert[0], vert[1], vert[2], vert[3], color);
+    canvas.restore();
   }
 
-  stenc->disableMask();
-  glDeleteLists(chessId, 1);
+  canvas.restore();
 }
 
 //***************************************************************************
@@ -2527,32 +2559,25 @@ inline void trim(TPointD &p0, TPointD &p1, double y0, double y1) {
 //------------------------------------------------------------
 
 void TStripeFillStyle::drawRegion(const TColorFunction *cf,
-                                  const bool antiAliasing,
-                                  TRegionOutline &boundary) const {
-  const bool isTransparent = m_pointColor.m < 255;
+                                 const bool antiAliasing,
+                                 TRegionOutline &boundary) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    // The lines along the stripes are smooth whatever the caller has set.
+    tglEnableLineSmooth();
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
+}
 
-  TStencilControl *stenc = TStencilControl::instance();
+//------------------------------------------------------------
 
-  TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
-  if (cf) backgroundColor  = (*(cf))(backgroundColor);
 
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();
-    appStyle.drawRegion(0, false, boundary);
-  } else {
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
-
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
-
-  if (isTransparent) {
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // glEnable(GL_BLEND);
-    //// <-- tglEnableBlending();
-  }
+// The region, and on it parallel stripes. A stripe that is not level gets
+// a smooth line down each of its two edges, on the outside.
+void TStripeFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                          const TColorFunction *cf,
+                                          bool antiAliasing,
+                                          TRegionOutline &boundary) const {
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary);
 
   TPixel32 color;
   if (cf)
@@ -2560,12 +2585,11 @@ void TStripeFillStyle::drawRegion(const TColorFunction *cf,
   else
     color = m_pointColor;
 
-  tglColor(color);
+  TCanvasMesh stripes = plainMesh(TCanvasMesh::Mode::Quads);
 
   // Horizontal Lines
   if (fabs(m_Angle) != 90) {
-    double lx = boundary.m_bbox.x1 - boundary.m_bbox.x0;
-    // double ly=boundary.m_bbox.y1-boundary.m_bbox.y0;
+    double lx   = boundary.m_bbox.x1 - boundary.m_bbox.x0;
     double beg  = boundary.m_bbox.y0;
     double end  = boundary.m_bbox.y1;
     beg         = m_Angle <= 0 ? beg : beg - lx * tan(degree2rad(m_Angle));
@@ -2574,51 +2598,38 @@ void TStripeFillStyle::drawRegion(const TColorFunction *cf,
 
     double y;
 
-    TStencilControl *stenc2 = TStencilControl::instance();
-    stenc2->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-
-    glBegin(GL_QUADS);
     for (y = beg; y <= end; y += dist) {
       TPointD p0, p1, p2, p3;
       getThickline(TPointD(boundary.m_bbox.x0, y), lx, p0, p1, p2, p3);
-      tglVertex(p0);
-      tglVertex(p1);
-      tglVertex(p2);
-      tglVertex(p3);
+      addQuad(stripes, p0, p1, p2, p3, color);
     }
-    glEnd();
-    stenc2->endMask();
-
-    stenc2->enableMask(TStencilControl::SHOW_OUTSIDE);
+    drawQuads(canvas, stripes);
 
     if (m_Angle != 0)  // ANTIALIASING
     {
-      // glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-      // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-      // glEnable(GL_BLEND);
-      // glEnable(GL_LINE_SMOOTH);
-
-      tglEnableLineSmooth();
-
       // NOTE: Trimming the fat lines is necessary outside the (-60, 60) angles
       // interval
       // seemingly due to a bug in MAC-Leopard's openGL implementation...
 
-      glBegin(GL_LINES);
+      TCanvasPath edges;
       for (y = beg; y <= end; y += dist) {
         TPointD p0, p1, p2, p3;
         getThickline(TPointD(boundary.m_bbox.x0, y), lx, p0, p1, p2, p3);
         trim(p1, p2, boundary.m_bbox.y0, boundary.m_bbox.y1);
-        tglVertex(p1);
-        tglVertex(p2);
+        edges.moveTo(toCanvas(p1));
+        edges.lineTo(toCanvas(p2));
 
         trim(p0, p3, boundary.m_bbox.y0, boundary.m_bbox.y1);
-        tglVertex(p0);
-        tglVertex(p3);
+        edges.moveTo(toCanvas(p0));
+        edges.lineTo(toCanvas(p3));
       }
-      glEnd();
+
+      // Only next to the stripes, not on them.
+      canvas.save();
+      canvas.clipMesh(stripes, TCanvasClipOp::Difference);
+      canvas.strokePath(edges, thinPen(), smoothPaint(color));
+      canvas.restore();
     }
-    stenc2->disableMask();
 
   } else {
     double beg = boundary.m_bbox.x0;
@@ -2626,23 +2637,17 @@ void TStripeFillStyle::drawRegion(const TColorFunction *cf,
     double y0  = boundary.m_bbox.y0;
     double y1  = boundary.m_bbox.y1;
 
-    glBegin(GL_QUADS);
     for (double x = beg; x <= end; x += m_Dist) {
       TPointD p0(x, y0);
       TPointD p1(x + m_Thickness, y0);
       TPointD p2(x, y1);
       TPointD p3(x + m_Thickness, y1);
-      tglVertex(p0);
-      tglVertex(p1);
-      tglVertex(p3);
-      tglVertex(p2);
+      addQuad(stripes, p0, p1, p3, p2, color);
     }
-    glEnd();
+    drawQuads(canvas, stripes);
   }
 
-  // tglColor(TPixel32::White);
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //------------------------------------------------------------
@@ -2904,13 +2909,18 @@ void TLinGradFillStyle::getRects(const TRectD &bbox, std::vector<TPointD> &r0,
 void TLinGradFillStyle::drawRegion(const TColorFunction *cf,
                                    const bool antiAliasing,
                                    TRegionOutline &boundary) const {
-  // only to create stencil mask
-  TStencilControl *stenc = TStencilControl::instance();
-  TSolidColorStyle appStyle(TPixel32::White);
-  stenc->beginMask();  // does not draw on screen
-  appStyle.drawRegion(0, false, boundary);
-  stenc->endMask();
+  TLegacyGlCanvas gl;
+  drawRegionOnCanvas(gl.canvas(), cf, antiAliasing, boundary);
+}
 
+//------------------------------------------------------------
+
+// Three quads across the region, clipped to it: the second colour, the
+// blend from the second colour to the first, the first colour.
+void TLinGradFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                           const TColorFunction *cf,
+                                           bool antiAliasing,
+                                           TRegionOutline &boundary) const {
   // compute colors
   TPixel32 color1, color2;
   if (cf) {
@@ -2930,27 +2940,17 @@ void TLinGradFillStyle::drawRegion(const TColorFunction *cf,
   assert(r2.size() == 4);
 
   // draw
+  canvas.save();
+  canvas.clipPath(toCanvasPath(boundary), TCanvasFillRule::NonZero,
+                  TCanvasClipOp::Intersect, false);
 
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
+  TCanvasMesh quads = plainMesh(TCanvasMesh::Mode::Quads);
+  addQuad(quads, r0[0], r0[1], r0[2], r0[3], color2);
+  addQuad(quads, r1[0], r1[1], r1[2], r1[3], color2, color2, color1, color1);
+  addQuad(quads, r2[0], r2[1], r2[2], r2[3], color1);
+  canvas.drawMesh(quads, plainPaint());
 
-  glBegin(GL_QUADS);
-
-  tglColor(color2);
-  int i = 0;
-  for (; i < 4; tglVertex(r0[i++]))
-    ;
-  tglVertex(r1[0]);
-  tglVertex(r1[1]);
-
-  tglColor(color1);
-  tglVertex(r1[2]);
-  tglVertex(r1[3]);
-  for (i = 0; i < 4; tglVertex(r2[i++]))
-    ;
-
-  glEnd();
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //***************************************************************************
@@ -3127,13 +3127,19 @@ void TRadGradFillStyle::setColorParamValue(int index, const TPixel32 &color) {
 void TRadGradFillStyle::drawRegion(const TColorFunction *cf,
                                    const bool antiAliasing,
                                    TRegionOutline &boundary) const {
-  TStencilControl *stenc = TStencilControl::instance();
-  // only to create stencil mask
-  TSolidColorStyle appStyle(TPixel32::White);
-  stenc->beginMask();  // does not draw on screen
-  appStyle.drawRegion(0, false, boundary);
-  stenc->endMask();
+  TLegacyGlCanvas gl;
+  drawRegionOnCanvas(gl.canvas(), cf, antiAliasing, boundary);
+}
 
+//------------------------------------------------------------
+
+// A disc of the inner colour, a ring that blends to the outer colour and a
+// ring of the outer colour wide enough to cover the region, clipped to it;
+// each in 72 slices.
+void TRadGradFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                           const TColorFunction *cf,
+                                           bool antiAliasing,
+                                           TRegionOutline &boundary) const {
   TPixel32 backgroundColor, color;
   if (cf) {
     backgroundColor = (*(cf))(TSolidColorStyle::getMainColor());
@@ -3158,36 +3164,39 @@ void TRadGradFillStyle::drawRegion(const TColorFunction *cf,
   for (double angle = 0.0; angle <= 360.0; angle += dAngle)
     sincos.push_back(TPointD(sin(degree2rad(angle)), cos(degree2rad(angle))));
 
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
+  canvas.save();
+  canvas.clipPath(toCanvasPath(boundary), TCanvasFillRule::NonZero,
+                  TCanvasClipOp::Intersect, false);
 
-  glBegin(GL_TRIANGLE_FAN);
-  tglColor(color);
-  tglVertex(center);
+  TCanvasMesh disc = plainMesh(TCanvasMesh::Mode::TriangleFan);
+  addVertex(disc, center, color);
   int i = 0;
   for (; i < (int)sincos.size(); i++)
-    tglVertex(center + TPointD(r0 * sincos[i].x, r0 * sincos[i].y));
-  glEnd();
+    addVertex(disc, center + TPointD(r0 * sincos[i].x, r0 * sincos[i].y),
+              color);
+  canvas.drawMesh(disc, plainPaint());
 
   if (fabs(r0 - r1) > TConsts::epsilon) {
-    glBegin(GL_QUAD_STRIP);
+    TCanvasMesh blend = plainMesh(TCanvasMesh::Mode::TriangleStrip);
     for (i = 0; i < (int)sincos.size(); i++) {
-      tglColor(color);
-      tglVertex(center + TPointD(r0 * sincos[i].x, r0 * sincos[i].y));
-      tglColor(backgroundColor);
-      tglVertex(center + TPointD(r1 * sincos[i].x, r1 * sincos[i].y));
+      addVertex(blend, center + TPointD(r0 * sincos[i].x, r0 * sincos[i].y),
+                color);
+      addVertex(blend, center + TPointD(r1 * sincos[i].x, r1 * sincos[i].y),
+                backgroundColor);
     }
-    glEnd();
+    canvas.drawMesh(blend, plainPaint());
   }
 
-  tglColor(backgroundColor);
-  glBegin(GL_QUAD_STRIP);
+  TCanvasMesh rest = plainMesh(TCanvasMesh::Mode::TriangleStrip);
   for (i = 0; i < (int)sincos.size(); i++) {
-    tglVertex(center + TPointD(r1 * sincos[i].x, r1 * sincos[i].y));
-    tglVertex(center + TPointD(r2 * sincos[i].x, r2 * sincos[i].y));
+    addVertex(rest, center + TPointD(r1 * sincos[i].x, r1 * sincos[i].y),
+              backgroundColor);
+    addVertex(rest, center + TPointD(r2 * sincos[i].x, r2 * sincos[i].y),
+              backgroundColor);
   }
-  glEnd();
+  canvas.drawMesh(rest, plainPaint());
 
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //***************************************************************************
@@ -3376,52 +3385,63 @@ void TCircleStripeFillStyle::getCircleStripeQuads(
 
 //------------------------------------------------------------
 
-void TCircleStripeFillStyle::drawCircleStripe(const TPointD &center,
+// A ring, with a smooth line along its inner and its outer edge, on the
+// outside.
+void TCircleStripeFillStyle::drawCircleStripe(TCanvas &canvas,
+                                              const TPointD &center,
                                               const double r1, const double r2,
                                               const TPixel32 &col) const {
   std::vector<TPointD> pv;
   getCircleStripeQuads(center, r1, r2, pv);
 
-  TStencilControl *stencil = TStencilControl::instance();
-  stencil->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-
-  glBegin(GL_QUAD_STRIP);
-  tglColor(col);
-  int i = 0;
-  for (; i < (int)pv.size(); i++) tglVertex(pv[i]);
-  glEnd();
-
-  stencil->endMask();
-  stencil->enableMask(TStencilControl::SHOW_OUTSIDE);
-
-  // glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-  // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  // glEnable(GL_BLEND);
-  // glEnable(GL_LINE_SMOOTH);
-  tglEnableLineSmooth();
+  TCanvasMesh ring = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+  int i            = 0;
+  for (; i < (int)pv.size(); i++) addVertex(ring, pv[i], col);
+  canvas.drawMesh(ring, plainPaint());
 
   // Just for the antialiasing
-  glBegin(GL_LINE_STRIP);
-  tglColor(col);
-  for (i = 0; i < (int)pv.size(); i += 2) tglVertex(pv[i]);
-  glEnd();
+  TCanvasPath edges;
+  for (i = 0; i < (int)pv.size(); i += 2) {
+    if (i == 0)
+      edges.moveTo(toCanvas(pv[i]));
+    else
+      edges.lineTo(toCanvas(pv[i]));
+  }
+  for (i = 1; i < (int)pv.size(); i += 2) {
+    if (i == 1)
+      edges.moveTo(toCanvas(pv[i]));
+    else
+      edges.lineTo(toCanvas(pv[i]));
+  }
 
-  glBegin(GL_LINE_STRIP);
-  tglColor(col);
-  for (i = 1; i < (int)pv.size(); i += 2) tglVertex(pv[i]);
-  glEnd();
-
-  stencil->disableMask();
+  canvas.save();
+  canvas.clipMesh(ring, TCanvasClipOp::Difference);
+  canvas.strokePath(edges, thinPen(), smoothPaint(col));
+  canvas.restore();
 }
 
 //------------------------------------------------------------
 
 void TCircleStripeFillStyle::drawRegion(const TColorFunction *cf,
-                                        const bool antiAliasing,
-                                        TRegionOutline &boundary) const {
-  const bool isTransparent = m_pointColor.m < 255;
+                                       const bool antiAliasing,
+                                       TRegionOutline &boundary) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    // The lines along the stripes are smooth whatever the caller has set.
+    tglEnableLineSmooth();
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
+}
 
-  TStencilControl *stenc   = TStencilControl::instance();
+//------------------------------------------------------------
+
+
+// The region, and on it rings around one point.
+void TCircleStripeFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                                const TColorFunction *cf,
+                                                bool antiAliasing,
+                                                TRegionOutline &boundary) const {
+  // Whether the region itself shows was decided by the colour of the rings
+  // whenever there was a colour function. It still is.
   TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
   if (cf) backgroundColor  = (*(cf))(m_pointColor);
 
@@ -3431,22 +3451,8 @@ void TCircleStripeFillStyle::drawRegion(const TColorFunction *cf,
   else
     foregroundColor = m_pointColor;
 
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();  // does not draw on screen
-    appStyle.drawRegion(0, false, boundary);
-  } else {  // create stencil mask and draw on screen
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
-
-  if (isTransparent) {
-    // glEnable(GL_BLEND);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    //// <-- tglEnableBlending();
-  }
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary,
+                            backgroundColor.m != 0);
 
   TRectD bbox = boundary.m_bbox;
   double lx   = bbox.x1 - bbox.x0;
@@ -3463,14 +3469,10 @@ void TCircleStripeFillStyle::drawRegion(const TColorFunction *cf,
 
   double halfThick = m_Thickness * 0.5;
   for (double d = 0; d <= maxDist; d += m_Dist)
-    drawCircleStripe(center, d - halfThick, d + halfThick, foregroundColor);
+    drawCircleStripe(canvas, center, d - halfThick, d + halfThick,
+                     foregroundColor);
 
-  if (isTransparent) {
-    // tglColor(TPixel32::White);
-    // glDisable(GL_BLEND);
-  }
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //***************************************************************************
@@ -3699,26 +3701,23 @@ bool TMosaicFillStyle::getQuad(const int ix, const int iy, const int lX,
 //------------------------------------------------------------
 
 void TMosaicFillStyle::drawRegion(const TColorFunction *cf,
-                                  const bool antiAliasing,
-                                  TRegionOutline &boundary) const {
-  TStencilControl *stenc   = TStencilControl::instance();
-  TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
-  if (cf) backgroundColor  = (*(cf))(backgroundColor);
+                                 const bool antiAliasing,
+                                 TRegionOutline &boundary) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
+}
 
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();  // does not draw on screen
-    appStyle.drawRegion(0, false, boundary);
-  } else {  // create stencil mask and draw on screen
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
+//------------------------------------------------------------
 
-  // glEnable(GL_BLEND);
-  // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  //// <-- tglEnableBlending();
+
+// The region, and on it a grid of quads knocked out of line, each in one
+// of four colours.
+void TMosaicFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                          const TColorFunction *cf,
+                                          bool antiAliasing,
+                                          TRegionOutline &boundary) const {
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary);
 
   TPixel32 color[4];
   for (int i = 0; i < 4; i++) {
@@ -3736,33 +3735,17 @@ void TMosaicFillStyle::drawRegion(const TColorFunction *cf,
 
   preaprePos(boundary.m_bbox, pos, posLX, posLY, rand);
 
-  glBegin(GL_QUADS);
-
-  /* ma serve ?
-  tglColor(getMainColor());
-  tglVertex(TPointD(boundary.m_bbox.x0,boundary.m_bbox.y0));
-  tglVertex(TPointD(boundary.m_bbox.x0,boundary.m_bbox.y1));
-  tglVertex(TPointD(boundary.m_bbox.x1,boundary.m_bbox.y1));
-  tglVertex(TPointD(boundary.m_bbox.x1,boundary.m_bbox.y0));
-*/
-
+  TCanvasMesh quads = plainMesh(TCanvasMesh::Mode::Quads);
   for (int y = 0; y < (posLY - 1); y++)
     for (int x = 0; x < (posLX - 1); x++)
       if (getQuad(x, y, posLX, posLY, pos, quad, rand)) {
         currentColor = color[rand.getInt(0, 4)];
-        if (currentColor.m != 0) {
-          tglColor(currentColor);
-          tglVertex(quad[0]);
-          tglVertex(quad[1]);
-          tglVertex(quad[2]);
-          tglVertex(quad[3]);
-        }
+        if (currentColor.m != 0)
+          addQuad(quads, quad[0], quad[1], quad[2], quad[3], currentColor);
       }
-  glEnd();
+  canvas.drawMesh(quads, plainPaint());
 
-  // tglColor(TPixel32::White);
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //***************************************************************************
@@ -3964,41 +3947,28 @@ bool TPatchFillStyle::getQuadLine(const TPointD &a, const TPointD &b,
 
 //------------------------------------------------------------
 
-void TPatchFillStyle::drawGLQuad(const TPointD *quad) const {
-  glBegin(GL_QUADS);
-  tglVertex(quad[0]);
-  tglVertex(quad[1]);
-  tglVertex(quad[2]);
-  tglVertex(quad[3]);
-  glEnd();
-  double r = tdistance(quad[0], quad[1]) / 2.0;
-  tglDrawDisk(quad[0] * 0.5 + quad[1] * 0.5, r);
-  tglDrawDisk(quad[2] * 0.5 + quad[3] * 0.5, r);
+void TPatchFillStyle::drawRegion(const TColorFunction *cf,
+                                const bool antiAliasing,
+                                TRegionOutline &boundary) const {
+  drawThroughGl([&](TCanvas &canvas) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
 }
 
 //------------------------------------------------------------
 
-void TPatchFillStyle::drawRegion(const TColorFunction *cf,
-                                 const bool antiAliasing,
-                                 TRegionOutline &boundary) const {
-  TStencilControl *stenc   = TStencilControl::instance();
+
+// The region, on it hexagons each in one of six colours, and along the
+// edges of the hexagons thick lines with round ends in the colour of the
+// region.
+void TPatchFillStyle::drawRegionOnCanvas(TCanvas &canvas,
+                                         const TColorFunction *cf,
+                                         bool antiAliasing,
+                                         TRegionOutline &boundary) const {
   TPixel32 backgroundColor = TSolidColorStyle::getMainColor();
   if (cf) backgroundColor  = (*(cf))(backgroundColor);
 
-  if (backgroundColor.m == 0) {  // only to create stencil mask
-    TSolidColorStyle appStyle(TPixel32::White);
-    stenc->beginMask();  // does not draw on screen
-    appStyle.drawRegion(0, false, boundary);
-  } else {  // create stencil mask and draw on screen
-    stenc->beginMask(TStencilControl::DRAW_ALSO_ON_SCREEN);
-    TSolidColorStyle::drawRegion(cf, antiAliasing, boundary);
-  }
-  stenc->endMask();
-  stenc->enableMask(TStencilControl::SHOW_INSIDE);
-
-  // glEnable(GL_BLEND);
-  // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  //// <-- tglEnableBlending();
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, boundary);
 
   TPixel32 color[6];
   for (int i = 0; i < 6; i++)
@@ -4008,6 +3978,11 @@ void TPatchFillStyle::drawRegion(const TColorFunction *cf,
       color[i] = m_pointColor[i];
 
   TPixel32 currentColor;
+  // The colour the lines get when they are too thin to be given the
+  // region's: the old code set none then, and they came out in whatever
+  // had been set last, the colour of the last hexagon.
+  TPixel32 lineColor;
+  bool lineColorIsSet = false;
 
   std::vector<TPointD> pos;
   int posLX, posLY;
@@ -4015,8 +3990,8 @@ void TPatchFillStyle::drawRegion(const TColorFunction *cf,
   TPointD quad[4];
 
   preaprePos(boundary.m_bbox, pos, posLX, posLY, rand);
-  glBegin(GL_TRIANGLES);
-  int x = 2;
+  TCanvasMesh hexagons = plainMesh(TCanvasMesh::Mode::Triangles);
+  int x                = 2;
   for (; x < (posLX - 2); x += 2)
     for (int y = 1; y < posLY; y++) {
       TPointD q[6];
@@ -4038,49 +4013,56 @@ void TPatchFillStyle::drawRegion(const TColorFunction *cf,
 
       currentColor = color[rand.getInt(0, 6)];
       if (currentColor.m != 0) {
-        tglColor(currentColor);
+        lineColor = currentColor, lineColorIsSet = true;
 
-        tglVertex(q[0]);
-        tglVertex(q[1]);
-        tglVertex(q[2]);
+        addVertex(hexagons, q[0], currentColor);
+        addVertex(hexagons, q[1], currentColor);
+        addVertex(hexagons, q[2], currentColor);
 
-        tglVertex(q[2]);
-        tglVertex(q[3]);
-        tglVertex(q[4]);
+        addVertex(hexagons, q[2], currentColor);
+        addVertex(hexagons, q[3], currentColor);
+        addVertex(hexagons, q[4], currentColor);
 
-        tglVertex(q[4]);
-        tglVertex(q[5]);
-        tglVertex(q[0]);
+        addVertex(hexagons, q[4], currentColor);
+        addVertex(hexagons, q[5], currentColor);
+        addVertex(hexagons, q[0], currentColor);
 
-        tglVertex(q[0]);
-        tglVertex(q[2]);
-        tglVertex(q[4]);
+        addVertex(hexagons, q[0], currentColor);
+        addVertex(hexagons, q[2], currentColor);
+        addVertex(hexagons, q[4], currentColor);
       }
     }
-  glEnd();
+  canvas.drawMesh(hexagons, plainPaint());
 
   double thickn = tcrop(m_thickness, 0.0, 100.0) * 0.01 * 5.0;
-  if (thickn > 0.001) tglColor(backgroundColor);
-  for (x = 0; x < (posLX - 1); x++) {
-    int nb = x % 4;
-    for (int y = 0; y < posLY; y++) {
-      if (getQuadLine(pos[x * posLY + y], pos[(x + 1) * posLY + y], thickn,
-                      quad))
-        drawGLQuad(quad);
-      if (y > 0 && nb == 1)
-        if (getQuadLine(pos[x * posLY + y], pos[(x + 1) * posLY + y - 1],
-                        thickn, quad))
-          drawGLQuad(quad);
-      if (y < (posLY - 1) && nb == 3)
-        if (getQuadLine(pos[x * posLY + y], pos[(x + 1) * posLY + y + 1],
-                        thickn, quad))
-          drawGLQuad(quad);
+  if (thickn > 0.001) lineColor = backgroundColor, lineColorIsSet = true;
+  if (thickn > 0.0 && lineColorIsSet) {
+    // Each line is a quad with a disc on either end. They all have the
+    // one colour, so it makes no difference to what comes out that the
+    // quads are drawn before the discs.
+    TCanvasMesh lines = plainMesh(TCanvasMesh::Mode::Quads);
+    std::vector<TPointD> ends;
+    const auto addLine = [&](const TPointD &a, const TPointD &b) {
+      if (!getQuadLine(a, b, thickn, quad)) return;
+      addQuad(lines, quad[0], quad[1], quad[2], quad[3], lineColor);
+      ends.push_back(quad[0] * 0.5 + quad[1] * 0.5);
+      ends.push_back(quad[2] * 0.5 + quad[3] * 0.5);
+    };
+    for (x = 0; x < (posLX - 1); x++) {
+      int nb = x % 4;
+      for (int y = 0; y < posLY; y++) {
+        addLine(pos[x * posLY + y], pos[(x + 1) * posLY + y]);
+        if (y > 0 && nb == 1)
+          addLine(pos[x * posLY + y], pos[(x + 1) * posLY + y - 1]);
+        if (y < (posLY - 1) && nb == 3)
+          addLine(pos[x * posLY + y], pos[(x + 1) * posLY + y + 1]);
+      }
     }
+    drawQuads(canvas, lines);
+    drawDiscs(canvas, ends, thickn, lineColor);
   }
 
-  // tglColor(TPixel32::White);
-
-  stenc->disableMask();
+  canvas.restore();
 }
 
 //------------------------------------------------------------

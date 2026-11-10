@@ -453,6 +453,23 @@ void TSolidColorStyle::drawRegion(const TColorFunction *cf,
 
 //-----------------------------------------------------------------------------
 
+namespace {
+
+// What a region is filled with.
+TCanvasPaint regionPaint(const TPixel32 &color, bool antiAliasing,
+                         const TRegionOutline &outline) {
+  TCanvasPaint paint(toCanvas(color));
+  paint.antialias = antiAliasing && outline.m_doAntialiasing;
+  // The smooth line the old renderer drew around a region lay half outside
+  // it, which is what kept regions that share an edge from showing a seam.
+  // A rasteriser that computes coverage is asked for the same half pixel
+  // (doc/nexttoonz_canvas_ir.md, Q1).
+  if (paint.antialias) paint.growDevice = 0.5;
+  return paint;
+}
+
+}  // namespace
+
 void TSolidColorStyle::drawRegionOnCanvas(TCanvas &canvas,
                                           const TColorFunction *cf,
                                           bool antiAliasing,
@@ -461,31 +478,50 @@ void TSolidColorStyle::drawRegionOnCanvas(TCanvas &canvas,
   if (cf) color = (*cf)(color);
   if (color.m == 0) return;
 
-  // One path: the outer contours as they come, the holes turned round. The
-  // old tessellator filled where the winding number was positive; for
-  // contours laid out like this, that is where it is not zero.
-  TCanvasPath path;
-  std::vector<TCanvasPoint> points;
-  for (const TRegionOutline::PointVector &contour : outline.m_exterior) {
-    points.clear();
-    for (const T3DPointD &p : contour) points.push_back(TCanvasPoint(p.x, p.y));
-    path.addPolygon(points.data(), points.size());
-  }
-  for (const TRegionOutline::PointVector &contour : outline.m_interior) {
-    points.clear();
-    for (auto p = contour.rbegin(); p != contour.rend(); ++p)
-      points.push_back(TCanvasPoint(p->x, p->y));
-    path.addPolygon(points.data(), points.size());
+  canvas.fillPath(toCanvasPath(outline), TCanvasFillRule::NonZero,
+                  regionPaint(color, antiAliasing, outline));
+}
+
+//-----------------------------------------------------------------------------
+
+void TSolidColorStyle::drawRegionAndClipOnCanvas(TCanvas &canvas,
+                                                 const TColorFunction *cf,
+                                                 bool antiAliasing,
+                                                 TRegionOutline &outline) const {
+  TPixel32 backgroundColor = m_color;
+  if (cf) backgroundColor = (*cf)(backgroundColor);
+  drawRegionAndClipOnCanvas(canvas, cf, antiAliasing, outline,
+                            backgroundColor.m != 0);
+}
+
+//-----------------------------------------------------------------------------
+
+void TSolidColorStyle::drawRegionAndClipOnCanvas(TCanvas &canvas,
+                                                 const TColorFunction *cf,
+                                                 bool antiAliasing,
+                                                 TRegionOutline &outline,
+                                                 bool regionShows) const {
+  canvas.save();
+  if (!regionShows) {
+    // Nothing to see of the region itself: only the clip, with hard edges.
+    canvas.clipPath(toCanvasPath(outline), TCanvasFillRule::NonZero,
+                    TCanvasClipOp::Intersect, false);
+    return;
   }
 
-  TCanvasPaint paint(toCanvas(color));
-  paint.antialias = antiAliasing && outline.m_doAntialiasing;
-  // The smooth line the old renderer drew around a region lay half outside
-  // it, which is what kept regions that share an edge from showing a seam.
-  // A rasteriser that computes coverage is asked for the same half pixel
-  // (doc/nexttoonz_canvas_ir.md, Q1).
-  if (paint.antialias) paint.growDevice = 0.5;
-  canvas.fillPath(path, TCanvasFillRule::NonZero, paint);
+  // The old styles drew the region to the screen and to the stencil buffer
+  // in one go, so that the pattern lay on the region as it was drawn, its
+  // smooth edge and all; and on nothing at all, if the region's colour
+  // could not be seen.
+  TPixel32 color = m_color;
+  if (cf) color = (*cf)(color);
+  if (color.m == 0) {
+    canvas.clipPath(TCanvasPath(), TCanvasFillRule::NonZero,
+                    TCanvasClipOp::Intersect, false);
+    return;
+  }
+  canvas.fillPathAndClip(toCanvasPath(outline), TCanvasFillRule::NonZero,
+                         regionPaint(color, antiAliasing, outline));
 }
 
 //-----------------------------------------------------------------------------

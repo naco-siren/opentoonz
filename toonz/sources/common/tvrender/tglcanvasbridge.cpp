@@ -19,3 +19,10 @@ void TGlStencilMasks::enableMask(bool inside) {
 void TGlStencilMasks::disableMask() {
   TStencilControl::instance()->disableMask();
 }
+
+//-----------------------------------------------------------------------------
+
+TLegacyGlCanvas::TLegacyGlCanvas()
+    : m_canvas(TCanvasIRect(), m_masks, TGlCanvas::State::Callers) {}
+
+TLegacyGlCanvas::~TLegacyGlCanvas() {}

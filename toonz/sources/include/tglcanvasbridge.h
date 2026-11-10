@@ -33,13 +33,15 @@ public:
 //! A canvas for style code that the old renderer calls in the middle of its
 //! own OpenGL drawing (tglDraw() and what it reaches): it draws with the
 //! blending, colour mask and line smoothing set up around it.
-class TLegacyGlCanvas {
+class DVAPI TLegacyGlCanvas {
   TGlStencilMasks m_masks;
   TGlCanvas m_canvas;
 
 public:
-  TLegacyGlCanvas()
-      : m_canvas(TCanvasIRect(), m_masks, TGlCanvas::State::Callers) {}
+  // Not inline: the libraries that use this class then need tnzcore only,
+  // not the OpenGL canvas library as well.
+  TLegacyGlCanvas();
+  ~TLegacyGlCanvas();
 
   TCanvas &canvas() { return m_canvas; }
 };
