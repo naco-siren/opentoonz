@@ -24,7 +24,7 @@
 //! current context, so that they nest with the masks drawn around it.
 class DVAPI TGlStencilMasks final : public TGlCanvasMasks {
 public:
-  void beginMask(bool drawOnce) override;
+  void beginMask(Screen screen) override;
   void endMask() override;
   void enableMask(bool inside) override;
   void disableMask() override;

@@ -24,7 +24,7 @@ namespace {
 // The OpenGL entry point of a style that draws on a canvas. The old
 // versions of these styles left OpenGL as they had found it: whatever they
 // changed, they changed between the pushes and pops of their stencil masks.
-// The canvas version draws the region before it sets its clip, so the
+// Through the canvas the region is drawn before its mask is set up, so the
 // attributes are kept here.
 template <class Draw>
 void drawThroughGl(Draw draw) {
@@ -444,8 +444,8 @@ void ShadowStyle::drawPolyline(TCanvas &canvas, const TColorFunction *cf,
 //------------------------------------------------------------
 
 void ShadowStyle::drawRegion(const TColorFunction *cf,
-                            const bool antiAliasing,
-                            TRegionOutline &regionOutline) const {
+                             const bool antiAliasing,
+                             TRegionOutline &regionOutline) const {
   drawThroughGl([&](TCanvas &canvas) {
     drawRegionOnCanvas(canvas, cf, antiAliasing, regionOutline);
   });
@@ -756,8 +756,8 @@ void ShadowStyle2::setColorParamValue(int index, const TPixel32 &color) {
 //------------------------------------------------------------
 
 void ShadowStyle2::drawRegion(const TColorFunction *cf,
-                             const bool antiAliasing,
-                             TRegionOutline &boundary) const {
+                              const bool antiAliasing,
+                              TRegionOutline &boundary) const {
   drawThroughGl([&](TCanvas &canvas) {
     drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
   });
@@ -1375,8 +1375,8 @@ void TDottedFillStyle::setColorParamValue(int index, const TPixel32 &color) {
 //------------------------------------------------------------
 
 void TDottedFillStyle::drawRegion(const TColorFunction *cf,
-                                 const bool antiAliasing,
-                                 TRegionOutline &boundary) const {
+                                  const bool antiAliasing,
+                                  TRegionOutline &boundary) const {
   drawThroughGl([&](TCanvas &canvas) {
     drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
   });
@@ -1645,8 +1645,8 @@ void TCheckedFillStyle::setColorParamValue(int index, const TPixel32 &color) {
 //------------------------------------------------------------
 
 void TCheckedFillStyle::drawRegion(const TColorFunction *cf,
-                                  const bool antiAliasing,
-                                  TRegionOutline &boundary) const {
+                                   const bool antiAliasing,
+                                   TRegionOutline &boundary) const {
   drawThroughGl([&](TCanvas &canvas) {
     drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
   });
@@ -2085,8 +2085,8 @@ void TChalkFillStyle::setColorParamValue(int index, const TPixel32 &color) {
 //------------------------------------------------------------
 
 void TChalkFillStyle::drawRegion(const TColorFunction *cf,
-                                const bool antiAliasing,
-                                TRegionOutline &boundary) const {
+                                 const bool antiAliasing,
+                                 TRegionOutline &boundary) const {
   drawThroughGl([&](TCanvas &canvas) {
     drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
   });
@@ -2311,8 +2311,8 @@ void TChessFillStyle::makeGrid(TRectD &bbox, TRotation &rotM,
 //------------------------------------------------------------
 
 void TChessFillStyle::drawRegion(const TColorFunction *cf,
-                                const bool antiAliasing,
-                                TRegionOutline &boundary) const {
+                                 const bool antiAliasing,
+                                 TRegionOutline &boundary) const {
   drawThroughGl([&](TCanvas &canvas) {
     drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
   });
@@ -2559,8 +2559,8 @@ inline void trim(TPointD &p0, TPointD &p1, double y0, double y1) {
 //------------------------------------------------------------
 
 void TStripeFillStyle::drawRegion(const TColorFunction *cf,
-                                 const bool antiAliasing,
-                                 TRegionOutline &boundary) const {
+                                  const bool antiAliasing,
+                                  TRegionOutline &boundary) const {
   drawThroughGl([&](TCanvas &canvas) {
     // The lines along the stripes are smooth whatever the caller has set.
     tglEnableLineSmooth();
@@ -3423,8 +3423,8 @@ void TCircleStripeFillStyle::drawCircleStripe(TCanvas &canvas,
 //------------------------------------------------------------
 
 void TCircleStripeFillStyle::drawRegion(const TColorFunction *cf,
-                                       const bool antiAliasing,
-                                       TRegionOutline &boundary) const {
+                                        const bool antiAliasing,
+                                        TRegionOutline &boundary) const {
   drawThroughGl([&](TCanvas &canvas) {
     // The lines along the stripes are smooth whatever the caller has set.
     tglEnableLineSmooth();
@@ -3701,8 +3701,8 @@ bool TMosaicFillStyle::getQuad(const int ix, const int iy, const int lX,
 //------------------------------------------------------------
 
 void TMosaicFillStyle::drawRegion(const TColorFunction *cf,
-                                 const bool antiAliasing,
-                                 TRegionOutline &boundary) const {
+                                  const bool antiAliasing,
+                                  TRegionOutline &boundary) const {
   drawThroughGl([&](TCanvas &canvas) {
     drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
   });
@@ -3948,8 +3948,8 @@ bool TPatchFillStyle::getQuadLine(const TPointD &a, const TPointD &b,
 //------------------------------------------------------------
 
 void TPatchFillStyle::drawRegion(const TColorFunction *cf,
-                                const bool antiAliasing,
-                                TRegionOutline &boundary) const {
+                                 const bool antiAliasing,
+                                 TRegionOutline &boundary) const {
   drawThroughGl([&](TCanvas &canvas) {
     drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
   });

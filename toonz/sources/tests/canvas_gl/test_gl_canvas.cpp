@@ -548,26 +548,37 @@ TEST(GlCanvas, AGradientWithItsStopsOnTheVerticesOfALineRunsAlongIt) {
 //-----------------------------------------------------------------------------
 // For the old drawing code
 
-// The old tessellator filled where the winding number was positive, taking
-// for positive the way most of the outline goes round, and left a loop that
-// goes the other way empty. Drawing for the old code keeps that; a canvas
-// of its own fills by the rule it is given.
-TEST(GlCanvas, ForTheOldCodeNonZeroMeansPositive) {
+// The old tessellator did not fill by the non-zero rule, and not by the
+// same rule everywhere: positive winding numbers on macOS and Windows
+// (positive being the way most of the outline goes round), odd ones on
+// Linux. Drawing for the old code keeps that; a canvas of its own fills by
+// the rule it is given.
+TEST(GlCanvas, ForTheOldCodeNonZeroIsTheOldTessellatorsRule) {
   TCanvasPaint flat = paintOf(0.f, 0.f, 0.f);
   flat.antialias    = false;
-  // A large contour, and a small one beside it that goes the other way.
-  TCanvasPath path             = rectPath(1, 1, 6, 5);
-  const TCanvasPoint other[4] = {{8, 2}, {8, 5}, {11, 5}, {11, 2}};
+  // A large contour with a small one inside it that goes the same way, and
+  // beside them a small one that goes the other way.
+  TCanvasPath path             = rectPath(1, 1, 7, 7);
+  const TCanvasPoint inner[4] = {{3, 3}, {5, 3}, {5, 5}, {3, 5}};
+  path.addPolygon(inner, 4);
+  const TCanvasPoint other[4] = {{9, 2}, {9, 5}, {12, 5}, {12, 2}};
   path.addPolygon(other, 4);
   const auto draw = [&](TCanvas &canvas) {
     canvas.fillPath(path, TCanvasFillRule::NonZero, flat);
   };
 
-  const Target own = drawWithGl(12, 6, draw);
-  EXPECT_EQ(own.alpha(3, 3), 255);
-  EXPECT_EQ(own.alpha(9, 3), 255);
+  const Target own = drawWithGl(14, 8, draw);
+  EXPECT_EQ(own.alpha(2, 2), 255);
+  EXPECT_EQ(own.alpha(4, 4), 255) << "winding number 2";
+  EXPECT_EQ(own.alpha(10, 3), 255) << "winding number -1";
 
-  const Target old = drawWithGl(12, 6, draw, TGlCanvas::State::Callers);
-  EXPECT_EQ(old.alpha(3, 3), 255);
-  EXPECT_EQ(old.alpha(9, 3), 0);
+  const Target old = drawWithGl(14, 8, draw, TGlCanvas::State::Callers);
+  EXPECT_EQ(old.alpha(2, 2), 255);
+#if defined(__linux__) || defined(__FreeBSD__)
+  EXPECT_EQ(old.alpha(4, 4), 0) << "covered twice";
+  EXPECT_EQ(old.alpha(10, 3), 255);
+#else
+  EXPECT_EQ(old.alpha(4, 4), 255);
+  EXPECT_EQ(old.alpha(10, 3), 0) << "wound the other way";
+#endif
 }

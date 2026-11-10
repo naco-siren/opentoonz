@@ -29,9 +29,12 @@ class TNZGLCANVAS_API TGlCanvasMasks {
 public:
   virtual ~TGlCanvasMasks() {}
 
-  //! Starts a mask: what is drawn until endMask() goes into it. With
-  //! \p drawOnce it also goes to the screen, each pixel at most once.
-  virtual void beginMask(bool drawOnce) = 0;
+  //! What happens on the screen while a mask is being drawn: nothing; the
+  //! same drawing as without a mask; or that, but each pixel at most once.
+  enum class Screen { Untouched, DrawnToo, DrawnOnce };
+
+  //! Starts a mask: what is drawn until endMask() goes into it.
+  virtual void beginMask(Screen screen) = 0;
   virtual void endMask()                = 0;
   //! From here to disableMask(), drawing is kept inside the last mask or,
   //! with \p inside false, outside it.
@@ -102,11 +105,12 @@ public:
     the code it replaces changed. This is what keeps a style that has
     moved to the canvas interface pixel for pixel what it was when it is
     reached through tglDraw(). For the same reason a path filled by the
-    non-zero rule is then filled only where its winding number is
-    positive, which is the rule the old tessellator had (positive being
-    the way most of the path goes round). The two part ways where an
-    outline crosses itself and the loop that makes is wound the other
-    way: the old renderer left such a loop empty.
+    non-zero rule is then filled by the rule the old tessellator had,
+    which depends on the platform: positive winding numbers on Windows
+    and macOS (positive being the way most of the path goes round), odd
+    ones on Linux. The rules part ways where an outline crosses or
+    overlaps itself: a loop wound the other way was left empty on macOS,
+    a part covered twice was left empty on Linux.
 
   This library (tnzglcanvas) links OpenGL and tnzcanvas, nothing else.
 */

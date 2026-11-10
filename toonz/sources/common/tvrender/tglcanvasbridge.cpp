@@ -2,10 +2,12 @@
 
 #include "tstencilcontrol.h"
 
-void TGlStencilMasks::beginMask(bool drawOnce) {
+void TGlStencilMasks::beginMask(Screen screen) {
   TStencilControl::instance()->beginMask(
-      drawOnce ? TStencilControl::DRAW_ON_SCREEN_ONLY_ONCE
-               : TStencilControl::DRAW_ONLY_MASK);
+      screen == Screen::DrawnOnce
+          ? TStencilControl::DRAW_ON_SCREEN_ONLY_ONCE
+          : screen == Screen::DrawnToo ? TStencilControl::DRAW_ALSO_ON_SCREEN
+                                       : TStencilControl::DRAW_ONLY_MASK);
 }
 
 void TGlStencilMasks::endMask() { TStencilControl::instance()->endMask(); }

@@ -141,10 +141,21 @@ typedef GLvoid(CALLBACK *GluCallback)(void);
 typedef GLvoid (*GluCallback)();
 #endif
 
-// With \p positive, the non-zero rule fills only where the winding number
-// is above zero: see TGlCanvas::State::Callers.
+// The rule the old tessellator (TglTessellator) filled regions by. It was
+// not the same everywhere: where the winding number is positive on Windows
+// and macOS, but on Linux and FreeBSD, where that code restricted itself to
+// the calls of GLU 1.1 and so never set a rule, GLU's default, which is odd
+// winding numbers.
+#if defined(__linux__) || defined(__FreeBSD__)
+const GLenum kOldWindingRule = GLU_TESS_WINDING_ODD;
+#else
+const GLenum kOldWindingRule = GLU_TESS_WINDING_POSITIVE;
+#endif
+
+// With \p asTheOldCode, the non-zero rule is replaced by the old
+// tessellator's: see TGlCanvas::State::Callers.
 void tessellate(const std::vector<Contour> &contours, TCanvasFillRule rule,
-                const Lookup &lookup, bool positive) {
+                const Lookup &lookup, bool asTheOldCode) {
   GLUtesselator *tess = gluNewTess();
   if (!tess) return;
 
@@ -157,8 +168,8 @@ void tessellate(const std::vector<Contour> &contours, TCanvasFillRule rule,
   gluTessProperty(tess, GLU_TESS_WINDING_RULE,
                   rule == TCanvasFillRule::EvenOdd
                       ? GLU_TESS_WINDING_ODD
-                      : positive ? GLU_TESS_WINDING_POSITIVE
-                                 : GLU_TESS_WINDING_NONZERO);
+                      : asTheOldCode ? kOldWindingRule
+                                     : GLU_TESS_WINDING_NONZERO);
 
   gluTessBeginPolygon(tess, &tessellation);
   for (const Contour &contour : contours) {
@@ -795,7 +806,7 @@ void TGlCanvas::onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
   // outer half then belongs to the mask as well. That is the mask the old
   // styles got when they drew a region to the screen and to the stencil
   // buffer in one go.
-  m_masks.beginMask(false);
+  m_masks.beginMask(TGlCanvasMasks::Screen::Untouched);
   glColor4f(1.f, 1.f, 1.f, 1.f);
   if (antialias) smoothLines();
   tessellate(contours, rule, Lookup(), m_state == State::Callers);
@@ -815,7 +826,7 @@ void TGlCanvas::onClipPath(const TCanvasPath &path, TCanvasFillRule rule,
 // The mesh goes into the mask as the primitive it is drawn as, so that the
 // mask is to the pixel what drawing it covers.
 void TGlCanvas::onClipMesh(const TCanvasMesh &mesh, TCanvasClipOp op) {
-  m_masks.beginMask(false);
+  m_masks.beginMask(TGlCanvasMasks::Screen::Untouched);
   glColor4f(1.f, 1.f, 1.f, 1.f);
   glBegin(primitive(mesh));
   for (const TCanvasPoint &p : mesh.positions) glVertex2d(p.x, p.y);
@@ -849,13 +860,18 @@ void TGlCanvas::onFillPath(const TCanvasPath &path, TCanvasFillRule rule,
   });
 }
 
-// The fill, and a mask of the same fragments: with antialiasing, the smooth
-// line along the contours included. The old styles drew a region to the
-// screen and to the stencil buffer in one go; this comes to the same.
+// The fill, drawn to the screen and into a mask in one go, as the old styles
+// drew a region they were going to put a pattern on. The mask is then
+// exactly the fragments of the fill: with antialiasing the smooth line
+// along the contours is in it, and a fragment the alpha test threw away is
+// not.
 void TGlCanvas::onFillPathAndClip(const TCanvasPath &path, TCanvasFillRule rule,
                                   const TCanvasPaint &paint) {
+  m_masks.beginMask(TGlCanvasMasks::Screen::DrawnToo);
   onFillPath(path, rule, paint);
-  onClipPath(path, rule, TCanvasClipOp::Intersect, paint.antialias);
+  m_masks.endMask();
+  m_masks.enableMask(true);
+  ++m_clips.back();
 }
 
 namespace {
@@ -1162,7 +1178,7 @@ void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
       // The triangles overlap where the stroke bends or crosses itself.
       // The stencil buffer lets each pixel through once, and afterwards
       // keeps the fringe off what the triangles covered.
-      m_masks.beginMask(true);
+      m_masks.beginMask(TGlCanvasMasks::Screen::DrawnOnce);
       drawTriangles();
       m_masks.endMask();
       m_masks.enableMask(false);
