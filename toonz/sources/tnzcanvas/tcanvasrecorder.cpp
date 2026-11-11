@@ -70,6 +70,8 @@ const char *name(TCanvasMesh::Mode mode) {
     return "fan";
   case TCanvasMesh::Mode::Quads:
     return "quads";
+  case TCanvasMesh::Mode::Polygon:
+    return "polygon";
   }
   return "";
 }

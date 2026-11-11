@@ -163,6 +163,7 @@ void forEachTriangle(const TCanvasMesh &mesh, F f) {
     for (std::size_t i = 0; i + 2 < n; ++i) f(i, i + 1, i + 2, i > 0);
     break;
   case TCanvasMesh::Mode::TriangleFan:
+  case TCanvasMesh::Mode::Polygon:
     for (std::size_t i = 1; i + 1 < n; ++i) f(0, i, i + 1, i > 1);
     break;
   case TCanvasMesh::Mode::Quads:

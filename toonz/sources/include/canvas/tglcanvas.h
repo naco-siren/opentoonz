@@ -65,6 +65,7 @@ public:
   - A strip with an even number of vertices is sent as a quad strip, which
     is what the old renderer sent: how a quad that is not convex gets
     split is the driver's choice, and stays the one it has always made.
+    Quads and polygons go out as what they are for the same reason.
   - Lines are OpenGL lines: no caps, no joins, a width the driver may
     clamp, and dashes rounded to a 16-bit stipple pattern. A line whose
     paint is a linear gradient with no stop between two neighbouring

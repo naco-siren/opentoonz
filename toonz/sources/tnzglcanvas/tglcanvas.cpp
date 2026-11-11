@@ -725,6 +725,8 @@ GLenum primitive(const TCanvasMesh &mesh) {
     return GL_TRIANGLES;
   case TCanvasMesh::Mode::Quads:
     return GL_QUADS;
+  case TCanvasMesh::Mode::Polygon:
+    return GL_POLYGON;
   case TCanvasMesh::Mode::TriangleFan:
     return GL_TRIANGLE_FAN;
   case TCanvasMesh::Mode::TriangleStrip:
@@ -1128,6 +1130,14 @@ void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
       else
         glDisable(GL_LINE_SMOOTH), glLineWidth(1.f);
     }
+    // What the old styles did for a mesh of their own that should have
+    // smooth edges: they asked OpenGL to smooth polygons, which most
+    // drivers do not do. Kept for the old code, pixel for pixel whatever
+    // the driver makes of it; a canvas of its own does not ask.
+    const bool polygonSmooth = m_state == State::Callers && mesh.smoothEdges &&
+                               paint.antialias && !colors.empty() &&
+                               !bound.textured();
+    if (polygonSmooth) glEnable(GL_POLYGON_SMOOTH);
     blendOver(m_state, bound.premultiplied(), [&] {
       if (sides) {
         for (std::size_t side = 0; side < 2; ++side) {
@@ -1141,6 +1151,7 @@ void TGlCanvas::onDrawMesh(const TCanvasMesh &mesh, const TCanvasPaint &paint) {
       }
       drawTriangles();
     });
+    if (polygonSmooth) glDisable(GL_POLYGON_SMOOTH);
     return;
   }
 
