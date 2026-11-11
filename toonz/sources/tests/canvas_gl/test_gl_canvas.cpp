@@ -368,6 +368,25 @@ TEST(GlCanvas, TakesQuads) {
     }
 }
 
+TEST(GlCanvas, TakesPolygons) {
+  TCanvasMesh hexagon;
+  hexagon.mode        = TCanvasMesh::Mode::Polygon;
+  hexagon.smoothEdges = false;
+  hexagon.positions   = {{2, 4}, {4, 1}, {8, 1}, {10, 4}, {8, 7}, {4, 7}};
+  hexagon.colors.assign(6, TCanvasColor(0.f, 0.f, 0.f));
+  TCanvasPaint paint = paintOf(1.f, 1.f, 1.f);
+  paint.antialias    = false;
+  const Target target = drawWithGl(
+      12, 8, [&](TCanvas &canvas) { canvas.drawMesh(hexagon, paint); });
+
+  EXPECT_EQ(target.alpha(6, 4), 255);
+  EXPECT_EQ(target.alpha(3, 4), 255);
+  EXPECT_EQ(target.alpha(7, 6), 255);
+  EXPECT_EQ(target.alpha(2, 1), 0);
+  EXPECT_EQ(target.alpha(9, 6), 0);
+  EXPECT_EQ(target.alpha(6, 7), 0);
+}
+
 // A mesh that brings its colours is not taken for a stroke outline: its
 // primitives are blended one by one, also where they overlap. (A mesh of
 // one colour in the paint covers each pixel once: see above.)

@@ -30,6 +30,13 @@ public:
   TCleanupStyle(const TCleanupStyle &);
   ~TCleanupStyle();
 
+  //! A cleanup style and the two classes derived from it draw as the solid
+  //! colour they are: none of them replaces anything that draws. (The base
+  //! class answers for itself only, so this has to be said here.)
+  int canvasSupport() const override {
+    return StrokesOnCanvas | RegionsOnCanvas;
+  }
+
   void setMainColor(const TPixel32 &color) override;
 
   int getColorParamCount() const override;

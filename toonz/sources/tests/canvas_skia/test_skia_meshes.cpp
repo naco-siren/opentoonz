@@ -77,6 +77,26 @@ TEST(SkiaCanvasMesh, TakesQuads) {
     }
 }
 
+// A polygon comes all the way round, like a quad with more corners.
+TEST(SkiaCanvasMesh, TakesPolygons) {
+  TCanvasMesh hexagon;
+  hexagon.mode      = TCanvasMesh::Mode::Polygon;
+  hexagon.positions = {{2, 4}, {4, 1}, {8, 1}, {10, 4}, {8, 7}, {4, 7}};
+  TCanvasPaint hard = paintOf(0.f, 0.f, 0.f);
+  hard.antialias    = false;
+
+  Target target(12, 8);
+  TSkiaCanvas canvas(target.pixels(), 12, 8, target.rowBytes());
+  canvas.drawMesh(hexagon, hard);
+
+  EXPECT_EQ(target.alpha(6, 4), 255);
+  EXPECT_EQ(target.alpha(3, 4), 255);
+  EXPECT_EQ(target.alpha(7, 6), 255);
+  EXPECT_EQ(target.alpha(2, 1), 0) << "outside the slanting edge";
+  EXPECT_EQ(target.alpha(9, 6), 0);
+  EXPECT_EQ(target.alpha(6, 7), 0);
+}
+
 // The styles that draw their own primitives give every vertex the colour:
 // that keeps the OpenGL canvas from treating the mesh as a stroke outline.
 // Here it is the same thing as the colour in the paint.
@@ -210,6 +230,28 @@ TEST(SkiaCanvasShadedMesh, ColoursAndAlphasAreBlendedEachOnItsOwn) {
   TSkiaCanvas second(faint.pixels(), 8, 4, faint.rowBytes());
   second.drawMesh(mesh, paintOf(1.f, 1.f, 1.f, 0.5f));
   EXPECT_TRUE(pixelIs(faint, 3, 2, 40, 0, 31, 72, 3));
+}
+
+// A strip made for OpenGL may run its pieces together with triangles that
+// are transparent at every corner, right across pieces that show. Those
+// draw nothing; they do not rub out what is under them.
+TEST(SkiaCanvasShadedMesh, ATransparentTriangleDoesNotEraseWhatItCrosses) {
+  TCanvasMesh mesh;
+  mesh.smoothEdges = false;
+  // An opaque square from (2, 2) to (6, 6), then a transparent triangle
+  // over its lower half.
+  mesh.positions = {{2, 2}, {6, 2}, {6, 6}, {2, 2}, {6, 6}, {2, 6},
+                    {0, 0}, {8, 0}, {4, 4}};
+  mesh.colors.assign(6, TCanvasColor(1.f, 0.f, 0.f, 1.f));
+  mesh.colors.insert(mesh.colors.end(), 3, TCanvasColor(1.f, 0.f, 0.f, 0.f));
+
+  Target target(8, 8);
+  TSkiaCanvas canvas(target.pixels(), 8, 8, target.rowBytes());
+  canvas.drawMesh(mesh, TCanvasPaint());
+
+  EXPECT_TRUE(pixelIs(target, 4, 2, 255, 0, 0, 255));
+  EXPECT_TRUE(pixelIs(target, 3, 5, 255, 0, 0, 255));
+  EXPECT_EQ(target.alpha(4, 0), 0);
 }
 
 TEST(SkiaCanvasShadedMesh, EdgesAreSmooth) {

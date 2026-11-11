@@ -506,6 +506,16 @@ void TSkiaCanvas::Imp::drawShadedMesh(const TCanvasMesh &mesh,
     add(p0, s0), add(p2, s2), add(p3, s3);
   };
 
+  // A triangle that is transparent at all three corners draws nothing. It
+  // must not get as far as the layer, where it would replace what is under
+  // it with nothing: drawing code written for OpenGL joins the pieces of a
+  // strip with such triangles, across pieces that can be seen.
+  const auto drawsNothing = [&](std::size_t a, std::size_t b, std::size_t c) {
+    if (signedArea2(device[a], device[b], device[c]) == 0.0) return true;
+    return hasColors && !(mesh.colors[a].a > 0.f) &&
+           !(mesh.colors[b].a > 0.f) && !(mesh.colors[c].a > 0.f);
+  };
+
   if (smooth) {
     const double reach = 1.0;  // pixels; more than half a pixel's diagonal
     std::vector<char> vertexDone(count, 0);
@@ -518,8 +528,7 @@ void TSkiaCanvas::Imp::drawShadedMesh(const TCanvasMesh &mesh,
     };
     forEachTriangle(mesh,
                     [&](std::size_t a, std::size_t b, std::size_t c, bool) {
-                      if (signedArea2(device[a], device[b], device[c]) == 0.0)
-                        return;
+                      if (drawsNothing(a, b, c)) return;
                       addVertex(a), addVertex(b), addVertex(c);
                     });
 
@@ -534,7 +543,7 @@ void TSkiaCanvas::Imp::drawShadedMesh(const TCanvasMesh &mesh,
     };
     forEachTriangle(mesh, [&](std::size_t a, std::size_t b, std::size_t c,
                               bool sharesFirstEdge) {
-      if (signedArea2(device[a], device[b], device[c]) == 0.0) return;
+      if (drawsNothing(a, b, c)) return;
       if (!sharesFirstEdge) addEdge(a, b);
       addEdge(b, c);
       addEdge(c, a);
@@ -542,8 +551,10 @@ void TSkiaCanvas::Imp::drawShadedMesh(const TCanvasMesh &mesh,
   }
 
   forEachTriangle(mesh, [&](std::size_t a, std::size_t b, std::size_t c, bool) {
+    if (drawsNothing(a, b, c)) return;
     add(device[a], a), add(device[b], b), add(device[c], c);
   });
+  if (positions.empty()) return;
 
   const sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
       SkVertices::kTriangles_VertexMode, (int)positions.size(),

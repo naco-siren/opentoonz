@@ -224,11 +224,36 @@ TEST_F(StyleCanvas, ATextureIsAnImageShaderOnRegionsAndStrokes) {
   }
 }
 
-// One style that is not on the canvas yet keeps the whole image off it.
-TEST_F(StyleCanvas, AnImageWithAnyOtherSpecialStyleIsNotDrawnOnACanvas) {
-  const TVectorImageP vi = imageIn(styleWithTag(2000));
-  TStroke *extra         = new TStroke(*vi->getStroke(0));
-  extra->setStyle(styleWithTag(108));  // "Rope", one of colorfx's
-  vi->addStroke(extra);
-  EXPECT_FALSE(tcanvasCanDraw(production(), vi.getPointer()));
+// Since the stroke styles of colorfx moved over, every style a release build
+// registers draws on a canvas, so every frame of the level that has one of
+// each can be drawn without OpenGL. (What keeps an image off the canvas when
+// a style cannot is tested in core/test_vector_canvas.cpp, with a style
+// made up for it.)
+TEST_F(StyleCanvas, EveryFrameOfTheStyleLevelCanBeDrawnOnACanvas) {
+  for (int i = 0; i < m_palette->getStyleCount(); ++i) {
+    const TColorStyle *style = m_palette->getStyle(i);
+    if (!style || (!style->isStrokeStyle() && !style->isRegionStyle()))
+      continue;
+    SCOPED_TRACE("style with tag " + std::to_string(style->getTagId()));
+    if (style->isStrokeStyle())
+      EXPECT_TRUE(style->canvasSupport() & TColorStyle::StrokesOnCanvas);
+    if (style->isRegionStyle())
+      EXPECT_TRUE(style->canvasSupport() & TColorStyle::RegionsOnCanvas);
+  }
+
+  TLevelSet *levels = m_scene->getLevelSet();
+  int frames        = 0;
+  for (int l = 0; l < levels->getLevelCount(); ++l) {
+    TXshSimpleLevel *sl = levels->getLevel(l)->getSimpleLevel();
+    if (!sl || sl->getType() != PLI_XSHLEVEL || sl->getName() != L"vec_styles")
+      continue;
+    for (int f = 0; f < sl->getFrameCount(); ++f) {
+      const TVectorImageP vi = sl->getFrame(sl->getFrameId(f), false);
+      ASSERT_TRUE(vi);
+      EXPECT_TRUE(tcanvasCanDraw(production(), vi.getPointer()))
+          << "frame " << f;
+      ++frames;
+    }
+  }
+  EXPECT_EQ(frames, 7);
 }

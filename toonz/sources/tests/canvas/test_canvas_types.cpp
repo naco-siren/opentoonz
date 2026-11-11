@@ -131,6 +131,17 @@ TEST(CanvasMesh, CountsTrianglesByMode) {
   EXPECT_EQ(mesh.triangleCount(), 0u);
 }
 
+// A polygon is the triangles of a fan.
+TEST(CanvasMesh, APolygonIsAFan) {
+  TCanvasMesh mesh;
+  mesh.mode = TCanvasMesh::Mode::Polygon;
+  mesh.positions.resize(8);
+  EXPECT_EQ(mesh.triangleCount(), 6u);
+  EXPECT_TRUE(mesh.isValid());
+  mesh.positions.resize(2);
+  EXPECT_FALSE(mesh.isValid());
+}
+
 // Every four vertices are one quad, and a quad is two triangles.
 TEST(CanvasMesh, QuadsAreFourVerticesEach) {
   TCanvasMesh mesh;
