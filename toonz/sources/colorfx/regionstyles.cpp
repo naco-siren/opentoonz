@@ -18,6 +18,7 @@ using colorfxcanvas::drawQuad;
 using colorfxcanvas::drawQuads;
 using colorfxcanvas::plainMesh;
 using colorfxcanvas::plainPaint;
+using colorfxcanvas::thinPen;
 
 namespace {
 
@@ -59,15 +60,8 @@ void drawDiscs(TCanvas &canvas, const std::vector<TPointD> &centres,
   if (!discs.isEmpty()) canvas.strokePath(discs, pen, paint);
 }
 
-// The pen and the paint of the smooth lines, one pixel wide, that the
-// styles with stripes draw along the edges of their stripes.
-TCanvasPen thinPen() {
-  TCanvasPen pen;
-  pen.width = 1.0;
-  pen.unit  = TCanvasPen::Unit::Device;
-  return pen;
-}
-
+// The paint of the smooth lines, one pixel wide, that the styles with
+// stripes draw along the edges of their stripes.
 TCanvasPaint smoothPaint(const TPixel32 &color) {
   TCanvasPaint paint(toCanvas(color));
   paint.antialias = true;

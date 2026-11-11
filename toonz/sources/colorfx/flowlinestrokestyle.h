@@ -77,6 +77,10 @@ public:
 
   void drawStroke(const TColorFunction *cf,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                          const TStroke *stroke, bool antialias) const override;
 
   void loadData(TInputStreamInterface &is) override {
     int straightenEnds;

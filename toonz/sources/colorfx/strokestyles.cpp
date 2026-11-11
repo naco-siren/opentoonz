@@ -25,6 +25,23 @@ using namespace std;
 
 //=============================================================================
 
+#include "colorfxcanvas.h"
+#include "tglcanvasbridge.h"
+
+using colorfxcanvas::addPolyline;
+using colorfxcanvas::addSegment;
+using colorfxcanvas::addVertex;
+using colorfxcanvas::drawCircle;
+using colorfxcanvas::drawQuad;
+using colorfxcanvas::drawQuadStrip;
+using colorfxcanvas::floatColor;
+using colorfxcanvas::linePaint;
+using colorfxcanvas::plainMesh;
+using colorfxcanvas::plainPaint;
+using colorfxcanvas::strokeColoredPolyline;
+using colorfxcanvas::strokeLines;
+using colorfxcanvas::thinPen;
+
 namespace {
 
 template <class T>
@@ -44,6 +61,10 @@ public:
 
   TStrokeProp *clone(const TStroke *stroke) const override;
   void draw(const TVectorRenderData &rd) override;
+  void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) override;
+
+private:
+  void updateData(double pixelSize, const TColorFunction *cf);
 };
 
 //-----------------------------------------------------------------------------
@@ -89,19 +110,49 @@ void TOptimizedStrokePropT<T>::draw(
   glPushMatrix();
   tglMultMatrix(rd.m_aff);
 
-  double pixelSize = sqrt(tglGetPixelSize2());
+  updateData(sqrt(tglGetPixelSize2()), rd.m_cf);
+
+  m_colorStyle->drawStroke(rd.m_cf, m_data, m_stroke);
+
+  glPopMatrix();
+}
+
+//-----------------------------------------------------------------------------
+
+template <class T>
+void TOptimizedStrokePropT<T>::updateData(double pixelSize,
+                                          const TColorFunction *cf) {
   if (m_strokeChanged ||
       m_styleVersionNumber != m_colorStyle->getVersionNumber() ||
       !isAlmostZero(pixelSize - m_pixelSize, 1e-5)) {
     m_strokeChanged      = false;
     m_pixelSize          = pixelSize;
     m_styleVersionNumber = m_colorStyle->getVersionNumber();
-    m_colorStyle->computeData(m_data, m_stroke, rd.m_cf);
+    // The pixel size goes along: some styles used to read it from OpenGL
+    // once more in here, and on a canvas there may be no OpenGL.
+    m_colorStyle->computeData(m_data, m_stroke, cf, pixelSize);
   }
+}
 
-  m_colorStyle->drawStroke(rd.m_cf, m_data, m_stroke);
+//-----------------------------------------------------------------------------
 
-  glPopMatrix();
+// draw() without OpenGL. Keep the two in step.
+template <class T>
+void TOptimizedStrokePropT<T>::drawOnCanvas(TCanvas &canvas,
+                                            const TVectorRenderData &rd) {
+  if (rd.m_clippingRect != TRect() && !rd.m_is3dView &&
+      !convert(rd.m_aff * m_stroke->getBBox()).overlaps(rd.m_clippingRect))
+    return;
+
+  canvas.save();
+  canvas.concat(toCanvas(rd.m_aff));
+
+  updateData(canvas.pixelSize(), rd.m_cf);
+
+  m_colorStyle->drawStrokeOnCanvas(canvas, rd.m_cf, m_data, m_stroke,
+                                   rd.m_antiAliasing);
+
+  canvas.restore();
 }
 }
 
@@ -194,7 +245,8 @@ void TFurStrokeStyle::setParamValue(int index, double value) {
 
 //-----------------------------------------------------------------------------
 void TFurStrokeStyle::computeData(Points &positions, const TStroke *stroke,
-                                  const TColorFunction *cf) const {
+                                  const TColorFunction *cf,
+    double pixelSize) const {
   double length = stroke->getLength();
 
   double s  = 0.0;
@@ -234,23 +286,29 @@ void TFurStrokeStyle::computeData(Points &positions, const TStroke *stroke,
 
 //-----------------------------------------------------------------------------
 void TFurStrokeStyle::drawStroke(const TColorFunction *cf, Points &positions,
-                                 const TStroke *stroke) const {
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TFurStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    Points &positions, const TStroke *stroke, bool antialias) const {
   TPixel32 color;
   if (cf)
     color = (*(cf))(m_color);
   else
     color = m_color;
 
-  tglColor(color);
-
-  for (UINT i = 0; i < positions.size(); i += 2) {
-    glBegin(GL_LINE_STRIP);
-    tglColor(color);
-    tglVertex(positions[i]);
-    glColor4d(1, 1, 1, 0.0);
-    tglVertex(positions[i + 1]);
-    glEnd();
-  }
+  // Each hair is a line from the stroke outwards that fades to nothing,
+  // by way of white.
+  const std::vector<TCanvasColor> colors = {toCanvas(color),
+                                            TCanvasColor(1.f, 1.f, 1.f, 0.f)};
+  for (UINT i = 0; i + 1 < positions.size(); i += 2)
+    strokeColoredPolyline(canvas, {positions[i], positions[i + 1]}, colors,
+                          antialias);
 }
 
 //=============================================================================
@@ -270,7 +328,8 @@ TColorStyle *TChainStrokeStyle::clone() const {
 //-----------------------------------------------------------------------------
 
 void TChainStrokeStyle::computeData(Points &data, const TStroke *stroke,
-                                    const TColorFunction *cf) const {
+                                    const TColorFunction *cf,
+    double pixelSize) const {
   // TStroke *stroke = getStroke();
   double length = stroke->getLength();
 
@@ -321,20 +380,27 @@ void TChainStrokeStyle::computeData(Points &data, const TStroke *stroke,
 //-----------------------------------------------------------------------------
 
 void TChainStrokeStyle::drawStroke(const TColorFunction *cf, Points &data,
-                                   const TStroke *stroke) const {
-  // TStroke *stroke = getStroke();
-  // double length = stroke->getLength();
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
 
+//-----------------------------------------------------------------------------
+
+void TChainStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    Points &data, const TStroke *stroke, bool antialias) const {
   // spessore della catena = spessore "medio" dello stroke
   double thickness =
       0.25 *
       (stroke->getThickPoint(0).thick + stroke->getThickPoint(1.0 / 3.0).thick +
        stroke->getThickPoint(2.0 / 3.0).thick + stroke->getThickPoint(1).thick);
 
-  if (thickness * thickness < 4 * tglGetPixelSize2()) {
+  const double pixelSize = canvas.pixelSize();
+  if (thickness * thickness < 4 * pixelSize * pixelSize) {
     TCenterLineStrokeStyle *appStyle =
         new TCenterLineStrokeStyle(m_color, 0x0, thickness);
-    appStyle->drawStroke(cf, stroke);
+    appStyle->drawStrokeOnCanvas(canvas, cf, stroke, antialias);
     delete appStyle;
     return;
   }
@@ -343,66 +409,43 @@ void TChainStrokeStyle::drawStroke(const TColorFunction *cf, Points &data,
   double ringHeight = thickness;
   double ringWidth  = 1.5 * ringHeight;
 
-  // distanza fra i centri degli anelli
-  // double ringDistance = 2 * 1.2 * ringWidth;
-
   // distanza fra il centro dell'anello e il punto di attacco dell'anello
   // trasversale
   double joinPos = 0.45 * ringWidth;
 
   // definisco la forma dell'anello della catena
-  GLuint ringId;
-  ringId   = glGenLists(1);
   double a = .6, b = .6;
-  glNewList(ringId, GL_COMPILE);
-  glPushMatrix();
-  glScaled(ringWidth, ringHeight, 1);
-  glBegin(GL_LINE_STRIP);
-  glVertex2d(1, b);
-  glVertex2d(a, 1);
-  glVertex2d(-a, 1);
-  glVertex2d(-1, b);
-  glVertex2d(-1, -b);
-  glVertex2d(-a, -1);
-  glVertex2d(a, -1);
-  glVertex2d(1, -b);
-  glVertex2d(1, b);
-  glEnd();
-  glPopMatrix();
-  glEndList();
+  TCanvasPath ring;
+  addPolyline(ring, {TPointD(1, b), TPointD(a, 1), TPointD(-a, 1),
+                     TPointD(-1, b), TPointD(-1, -b), TPointD(-a, -1),
+                     TPointD(a, -1), TPointD(1, -b), TPointD(1, b)});
 
   // disegno la catena
-
-  if (cf)
-    tglColor((*cf)(m_color));
-  else
-    tglColor(m_color);
+  const TPixel32 color = cf ? (*cf)(m_color) : m_color;
 
   TPointD oldPos;
-  // bool firstRing = true;
-  // double s = 0;
   for (UINT i = 0; i < data.size(); i += 2) {
     TPointD pos = data[i];
     TPointD u   = data[i + 1];
     TPointD v   = rotate90(u);
 
     // disegno un anello della catena
-    glPushMatrix();
+    canvas.save();
     TAffine aff(u.x, v.x, pos.x, u.y, v.y, pos.y);
-    tglMultMatrix(aff);
-    glCallList(ringId);
-    glPopMatrix();
+    canvas.concat(toCanvas(aff));
+    canvas.concat(TCanvasAffine::scale(ringWidth, ringHeight));
+    strokeLines(canvas, ring, color, antialias);
+    canvas.restore();
 
     // se e' il caso unisco la catena alla precedente
     if (i != 0) {
       TPointD q = pos - u * joinPos;
-      tglDrawSegment(oldPos, q);
+      TCanvasPath link;
+      addSegment(link, oldPos, q);
+      strokeLines(canvas, link, color, antialias);
     }
-
     oldPos = pos + u * joinPos;
   }
-
-  glDeleteLists(ringId, 1);
 }
 
 //=============================================================================
@@ -509,7 +552,16 @@ void TSprayStrokeStyle::setParamValue(int index, double value) {
 //-----------------------------------------------------------------------------
 
 void TSprayStrokeStyle::drawStroke(const TColorFunction *cf,
-                                   const TStroke *stroke) const {
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TSprayStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    const TStroke *stroke, bool antialias) const {
   //  TStroke *stroke = getStroke();
   double length = stroke->getLength();
   double step   = 4;
@@ -520,7 +572,6 @@ void TSprayStrokeStyle::drawStroke(const TColorFunction *cf,
                                    // step
   double radius = m_radius;
   double decay  = 1 - blend;
-  bool fill     = 0;
   TPointD pos1;
   TRandom rnd;
   TPixelD dcolor;
@@ -531,7 +582,7 @@ void TSprayStrokeStyle::drawStroke(const TColorFunction *cf,
     color             = m_color;
   dcolor              = toPixelD(color);
   double s            = 0;
-  double minthickness = MINTHICK * sqrt(tglGetPixelSize2());
+  double minthickness = MINTHICK * canvas.pixelSize();
   double thickness    = 0;
   while (s <= length) {
     double w = stroke->getParameterAtLength(s);
@@ -558,15 +609,14 @@ void TSprayStrokeStyle::drawStroke(const TColorFunction *cf,
       shift            = u * randomu + v * randomv;
       pos1             = pos + shift;
       double mod       = fabs(vrandnorm);
+      TCanvasColor dot;
       if (mod < decay)
-        glColor4d(dcolor.r, dcolor.g, dcolor.b, rnd.getFloat() * dcolor.m);
+        dot = floatColor(dcolor, rnd.getFloat() * dcolor.m);
       else
-        glColor4d(dcolor.r, dcolor.g, dcolor.b,
-                  rnd.getFloat() * (1 - mod) * dcolor.m);
-      if (fill)
-        tglDrawDisk(pos1, radius * thickness * rnd.getFloat());
-      else
-        tglDrawCircle(pos1, radius * thickness * rnd.getFloat());
+        dot = floatColor(dcolor, rnd.getFloat() * (1 - mod) * dcolor.m);
+      // Rings, not discs: "fill" has always been off.
+      drawCircle(canvas, pos1, radius * thickness * rnd.getFloat(), dot,
+                 antialias);
     }
     s += step;
   }
@@ -631,7 +681,8 @@ void TGraphicPenStrokeStyle::setParamValue(int index, double value) {
 
 void TGraphicPenStrokeStyle::computeData(DrawmodePointsMatrix &data,
                                          const TStroke *stroke,
-                                         const TColorFunction *cf) const {
+                                         const TColorFunction *cf,
+    double pixelSize) const {
   data.clear();
   double length = stroke->getLength();
   double step   = 10;
@@ -684,29 +735,39 @@ void TGraphicPenStrokeStyle::computeData(DrawmodePointsMatrix &data,
 
 //-----------------------------------------------------------------------------
 
-void TGraphicPenStrokeStyle::drawStroke(const TColorFunction *cf,
-                                        DrawmodePointsMatrix &data,
-                                        const TStroke *stroke) const {
+void TGraphicPenStrokeStyle::drawStroke(const TColorFunction *cf, DrawmodePointsMatrix &data,
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TGraphicPenStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    DrawmodePointsMatrix &data, const TStroke *stroke, bool antialias) const {
   TPixel32 color;
   if (cf)
     color = (*(cf))(m_color);
   else
     color = m_color;
-  tglColor(color);
 
   DrawmodePointsMatrix::iterator it1 = data.begin();
   for (; it1 != data.end(); ++it1) {
+    const Points &points = it1->second;
+    TCanvasPath path;
     if (it1->first == GL_LINES) {
-      Points::iterator it2 = it1->second.begin();
-      glBegin(GL_LINES);
-      for (; it2 != it1->second.end(); ++it2) tglVertex(*it2);
-      glEnd();
+      // Short lines across the stroke.
+      for (std::size_t i = 0; i + 1 < points.size(); i += 2)
+        addSegment(path, points[i], points[i + 1]);
+      strokeLines(canvas, path, color, antialias);
     } else {
       assert(it1->first == GL_POINTS);
-      Points::iterator it2 = it1->second.begin();
-      glBegin(GL_POINTS);
-      for (; it2 != it1->second.end(); ++it2) tglVertex(*it2);
-      glEnd();
+      // Where the stroke has no thickness: points of one pixel.
+      for (const TPointD &point : points) path.moveTo(toCanvas(point));
+      TCanvasPen pen = thinPen();
+      pen.cap        = TCanvasPen::Cap::Round;
+      canvas.strokePath(path, pen, linePaint(toCanvas(color), false));
     }
   }
 }
@@ -848,7 +909,8 @@ void TDottedLineStrokeStyle::setParamValue(int index, double value) {
 
 void TDottedLineStrokeStyle::computeData(Points &positions,
                                          const TStroke *stroke,
-                                         const TColorFunction *cf) const {
+                                         const TColorFunction *cf,
+    double pixelSize) const {
   double length = stroke->getLength();
 
   double step     = 5.0;
@@ -868,7 +930,7 @@ void TDottedLineStrokeStyle::computeData(Points &positions,
   double meter        = 0;
   double center       = 0;
   double slopetmp     = 0;
-  double minthickness = MINTHICK * sqrt(tglGetPixelSize2());
+  double minthickness = MINTHICK * pixelSize;
   double thickness    = 0;
   double line = 0, in = 0, out = 0, blank = 0;
   while (s <= length) {
@@ -934,29 +996,37 @@ void TDottedLineStrokeStyle::computeData(Points &positions,
 
 //-----------------------------------------------------------------------------
 
-void TDottedLineStrokeStyle::drawStroke(const TColorFunction *cf,
-                                        Points &positions,
-                                        const TStroke *stroke) const {
+void TDottedLineStrokeStyle::drawStroke(const TColorFunction *cf, Points &positions,
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TDottedLineStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    Points &positions, const TStroke *stroke, bool antialias) const {
   TPixel32 color;
   if (cf)
     color = (*(cf))(m_color);
   else
     color = m_color;
 
-  for (UINT i = 4; i < positions.size(); i += 4) {
-    glBegin(GL_QUAD_STRIP);
-    glColor4ub(color.r, color.g, color.b, 0);
-    tglVertex(positions[i - 4]);
-    tglVertex(positions[i]);
-    glColor4ub(color.r, color.g, color.b, color.m);
-    tglVertex(positions[i - 3]);
-    tglVertex(positions[i + 1]);
-    tglVertex(positions[i - 2]);
-    tglVertex(positions[i + 2]);
-    glColor4ub(color.r, color.g, color.b, 0);
-    tglVertex(positions[i - 1]);
-    tglVertex(positions[i + 3]);
-    glEnd();
+  // Each piece is three bands side by side: the colour in the middle one,
+  // fading to nothing across the outer two.
+  const TPixel32 faded(color.r, color.g, color.b, 0);
+  for (UINT i = 4; i + 3 < positions.size(); i += 4) {
+    TCanvasMesh strip = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+    addVertex(strip, positions[i - 4], faded);
+    addVertex(strip, positions[i], faded);
+    addVertex(strip, positions[i - 3], color);
+    addVertex(strip, positions[i + 1], color);
+    addVertex(strip, positions[i - 2], color);
+    addVertex(strip, positions[i + 2], color);
+    addVertex(strip, positions[i - 1], faded);
+    addVertex(strip, positions[i + 3], faded);
+    canvas.drawMesh(strip, plainPaint());
   }
 }
 
@@ -1017,7 +1087,8 @@ void TRopeStrokeStyle::setParamValue(int index, double value) {
 //-----------------------------------------------------------------------------
 
 void TRopeStrokeStyle::computeData(Points &positions, const TStroke *stroke,
-                                   const TColorFunction *cf) const {
+                                   const TColorFunction *cf,
+    double pixelSize) const {
   double length = stroke->getLength();
   // spessore della catena = spessore "medio" dello stroke
   double step = 10.0;
@@ -1072,7 +1143,16 @@ void TRopeStrokeStyle::computeData(Points &positions, const TStroke *stroke,
 //-----------------------------------------------------------------------------
 
 void TRopeStrokeStyle::drawStroke(const TColorFunction *cf, Points &positions,
-                                  const TStroke *stroke) const {
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TRopeStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    Points &positions, const TStroke *stroke, bool antialias) const {
   if (positions.size() <= 1) return;
   TPixel32 color;
   if (cf)
@@ -1080,60 +1160,25 @@ void TRopeStrokeStyle::drawStroke(const TColorFunction *cf, Points &positions,
   else
     color = m_color;
 
-  //  GLuint  rope_id;
-
   TPixel32 blackcolor(TPixel32::Black);
-  if (cf)
-    blackcolor = (*(cf))(blackcolor);
-  else
-    blackcolor = blackcolor;
+  if (cf) blackcolor = (*(cf))(blackcolor);
 
-  // rope_id = glGenLists(1);
-
-  static const int stride = sizeof(TPointD);
-  glEnableClientState(GL_VERTEX_ARRAY);
-
+  // Each strand is a polygon of eight points with a black line round it.
   UINT i = 0;
   for (; i < positions.size() - 2; i += 8) {
-    /*
-glNewList(rope_id,GL_COMPILE);
-      tglVertex(positions[i]);
-      tglVertex(positions[i+1]);
-      tglVertex(positions[i+2]);
-      tglVertex(positions[i+3]);
-      tglVertex(positions[i+4]);
-      tglVertex(positions[i+5]);
-      tglVertex(positions[i+6]);
-      tglVertex(positions[i+7]);
-glEndList();
-*/
-    tglColor(color);
-    // glBegin(GL_POLYGON);
-
-    glVertexPointer(2, GL_DOUBLE, stride, &positions[i]);
-    glDrawArrays(GL_POLYGON, 0, 8);
-
-    // glCallList(rope_id);
-    // glEnd();
-
-    tglColor(blackcolor);
-
-    // glBegin(GL_LINE_STRIP);
-    glVertexPointer(2, GL_DOUBLE, stride, &positions[i]);
-    glDrawArrays(GL_LINE_STRIP, 0, 8);
-
-    // glCallList(rope_id);
-    // glEnd();
+    TCanvasMesh strand = plainMesh(TCanvasMesh::Mode::Polygon);
+    TCanvasPath outline;
+    for (UINT j = 0; j < 8; j++) addVertex(strand, positions[i + j], color);
+    addPolyline(outline,
+                std::vector<TPointD>(positions.begin() + i,
+                                     positions.begin() + i + 8));
+    canvas.drawMesh(strand, plainPaint());
+    strokeLines(canvas, outline, blackcolor, antialias);
   }
 
-  glDisableClientState(GL_VERTEX_ARRAY);
-
-  glBegin(GL_LINE_STRIP);
-  tglVertex(positions[i]);
-  tglVertex(positions[i + 1]);
-  glEnd();
-
-  // glDeleteLists(rope_id,1);
+  TCanvasPath last;
+  addSegment(last, positions[i], positions[i + 1]);
+  strokeLines(canvas, last, blackcolor, antialias);
 }
 
 //=============================================================================
@@ -1207,7 +1252,8 @@ void TCrystallizeStrokeStyle::setParamValue(int index, double value) {
 
 void TCrystallizeStrokeStyle::computeData(Points &positions,
                                           const TStroke *stroke,
-                                          const TColorFunction *cf) const {
+                                          const TColorFunction *cf,
+    double pixelSize) const {
   double length = stroke->getLength();
   double step   = 10.0;
   TRandom rnd;
@@ -1243,10 +1289,17 @@ void TCrystallizeStrokeStyle::computeData(Points &positions,
 
 //-----------------------------------------------------------------------------
 
-void TCrystallizeStrokeStyle::drawStroke(const TColorFunction *cf,
-                                         Points &positions,
-                                         const TStroke *stroke) const {
-  // double length = stroke->getLength();
+void TCrystallizeStrokeStyle::drawStroke(const TColorFunction *cf, Points &positions,
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TCrystallizeStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    Points &positions, const TStroke *stroke, bool antialias) const {
   double step    = 10.0;
   double period  = (101 - m_period) * step;
   double counter = 0;
@@ -1260,30 +1313,26 @@ void TCrystallizeStrokeStyle::drawStroke(const TColorFunction *cf,
     color = m_color;
 
   TPixelD dcolor = toPixelD(color);
-  // double s = 0;
 
-  glBegin(GL_QUAD_STRIP);
+  // A band whose opacity changes along the stroke, a little at random...
+  TCanvasMesh band = plainMesh(TCanvasMesh::Mode::TriangleStrip);
   for (int i = 0; i < (int)positions.size() / 2; i++) {
     if (counter > period) counter = 0;
-    glColor4d(dcolor.r, dcolor.g, dcolor.b,
-              (opacity + (counter / period) * rnd.getFloat()) * dcolor.m);
-    tglVertex(positions[i * 2]);
-    tglVertex(positions[i * 2 + 1]);
+    const TCanvasColor shade = floatColor(
+        dcolor, (opacity + (counter / period) * rnd.getFloat()) * dcolor.m);
+    addVertex(band, positions[i * 2], shade);
+    addVertex(band, positions[i * 2 + 1], shade);
     counter += step;
   }
-  glEnd();
-  counter = 0;
-  glColor4d(dcolor.r, dcolor.g, dcolor.b, dcolor.m);
+  canvas.drawMesh(band, plainPaint());
+
+  // ...and a line in the full colour down each side.
+  TCanvasPath sides;
   for (int j = 1; j < (int)positions.size() / 2; j++) {
-    glBegin(GL_LINES);
-    tglVertex(positions[(j - 1) * 2]);
-    tglVertex(positions[j * 2]);
-    glEnd();
-    glBegin(GL_LINES);
-    tglVertex(positions[(j - 1) * 2 + 1]);
-    tglVertex(positions[j * 2 + 1]);
-    glEnd();
+    addSegment(sides, positions[(j - 1) * 2], positions[j * 2]);
+    addSegment(sides, positions[(j - 1) * 2 + 1], positions[j * 2 + 1]);
   }
+  strokeLines(canvas, sides, floatColor(dcolor, dcolor.m), antialias);
 }
 
 //=============================================================================
@@ -1299,8 +1348,8 @@ public:
   int phase;
   TPixel32 color;
   Stripe();
-  void drawpolygon();
-  void drawlines(TPixel32 blackcolor);
+  void drawpolygon(TCanvas &canvas);
+  void drawlines(TCanvas &canvas, TPixel32 blackcolor, bool antialias);
   void addToSegment(vector<TSegment> *sv, vector<TSegment> &scontour,
                     TPixel32 *colors);
 };
@@ -1314,14 +1363,13 @@ Stripe::Stripe() {
   phase   = 0;
 }
 
-void Stripe::drawpolygon() {
-  tglColor(color);
-  glBegin(GL_POLYGON);
-  tglVertex(oldpos1);
-  tglVertex(pos1);
-  tglVertex(pos2);
-  tglVertex(oldpos2);
-  glEnd();
+void Stripe::drawpolygon(TCanvas &canvas) {
+  TCanvasMesh polygon = plainMesh(TCanvasMesh::Mode::Polygon);
+  addVertex(polygon, oldpos1, color);
+  addVertex(polygon, pos1, color);
+  addVertex(polygon, pos2, color);
+  addVertex(polygon, oldpos2, color);
+  canvas.drawMesh(polygon, plainPaint());
 }
 
 void Stripe::addToSegment(vector<TSegment> *sv, vector<TSegment> &scontour,
@@ -1338,16 +1386,11 @@ void Stripe::addToSegment(vector<TSegment> *sv, vector<TSegment> &scontour,
   scontour.push_back(TSegment(oldpos2, pos2));
 }
 
-void Stripe::drawlines(TPixel32 blackcolor) {
-  tglColor(blackcolor);
-  glBegin(GL_LINE_STRIP);
-  tglVertex(oldpos1);
-  tglVertex(pos1);
-  glEnd();
-  glBegin(GL_LINE_STRIP);
-  tglVertex(pos2);
-  tglVertex(oldpos2);
-  glEnd();
+void Stripe::drawlines(TCanvas &canvas, TPixel32 blackcolor, bool antialias) {
+  TCanvasPath sides;
+  addSegment(sides, oldpos1, pos1);
+  addSegment(sides, pos2, oldpos2);
+  strokeLines(canvas, sides, blackcolor, antialias);
 }
 }
 
@@ -1464,7 +1507,16 @@ void TBraidStrokeStyle::loadData(int ids, TInputStreamInterface &is) {
 //-----------------------------------------------------------------------------
 
 void TBraidStrokeStyle::drawStroke(const TColorFunction *cf,
-                                   const TStroke *stroke) const {
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TBraidStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    const TStroke *stroke, bool antialias) const {
   double length                = stroke->getLength();
   const int ntick              = 81;
   const double stripethickness = 0.3;
@@ -1531,8 +1583,8 @@ void TBraidStrokeStyle::drawStroke(const TColorFunction *cf,
         int tmp       = (count + braid[i].phase) % ntick;
         braid[i].pos1 = pos + v * ssin[tmp];
         braid[i].pos2 = pos + v * ssin[tmp] + v1;
-        braid[i].drawpolygon();
-        braid[i].drawlines(blackcolor);
+        braid[i].drawpolygon(canvas);
+        braid[i].drawlines(canvas, blackcolor, antialias);
         braid[i].oldpos1 = pos + v * ssin[tmp];
         braid[i].oldpos2 = pos + v * ssin[tmp] + v1;
       }
@@ -1606,7 +1658,20 @@ void TSketchStrokeStyle::setParamValue(int index, double value) {
 //-----------------------------------------------------------------------------
 
 void TSketchStrokeStyle::drawStroke(const TColorFunction *cf,
-                                    const TStroke *stroke) const {
+    const TStroke *stroke) const {
+  {
+    TLegacyGlCanvas gl;
+    drawStrokeOnCanvas(gl.canvas(), cf, stroke,
+                       glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  }
+  // The old code left this colour behind it.
+  glColor4d(0, 0, 0, 1);
+}
+
+//-----------------------------------------------------------------------------
+
+void TSketchStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    const TStroke *stroke, bool antialias) const {
   double length = stroke->getLength();
   if (length <= 0) return;
 
@@ -1621,7 +1686,6 @@ void TSketchStrokeStyle::drawStroke(const TColorFunction *cf,
   else
     color = m_color;
 
-  tglColor(color);
 
   TRandom rnd;
 
@@ -1656,8 +1720,8 @@ void TSketchStrokeStyle::drawStroke(const TColorFunction *cf,
     double delta0 = delta - d;
     double delta1 = delta + d;
 
-    glBegin(GL_LINE_STRIP);
-    tglVertex(p0 + v0 * delta0);
+    std::vector<TPointD> line;
+    line.push_back(p0 + v0 * delta0);
     for (int j = 1; j < count; j++) {
       double t  = j / (double)count;
       w         = (1 - t) * w0 + t * w1;
@@ -1665,12 +1729,13 @@ void TSketchStrokeStyle::drawStroke(const TColorFunction *cf,
       assert(0 <= w && w <= 1);
       TPointD p      = stroke->getPoint(w);
       double delta_t = (1 - t) * delta0 + t * delta1;
-      tglVertex(p + v * delta_t);
+      line.push_back(p + v * delta_t);
     }
-    tglVertex(p1 + v1 * delta1);
-    glEnd();
+    line.push_back(p1 + v1 * delta1);
+    TCanvasPath path;
+    addPolyline(path, line);
+    strokeLines(canvas, path, color, antialias);
   }
-  glColor4d(0, 0, 0, 1);
 }
 
 //=============================================================================
@@ -1697,7 +1762,16 @@ void TBubbleStrokeStyle::loadData(int ids, TInputStreamInterface &is) {
 //-----------------------------------------------------------------------------
 
 void TBubbleStrokeStyle::drawStroke(const TColorFunction *cf,
-                                    const TStroke *stroke) const {
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TBubbleStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    const TStroke *stroke, bool antialias) const {
   double length = stroke->getLength();
   if (length <= 0) return;
 
@@ -1712,7 +1786,7 @@ void TBubbleStrokeStyle::drawStroke(const TColorFunction *cf,
     color1 = m_color1;
   }
 
-  double minthickness = MINTHICK * sqrt(tglGetPixelSize2());
+  double minthickness = MINTHICK * canvas.pixelSize();
   double thickness    = 0;
   for (double s = 0; s < length; s += 5) {
     TPointD p = stroke->getPointAtLength(s);
@@ -1735,9 +1809,9 @@ void TBubbleStrokeStyle::drawStroke(const TColorFunction *cf,
       thickness = minthickness;
     else
       thickness = pos.thick;
-    tglColor(blend(color0, color1, rnd.getFloat()));
-    double radius = (t & ((int)(thickness)));
-    tglDrawCircle(p, radius);
+    const TPixel32 color = blend(color0, color1, rnd.getFloat());
+    double radius        = (t & ((int)(thickness)));
+    drawCircle(canvas, p, radius, toCanvas(color), antialias);
   }
 }
 
@@ -1808,7 +1882,8 @@ void TTissueStrokeStyle::setParamValue(int index, double value) {
 //-----------------------------------------------------------------------------
 
 void TTissueStrokeStyle::computeData(PointMatrix &data, const TStroke *stroke,
-                                     const TColorFunction *cf) const {
+                                     const TColorFunction *cf,
+    double pixelSize) const {
   data.clear();
   double length = stroke->getLength();
   double step   = 5.0;
@@ -1880,23 +1955,30 @@ void TTissueStrokeStyle::computeData(PointMatrix &data, const TStroke *stroke,
 //-----------------------------------------------------------------------------
 
 void TTissueStrokeStyle::drawStroke(const TColorFunction *cf, PointMatrix &data,
-                                    const TStroke *stroke) const {
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TTissueStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    PointMatrix &data, const TStroke *stroke, bool antialias) const {
   TPixel32 color;
   if (cf)
     color = (*(cf))(m_color);
   else
     color = m_color;
 
-  tglColor(color);
-
+  // Threads: each row of the data is a set of separate segments.
   PointMatrix::iterator it1 = data.begin();
   for (; it1 != data.end(); ++it1) {
-    glBegin(GL_LINES);
-    Points::iterator it2 = (*it1).begin();
-    for (; it2 != (*it1).end(); ++it2) {
-      tglVertex(*it2);
-    }
-    glEnd();
+    const Points &points = *it1;
+    TCanvasPath threads;
+    for (std::size_t i = 0; i + 1 < points.size(); i += 2)
+      addSegment(threads, points[i], points[i + 1]);
+    strokeLines(canvas, threads, color, antialias);
   }
 }
 
@@ -1943,44 +2025,48 @@ void TBiColorStrokeStyle::loadData(int ids, TInputStreamInterface &is) {
 //-----------------------------------------------------------------------------
 
 void TBiColorStrokeStyle::drawStroke(const TColorFunction *cf,
-                                     TStrokeOutline *outline,
-                                     const TStroke *stroke) const {
+    TStrokeOutline *outline, const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TBiColorStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    TStrokeOutline *outline, const TStroke *stroke, bool antialias) const {
   TPixel32 color0 = m_color0;
   TPixel32 color1 = m_color1;
-
   if (cf) {
     color0 = (*(cf))(m_color0);
     color1 = (*(cf))(m_color1);
-  } else {
-    color0 = m_color0;
-    color1 = m_color1;
   }
 
   UINT i;
 
   const std::vector<TOutlinePoint> &v = outline->getArray();
-
   if (v.empty()) return;
 
-  // outline with antialiasing
-  glBegin(GL_LINE_STRIP);
-  tglColor(color0);
-  for (i = 0; i < v.size(); i += 2) glVertex2dv(&v[i].x);
-  glEnd();
+  // A line down each side in the colour of that side, then the stroke
+  // itself, blending from the one colour to the other across its width.
+  std::vector<TPointD> side;
+  for (i = 0; i < v.size(); i += 2) side.push_back(TPointD(v[i].x, v[i].y));
+  TCanvasPath left;
+  addPolyline(left, side);
+  strokeLines(canvas, left, color0, antialias);
 
-  glBegin(GL_LINE_STRIP);
-  tglColor(color1);
-  for (i = 1; i < v.size(); i += 2) glVertex2dv(&v[i].x);
-  glEnd();
+  side.clear();
+  for (i = 1; i < v.size(); i += 2) side.push_back(TPointD(v[i].x, v[i].y));
+  TCanvasPath right;
+  addPolyline(right, side);
+  strokeLines(canvas, right, color1, antialias);
 
-  glBegin(GL_QUAD_STRIP);
-  for (i = 0; i < v.size(); i += 2) {
-    tglColor(color0);
-    glVertex2dv(&v[i].x);
-    tglColor(color1);
-    glVertex2dv(&v[i + 1].x);
+  TCanvasMesh strip = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+  for (i = 0; i + 1 < v.size(); i += 2) {
+    addVertex(strip, TPointD(v[i].x, v[i].y), color0);
+    addVertex(strip, TPointD(v[i + 1].x, v[i + 1].y), color1);
   }
-  glEnd();
+  canvas.drawMesh(strip, plainPaint());
 }
 
 //=============================================================================
@@ -2226,6 +2312,129 @@ void TNormal2StrokeStyle::drawStroke(const TColorFunction *cf,
   glDisable(GL_LIGHTING);
   glDisable(GL_LIGHT0);
 }
+//-----------------------------------------------------------------------------
+
+namespace {
+
+// What OpenGL's lighting makes of TNormal2StrokeStyle's material at a
+// vertex: one light at infinity, a viewer at infinity, the scene's default
+// ambient light of 0.2, colours clamped to 1. Normals and the light's
+// direction are taken through the transform in force, as OpenGL takes them
+// through the modelview matrix.
+class Normal2Light {
+  double m_inv[4];  // of the transform's 2 by 2 part
+  T3DPointD m_light, m_half;
+  TPixelD m_color;
+  double m_specular[3], m_shininess;
+
+public:
+  Normal2Light(const TCanvasAffine &aff, double lightx, double lighty,
+               const TPixelD &color, double metal, double shininess)
+      : m_color(color), m_shininess(std::min(std::max(shininess, 0.0), 128.0)) {
+    double det = aff.a11 * aff.a22 - aff.a12 * aff.a21;
+    if (det == 0.0) det = 1.0;
+    m_inv[0] = aff.a22 / det, m_inv[1] = -aff.a12 / det;
+    m_inv[2] = -aff.a21 / det, m_inv[3] = aff.a11 / det;
+
+    // The light's values go to OpenGL as floats.
+    const double lx = (float)lightx, ly = (float)lighty;
+    m_light = T3DPointD(aff.a11 * lx + aff.a12 * ly, aff.a21 * lx + aff.a22 * ly,
+                        100.0);
+    m_light = normalize(m_light);
+    m_half  = normalize(m_light + T3DPointD(0, 0, 1));
+
+    m_specular[0] = metal * (1 - color.r) + color.r;
+    m_specular[1] = metal * (1 - color.g) + color.g;
+    m_specular[2] = metal * (1 - color.b) + color.b;
+  }
+
+  TCanvasColor at(const T3DPointD &normal) const {
+    // Normals go through the inverse transposed.
+    T3DPointD n(m_inv[0] * normal.x + m_inv[2] * normal.y,
+                m_inv[1] * normal.x + m_inv[3] * normal.y, normal.z);
+    if (norm2(n) > 0.0) n = normalize(n);
+
+    const double diffuse = std::max(n * m_light, 0.0);
+    const double shine =
+        diffuse > 0.0 ? std::pow(std::max(n * m_half, 0.0), m_shininess) : 0.0;
+    const double ambient = 0.2;
+    const double rgb[3]  = {m_color.r, m_color.g, m_color.b};
+    float out[3];
+    for (int c = 0; c < 3; c++)
+      out[c] = (float)std::min(
+          (ambient + diffuse) * rgb[c] + shine * m_specular[c], 1.0);
+    // The material's alpha is 1 whatever the colour's: it always was.
+    return TCanvasColor(out[0], out[1], out[2], 1.f);
+  }
+};
+
+}  // namespace
+
+//-----------------------------------------------------------------------------
+
+// Not what drawStroke() is seen through the OpenGL canvas: drawStroke() has
+// OpenGL work out the lighting, and no two drivers do that to the same bit.
+// Here the same formula is worked out per vertex and the stroke goes out as
+// one mesh with those colours, with smooth edges in place of the two lit
+// lines the OpenGL version draws along its sides.
+void TNormal2StrokeStyle::drawStrokeOnCanvas(TCanvas &canvas,
+                                             const TColorFunction *cf,
+                                             TStrokeOutline *outline,
+                                             const TStroke *stroke,
+                                             bool antialias) const {
+  TPixel32 color;
+  if (cf)
+    color = (*(cf))(m_color);
+  else
+    color = m_color;
+
+  double bend                         = 2 * m_bend;
+  const std::vector<TOutlinePoint> &v = outline->getArray();
+  if (v.size() < 4) return;
+
+  const Normal2Light light(canvas.transform(), m_lightx, m_lighty,
+                           toPixelD(color), m_metal, m_shininess);
+
+  // Across the stroke the normal leans from one side to the other, as on
+  // a rounded ridge.
+  std::vector<T3DPointD> across;
+  for (UINT i = 0; i + 1 < v.size(); i += 2) {
+    T3DPointD d(v[i + 1].x - v[i].x, v[i + 1].y - v[i].y, 0);
+    if (norm2(d) > 0.0) d = normalize(d);
+    across.push_back(d);
+  }
+
+  TCanvasMesh mesh;
+  mesh.mode        = TCanvasMesh::Mode::Triangles;
+  mesh.smoothEdges = true;
+  const T3DPointD up(0, 0, 1);
+  for (UINT k = 0; k + 1 < across.size(); k++) {
+    const UINT i = 2 * k;
+    const TPointD olda(v[i].x, v[i].y), oldb(v[i + 1].x, v[i + 1].y);
+    const TPointD a(v[i + 2].x, v[i + 2].y), b(v[i + 3].x, v[i + 3].y);
+    const TPointD oldcenter = 0.5 * (olda + oldb), center = 0.5 * (a + b);
+
+    // The normals as the OpenGL version sets them: the far side of each
+    // piece already leans the way the next piece does.
+    const TCanvasColor coldA = light.at(up - bend * across[k]);
+    const TCanvasColor coldB = light.at(up + bend * across[k]);
+    const TCanvasColor cA    = light.at(up - bend * across[k]);
+    const TCanvasColor cB    = light.at(up + bend * across[k + 1]);
+    const TCanvasColor cMid  = light.at(up);
+
+    // Two quads side by side: olda a center oldcenter, oldcenter center b
+    // oldb.
+    const TPointD quads[2][4]      = {{olda, a, center, oldcenter},
+                                      {oldcenter, center, b, oldb}};
+    const TCanvasColor shades[2][4] = {{coldA, cA, cMid, cMid},
+                                       {cMid, cMid, cB, coldB}};
+    for (int q = 0; q < 2; q++)
+      for (int corner : {0, 1, 2, 0, 2, 3})
+        addVertex(mesh, quads[q][corner], shades[q][corner]);
+  }
+  canvas.drawMesh(mesh, linePaint(TCanvasColor(1.f, 1.f, 1.f, 1.f), antialias));
+}
+
 
 //=============================================================================
 
@@ -2388,7 +2597,8 @@ void TChalkStrokeStyle2::loadData(int ids, TInputStreamInterface &is) {
 //-----------------------------------------------------------------------------
 
 void TChalkStrokeStyle2::computeData(Doubles &data, const TStroke *stroke,
-                                     const TColorFunction *cf) const {
+                                     const TColorFunction *cf,
+    double pixelSize) const {
   double length = stroke->getLength();
   double step   = 4;
   double s      = 0;
@@ -2423,7 +2633,16 @@ void TChalkStrokeStyle2::computeData(Doubles &data, const TStroke *stroke,
 //-----------------------------------------------------------------------------
 
 void TChalkStrokeStyle2::drawStroke(const TColorFunction *cf, Doubles &data,
-                                    const TStroke *stroke) const {
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TChalkStrokeStyle2::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    Doubles &data, const TStroke *stroke, bool antialias) const {
   double step = 4;
 
   double blend = m_blend;  // distanza che controlla da dove il gessetto
@@ -2446,16 +2665,6 @@ void TChalkStrokeStyle2::drawStroke(const TColorFunction *cf, Doubles &data,
   double noiseslope = 0;
   double tmpnoise   = 0;
 
-  GLuint chalkId;
-  chalkId = glGenLists(1);
-  glNewList(chalkId, GL_COMPILE);
-  glBegin(GL_QUADS);
-  glVertex2d(1, 1);
-  glVertex2d(-1, 1);
-  glVertex2d(-1, -1);
-  glVertex2d(1, -1);
-  glEnd();
-  glEndList();
 
   for (UINT i = 0; i < data.size(); i += 6) {
     TThickPoint pos;
@@ -2486,19 +2695,21 @@ void TChalkStrokeStyle2::drawStroke(const TColorFunction *cf, Doubles &data,
       double randomu   = (0.5 - rnd.getFloat()) * step;
       shift            = pos + u * randomu + v * randomv;
       double mod       = fabs(vrandnorm);
+      TCanvasColor grain;
       if (mod > 1 - blend)
-        glColor4d(dcolor.r, dcolor.g, dcolor.b,
-                  (double)rnd.getFloat() * ((1 - mod) * transpslope));
+        grain = floatColor(dcolor,
+                           (double)rnd.getFloat() * ((1 - mod) * transpslope));
       else
-        glColor4d(dcolor.r, dcolor.g, dcolor.b, mattedcolor);
-      glPushMatrix();
-      glTranslated(shift.x, shift.y, 0.0);
-      glCallList(chalkId);
-      glPopMatrix();
+        grain = floatColor(dcolor, mattedcolor);
+      // A square two units across, moved into place by the transform.
+      canvas.save();
+      canvas.concat(TCanvasAffine::translation(shift.x, shift.y));
+      drawQuad(canvas, TPointD(1, 1), TPointD(-1, 1), TPointD(-1, -1),
+               TPointD(1, -1), grain);
+      canvas.restore();
     }
   }
 
-  glDeleteLists(chalkId, 1);
 }
 
 //=============================================================================
@@ -2604,7 +2815,8 @@ void TBlendStrokeStyle2::loadData(int ids, TInputStreamInterface &is) {
 
 void TBlendStrokeStyle2::computeData(PointsAndDoubles &data,
                                      const TStroke *stroke,
-                                     const TColorFunction *cf) const {
+                                     const TColorFunction *cf,
+    double pixelSize) const {
   data.clear();
   // TStroke *stroke = getStroke();
   double length = stroke->getLength();
@@ -2624,7 +2836,7 @@ void TBlendStrokeStyle2::computeData(PointsAndDoubles &data,
                                           // intervalli in cui la regione viene
                                           // divisa
   // per evitare il problema del blend poco efficiente sui triangoli
-  double minthickness = MINTHICK * sqrt(tglGetPixelSize2());
+  double minthickness = MINTHICK * pixelSize;
   double thickness    = 0;
   while (s <= length) {
     double w = stroke->getParameterAtLength(s);
@@ -2693,24 +2905,32 @@ void TBlendStrokeStyle2::computeData(PointsAndDoubles &data,
 
 //-----------------------------------------------------------------------------
 
-void TBlendStrokeStyle2::drawStroke(const TColorFunction *cf,
-                                    PointsAndDoubles &data,
-                                    const TStroke *stroke) const {
+void TBlendStrokeStyle2::drawStroke(const TColorFunction *cf, PointsAndDoubles &data,
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TBlendStrokeStyle2::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    PointsAndDoubles &data, const TStroke *stroke, bool antialias) const {
   TPixel32 color;
   if (cf)
     color = (*(cf))(m_color);
   else
     color = m_color;
+
   TPixelD dcolor;
   dcolor = toPixelD(color);
 
+  // One band, every vertex with an opacity of its own.
+  TCanvasMesh band = plainMesh(TCanvasMesh::Mode::TriangleStrip);
   PointsAndDoubles::iterator it = data.begin();
-  glBegin(GL_QUAD_STRIP);
-  for (; it != data.end(); ++it) {
-    glColor4d(dcolor.r, dcolor.g, dcolor.b, it->second);
-    tglVertex(it->first);
-  }
-  glEnd();
+  for (; it != data.end(); ++it)
+    addVertex(band, it->first, floatColor(dcolor, it->second));
+  drawQuadStrip(canvas, band, plainPaint());
 }
 
 //=============================================================================
@@ -2780,7 +3000,8 @@ void TTwirlStrokeStyle::setParamValue(int index, double value) {
 //-----------------------------------------------------------------------------
 
 void TTwirlStrokeStyle::computeData(Doubles &data, const TStroke *stroke,
-                                    const TColorFunction *cf) const {
+                                    const TColorFunction *cf,
+    double pixelSize) const {
   double length   = stroke->getLength();
   double step     = 5.0;
   double period   = 10 * (102 - m_period);
@@ -2826,7 +3047,16 @@ void TTwirlStrokeStyle::computeData(Doubles &data, const TStroke *stroke,
 //-----------------------------------------------------------------------------
 
 void TTwirlStrokeStyle::drawStroke(const TColorFunction *cf, Doubles &data,
-                                   const TStroke *stroke) const {
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TTwirlStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    Doubles &data, const TStroke *stroke, bool antialias) const {
   TPixel32 blackcolor = TPixel32::Black;
 
   TPixel32 color;
@@ -2841,36 +3071,28 @@ void TTwirlStrokeStyle::drawStroke(const TColorFunction *cf, Doubles &data,
   TPointD app;
   UINT i = 0;
 
-  glBegin(GL_QUAD_STRIP);
-  for (; i < data.size(); i += 5) {
-    tglColor(blend(blackcolor, color, data[i + 4]));
-    app.x = data[i];
-    app.y = data[i + 1];
-    tglVertex(app);
+  // The band, shaded between the colour and black along the stroke...
+  TCanvasMesh band = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+  for (; i + 4 < data.size(); i += 5) {
+    const TPixel32 shade = blend(blackcolor, color, data[i + 4]);
+    app.x                = data[i];
+    app.y                = data[i + 1];
+    addVertex(band, app, shade);
     app.x = data[i + 2];
     app.y = data[i + 3];
-    tglVertex(app);
+    addVertex(band, app, shade);
   }
-  glEnd();
+  canvas.drawMesh(band, plainPaint());
 
-  for (i = 5; i < data.size(); i += 5) {
-    tglColor(blend(color, blackcolor, data[i + 4]));
-    glBegin(GL_LINES);
-    app.x = data[i - 5];
-    app.y = data[i - 4];
-    tglVertex(app);
-    app.x = data[i];
-    app.y = data[i + 1];
-    tglVertex(app);
-    glEnd();
-    glBegin(GL_LINES);
-    app.x = data[i - 3];
-    app.y = data[i - 2];
-    tglVertex(app);
-    app.x = data[i + 2];
-    app.y = data[i + 3];
-    tglVertex(app);
-    glEnd();
+  // ...and its two sides piece by piece, shaded the other way.
+  for (i = 5; i + 4 < data.size(); i += 5) {
+    TCanvasPath sides;
+    addSegment(sides, TPointD(data[i - 5], data[i - 4]),
+               TPointD(data[i], data[i + 1]));
+    addSegment(sides, TPointD(data[i - 3], data[i - 2]),
+               TPointD(data[i + 2], data[i + 3]));
+    strokeLines(canvas, sides, blend(color, blackcolor, data[i + 4]),
+                antialias);
   }
 }
 
@@ -2897,8 +3119,16 @@ void TSawToothStrokeStyle::computeOutline(
 //-----------------------------------------------------------------------------
 
 void TSawToothStrokeStyle::drawStroke(const TColorFunction *cf,
-                                      TStrokeOutline *outline,
-                                      const TStroke *stroke) const {
+    TStrokeOutline *outline, const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TSawToothStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    TStrokeOutline *outline, const TStroke *stroke, bool antialias) const {
   UINT i;
   int counter = 0;
   TPixel32 color;
@@ -2906,41 +3136,35 @@ void TSawToothStrokeStyle::drawStroke(const TColorFunction *cf,
     color = (*(cf))(m_color);
   else
     color = m_color;
-  tglColor(color);
+
   const std::vector<TOutlinePoint> &v = outline->getArray();
   if (v.empty()) return;
-  double old[2];
-  // outline with antialiasing
-  glBegin(GL_LINE_STRIP);
+
+  // The teeth: triangles, and one line that goes round each of them in
+  // turn.
+  TPointD old;
+  std::vector<TPointD> line;
+  TCanvasMesh teeth = plainMesh(TCanvasMesh::Mode::Triangles);
   for (i = 0; i < v.size() - 2; i += 2) {
     if (0 != v[i].stepCount) {
       if (counter) {
-        glVertex2dv(old);
-        glVertex2dv(&v[i].x);
-        glVertex2dv(&v[i + 1].x);
-        glVertex2dv(old);
+        const TPointD a(v[i].x, v[i].y), b(v[i + 1].x, v[i + 1].y);
+        line.push_back(old);
+        line.push_back(a);
+        line.push_back(b);
+        line.push_back(old);
+        addVertex(teeth, old, color);
+        addVertex(teeth, a, color);
+        addVertex(teeth, b, color);
       }
-      old[0] = v[i].x;
-      old[1] = v[i].y;
+      old = TPointD(v[i].x, v[i].y);
       counter++;
     }
   }
-  glEnd();
-  counter = 0;
-  glBegin(GL_TRIANGLES);
-  for (i = 0; i < v.size() - 2; i += 2) {
-    if (0 != v[i].stepCount) {
-      if (counter) {
-        glVertex2dv(old);
-        glVertex2dv(&v[i].x);
-        glVertex2dv(&v[i + 1].x);
-      }
-      old[0] = v[i].x;
-      old[1] = v[i].y;
-      counter++;
-    }
-  }
-  glEnd();
+  TCanvasPath path;
+  addPolyline(path, line);
+  strokeLines(canvas, path, color, antialias);
+  canvas.drawMesh(teeth, plainPaint());
 }
 
 //-----------------------------------------------------------------------------
@@ -3135,7 +3359,8 @@ void TMultiLineStrokeStyle2::loadData(int ids, TInputStreamInterface &is) {
 
 void TMultiLineStrokeStyle2::computeData(BlendAndPoints &data,
                                          const TStroke *stroke,
-                                         const TColorFunction *cf) const {
+                                         const TColorFunction *cf,
+    double pixelSize) const {
   // TStroke *stroke = getStroke();
   double length = stroke->getLength();
   double step   = 4.0;
@@ -3147,7 +3372,7 @@ void TMultiLineStrokeStyle2::computeData(BlendAndPoints &data,
   myLineData Data;
   double s = 0;
 
-  double minthickness = MINTHICK * sqrt(tglGetPixelSize2());
+  double minthickness = MINTHICK * pixelSize;
   double thickness    = 0;
   double strokethick  = m_thick;
   while (s <= length) {
@@ -3210,9 +3435,17 @@ void TMultiLineStrokeStyle2::computeData(BlendAndPoints &data,
 
 //-----------------------------------------------------------------------------
 
-void TMultiLineStrokeStyle2::drawStroke(const TColorFunction *cf,
-                                        BlendAndPoints &data,
-                                        const TStroke *stroke) const {
+void TMultiLineStrokeStyle2::drawStroke(const TColorFunction *cf, BlendAndPoints &data,
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TMultiLineStrokeStyle2::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    BlendAndPoints &data, const TStroke *stroke, bool antialias) const {
   TPixel32 color0, color1;
   if (cf) {
     color0 = (*(cf))(m_color0);
@@ -3222,18 +3455,19 @@ void TMultiLineStrokeStyle2::drawStroke(const TColorFunction *cf,
     color1 = m_color1;
   }
 
-  glEnable(GL_POLYGON_SMOOTH);
-
+  // Each line is a band of its own colour. They are the one thing here
+  // that is asked to have smooth edges, whatever the render says: the old
+  // code switched on polygon smoothing for them.
+  TCanvasPaint smooth = plainPaint();
+  smooth.antialias    = true;
   for (UINT i = 0; i < data.size(); i++) {
-    tglColor(blend(color0, color1, data[i].blend));
-
-    glBegin(GL_QUAD_STRIP);
+    const TPixel32 color = blend(color0, color1, data[i].blend);
+    TCanvasMesh band     = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+    band.smoothEdges     = true;
     for (UINT j = 0; j < data[i].points.size(); j++)
-      tglVertex(data[i].points[j]);
-
-    glEnd();
+      addVertex(band, data[i].points[j], color);
+    drawQuadStrip(canvas, band, smooth);
   }
-  glDisable(GL_POLYGON_SMOOTH);
 }
 
 //=============================================================================
@@ -3414,8 +3648,8 @@ void TZigzagStrokeStyle::setRealMinMax() const {
 //-----------------------------------------------------------------------------
 
 void TZigzagStrokeStyle::computeData(Points &points, const TStroke *stroke,
-                                     const TColorFunction *cf) const {
-  assert(glGetError() == GL_NO_ERROR);
+                                     const TColorFunction *cf,
+    double pixelSize) const {
   assert(!!stroke);
   double length = stroke->getLength();
   if (length <= 0) return;
@@ -3451,42 +3685,42 @@ void TZigzagStrokeStyle::computeData(Points &points, const TStroke *stroke,
 //-----------------------------------------------------------------------------
 
 void TZigzagStrokeStyle::drawStroke(const TColorFunction *cf, Points &points,
-                                    const TStroke *stroke) const {
-  if (points.size() <= 1) return;
-  TPixel32 color;
-
-  if (cf)
-    color = (*(cf))(m_color);
-  else
-    color = m_color;
-
-  tglColor(m_color);
-
-  glEnableClientState(GL_VERTEX_ARRAY);
-
-  glVertexPointer(2, GL_DOUBLE, sizeof(TPointD), &points[0]);
-  glDrawArrays(GL_QUAD_STRIP, 0, points.size());
-  /*
-glBegin(GL_QUAD_STRIP);
-for(UINT i=0; i<rects.size(); i++)
-{
-tglVertex(rects[i].getP00());
-tglVertex(rects[i].getP11());
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, points, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
 }
-glEnd();
-*/
 
-  glVertexPointer(2, GL_DOUBLE, sizeof(TPointD) * 2, &points[0]);
-  glDrawArrays(GL_LINE_STRIP, 0, points.size() / 2);
+//-----------------------------------------------------------------------------
 
-  glVertexPointer(2, GL_DOUBLE, sizeof(TPointD) * 2, &points[1]);
-  glDrawArrays(GL_LINE_STRIP, 0, points.size() / 2);
+void TZigzagStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    Points &points, const TStroke *stroke, bool antialias) const {
+  if (points.size() <= 1) return;
 
-  glVertexPointer(2, GL_DOUBLE, sizeof(TPointD), &points[0]);
-  glDrawArrays(GL_LINES, 0, points.size());
+  // Not the colour the colour function gives: it never was.
+  const TPixel32 color = m_color;
 
-  glDisableClientState(GL_VERTEX_ARRAY);
-  // drawBLines(rects);
+  // The band, a line down each side, and the rungs between them.
+  const std::size_t pairs = points.size() / 2;
+  TCanvasMesh band        = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+  TCanvasPath left, right, rungs;
+  for (std::size_t i = 0; i < pairs; i++) {
+    const TPointD &a = points[2 * i], &b = points[2 * i + 1];
+    addVertex(band, a, color);
+    addVertex(band, b, color);
+    if (i == 0) {
+      left.moveTo(toCanvas(a));
+      right.moveTo(toCanvas(b));
+    } else {
+      left.lineTo(toCanvas(a));
+      right.lineTo(toCanvas(b));
+    }
+    addSegment(rungs, a, b);
+  }
+  canvas.drawMesh(band, plainPaint());
+  strokeLines(canvas, left, color, antialias);
+  strokeLines(canvas, right, color, antialias);
+  strokeLines(canvas, rungs, color, antialias);
 }
 
 //=============================================================================
@@ -3557,7 +3791,8 @@ void TSinStrokeStyle::setParamValue(int index, double value) {
 //-----------------------------------------------------------------------------
 
 void TSinStrokeStyle::computeData(Points &positions, const TStroke *stroke,
-                                  const TColorFunction *cf) const {
+                                  const TColorFunction *cf,
+    double pixelSize) const {
   double length = stroke->getLength();
   double step   = 5.0;
 
@@ -3591,33 +3826,42 @@ void TSinStrokeStyle::computeData(Points &positions, const TStroke *stroke,
 
 //-----------------------------------------------------------------------------
 
-void TSinStrokeStyle::drawStroke(const TColorFunction *cf,
-                                 std::vector<TPointD> &positions,
-                                 const TStroke *stroke) const {
+void TSinStrokeStyle::drawStroke(const TColorFunction *cf, std::vector<TPointD> &positions,
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TSinStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    std::vector<TPointD> &positions, const TStroke *stroke, bool antialias) const {
   TPixel32 color;
   if (cf)
     color = (*(cf))(m_color);
   else
     color = m_color;
-  tglColor(color);
 
-  glBegin(GL_QUAD_STRIP);
+  // The band, and a line down each of its sides.
+  TCanvasMesh band = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+  std::vector<TPointD> left, right;
   int i = 0;
-  for (; i < (int)positions.size(); i += 2) {
-    tglVertex(positions[i]);
-    tglVertex(positions[i + 1]);
+  for (; i + 1 < (int)positions.size(); i += 2) {
+    addVertex(band, positions[i], color);
+    addVertex(band, positions[i + 1], color);
   }
-  glEnd();
-  glBegin(GL_LINE_STRIP);
-  for (i = 0; i < (int)positions.size(); i += 2) {
-    tglVertex(positions[i]);
-  }
-  glEnd();
-  glBegin(GL_LINE_STRIP);
-  for (i = 1; i < (int)positions.size() - 1; i += 2) {
-    tglVertex(positions[i]);
-  }
-  glEnd();
+  canvas.drawMesh(band, plainPaint());
+
+  for (i = 0; i < (int)positions.size(); i += 2) left.push_back(positions[i]);
+  for (i = 1; i < (int)positions.size() - 1; i += 2)
+    right.push_back(positions[i]);
+  TCanvasPath path;
+  addPolyline(path, left);
+  strokeLines(canvas, path, color, antialias);
+  path = TCanvasPath();
+  addPolyline(path, right);
+  strokeLines(canvas, path, color, antialias);
 }
 
 //=============================================================================
@@ -3701,7 +3945,8 @@ void TFriezeStrokeStyle2::loadData(int ids, TInputStreamInterface &is) {
 //-----------------------------------------------------------------------------
 
 void TFriezeStrokeStyle2::computeData(Points &positions, const TStroke *stroke,
-                                      const TColorFunction *cf) const {
+                                      const TColorFunction *cf,
+    double pixelSize) const {
   // TStroke *stroke = getStroke();
   double length = stroke->getLength();
 
@@ -3753,33 +3998,42 @@ void TFriezeStrokeStyle2::computeData(Points &positions, const TStroke *stroke,
 
 //-----------------------------------------------------------------------------
 
-void TFriezeStrokeStyle2::drawStroke(const TColorFunction *cf,
-                                     Points &positions,
-                                     const TStroke *stroke) const {
+void TFriezeStrokeStyle2::drawStroke(const TColorFunction *cf, Points &positions,
+    const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TFriezeStrokeStyle2::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    Points &positions, const TStroke *stroke, bool antialias) const {
   TPixel32 color;
   if (cf)
     color = (*(cf))(m_color);
   else
     color = m_color;
-  tglColor(color);
 
-  glBegin(GL_QUAD_STRIP);
+  // The band, and a line down each of its sides.
+  TCanvasMesh band = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+  std::vector<TPointD> left, right;
   int i = 0;
-  for (; i < (int)positions.size(); i += 2) {
-    tglVertex(positions[i]);
-    tglVertex(positions[i + 1]);
+  for (; i + 1 < (int)positions.size(); i += 2) {
+    addVertex(band, positions[i], color);
+    addVertex(band, positions[i + 1], color);
   }
-  glEnd();
-  glBegin(GL_LINE_STRIP);
-  for (i = 0; i < (int)positions.size(); i += 2) {
-    tglVertex(positions[i]);
-  }
-  glEnd();
-  glBegin(GL_LINE_STRIP);
-  for (i = 1; i < (int)positions.size() - 1; i += 2) {
-    tglVertex(positions[i]);
-  }
-  glEnd();
+  canvas.drawMesh(band, plainPaint());
+
+  for (i = 0; i < (int)positions.size(); i += 2) left.push_back(positions[i]);
+  for (i = 1; i < (int)positions.size() - 1; i += 2)
+    right.push_back(positions[i]);
+  TCanvasPath path;
+  addPolyline(path, left);
+  strokeLines(canvas, path, color, antialias);
+  path = TCanvasPath();
+  addPolyline(path, right);
+  strokeLines(canvas, path, color, antialias);
 }
 
 //=============================================================================
@@ -3806,8 +4060,16 @@ void TDualColorStrokeStyle2::computeOutline(
 //-----------------------------------------------------------------------------
 
 void TDualColorStrokeStyle2::drawStroke(const TColorFunction *cf,
-                                        TStrokeOutline *outline,
-                                        const TStroke *stroke) const {
+    TStrokeOutline *outline, const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TDualColorStrokeStyle2::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    TStrokeOutline *outline, const TStroke *stroke, bool antialias) const {
   UINT i;
   const std::vector<TOutlinePoint> &v = outline->getArray();
   TPixel32 colorv[2];
@@ -3819,58 +4081,48 @@ void TDualColorStrokeStyle2::drawStroke(const TColorFunction *cf,
     colorv[0] = m_color0;
     colorv[1] = m_color1;
   }
-  int colorindex = 0;
   if (v.empty()) return;
-  glBegin(GL_LINE_STRIP);
-  tglColor(colorv[0]);
-  for (i = 0; i < v.size(); i += 2) {
-    glVertex2dv(&v[i].x);
+
+  // The stroke in stretches of the two colours in turn. Where the colour
+  // changes, the points are there twice, once in each colour.
+  for (int side = 0; side < 2; side++) {
+    std::vector<TPointD> points;
+    std::vector<TCanvasColor> colors;
+    int colorindex = 0;
+    for (i = side; i < v.size(); i += 2) {
+      points.push_back(TPointD(v[i].x, v[i].y));
+      colors.push_back(toCanvas(colorv[colorindex & 1]));
+      if (0 != v[i].stepCount) {
+        colorindex++;
+        points.push_back(TPointD(v[i].x, v[i].y));
+        colors.push_back(toCanvas(colorv[colorindex & 1]));
+      }
+    }
+    strokeColoredPolyline(canvas, points, colors, antialias);
+  }
+
+  int colorindex    = 0;
+  TCanvasMesh strip = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+  for (i = 0; i + 1 < v.size(); i += 2) {
+    addVertex(strip, TPointD(v[i].x, v[i].y), colorv[colorindex & 1]);
+    addVertex(strip, TPointD(v[i + 1].x, v[i + 1].y), colorv[colorindex & 1]);
     if (0 != v[i].stepCount) {
       colorindex++;
-      tglColor(colorv[colorindex & 1]);
-      glVertex2dv(&v[i].x);
+      addVertex(strip, TPointD(v[i].x, v[i].y), colorv[colorindex & 1]);
+      addVertex(strip, TPointD(v[i + 1].x, v[i + 1].y),
+                colorv[colorindex & 1]);
     }
   }
-  glEnd();
+  canvas.drawMesh(strip, plainPaint());
 
-  colorindex = 0;
-  glBegin(GL_LINE_STRIP);
-  tglColor(colorv[0]);
-  for (i = 1; i < v.size(); i += 2) {
-    glVertex2dv(&v[i].x);
-    if (0 != v[i].stepCount) {
-      colorindex++;
-      tglColor(colorv[colorindex & 1]);
-      glVertex2dv(&v[i].x);
-    }
-  }
-  glEnd();
-
-  colorindex = 0;
-  glBegin(GL_QUAD_STRIP);
-  tglColor(colorv[0]);
-  for (i = 0; i < v.size(); i += 2) {
-    glVertex2dv(&v[i].x);
-    glVertex2dv(&v[i + 1].x);
-    if (0 != v[i].stepCount) {
-      colorindex++;
-      tglColor(colorv[colorindex & 1]);
-      glVertex2dv(&v[i].x);
-      glVertex2dv(&v[i + 1].x);
-    }
-  }
-  glEnd();
-
-  // antialias delle linee normali
-  tglColor(colorv[0]);
-  for (i = 0; i < v.size(); i += 2) {
-    if (0 != v[i].stepCount) {
-      glBegin(GL_LINES);
-      glVertex2dv(&v[i].x);
-      glVertex2dv(&v[i + 1].x);
-      glEnd();
-    }
-  }
+  // A line across the stroke wherever the colour changes, always in the
+  // first colour ("antialias delle linee normali", the old code says).
+  TCanvasPath across;
+  for (i = 0; i + 1 < v.size(); i += 2)
+    if (0 != v[i].stepCount)
+      addSegment(across, TPointD(v[i].x, v[i].y),
+                 TPointD(v[i + 1].x, v[i + 1].y));
+  strokeLines(canvas, across, colorv[0], antialias);
 }
 
 //-----------------------------------------------------------------------------
@@ -3942,8 +4194,16 @@ void TLongBlendStrokeStyle2::computeOutline(
 //-----------------------------------------------------------------------------
 
 void TLongBlendStrokeStyle2::drawStroke(const TColorFunction *cf,
-                                        TStrokeOutline *outline,
-                                        const TStroke *stroke) const {
+    TStrokeOutline *outline, const TStroke *stroke) const {
+  TLegacyGlCanvas gl;
+  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke,
+                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+}
+
+//-----------------------------------------------------------------------------
+
+void TLongBlendStrokeStyle2::drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+    TStrokeOutline *outline, const TStroke *stroke, bool antialias) const {
   TPixel32 color0, color1;
   if (cf) {
     color0 = (*(cf))(m_color0);
@@ -3952,51 +4212,45 @@ void TLongBlendStrokeStyle2::drawStroke(const TColorFunction *cf,
     color0 = m_color0;
     color1 = m_color1;
   }
+
   UINT i;
 
   const std::vector<TOutlinePoint> &v = outline->getArray();
   if (v.empty()) return;
 
-  // outline with antialiasing
-  glBegin(GL_LINE_STRIP);
-  int mystepCount = 0;
-
   double totallength = stroke->getLength();
   double ntick       = totallength / m_parameter + 1;
-  tglColor(color0);
-  for (i = 0; i < v.size(); i += 2) {
-    if (0 != v[i].stepCount) {
-      tglColor(blend(color0, color1, (double)mystepCount / ntick));
-      mystepCount++;
-    }
-    glVertex2dv(&v[i].x);
-  }
-  glEnd();
 
-  glBegin(GL_LINE_STRIP);
-  mystepCount = 0;
-  tglColor(color0);
-  for (i = 1; i < v.size(); i += 2) {
-    if (0 != v[i].stepCount) {
-      tglColor(blend(color0, color1, (double)mystepCount / ntick));
-      mystepCount++;
+  // The colour goes from the first to the second along the stroke, a step
+  // at every tick: on the two side lines and on the stroke itself.
+  for (int side = 0; side < 2; side++) {
+    std::vector<TPointD> points;
+    std::vector<TCanvasColor> colors;
+    int mystepCount = 0;
+    TPixel32 color  = color0;
+    for (i = side; i < v.size(); i += 2) {
+      if (0 != v[i].stepCount) {
+        color = blend(color0, color1, (double)mystepCount / ntick);
+        mystepCount++;
+      }
+      points.push_back(TPointD(v[i].x, v[i].y));
+      colors.push_back(toCanvas(color));
     }
-    glVertex2dv(&v[i].x);
+    strokeColoredPolyline(canvas, points, colors, antialias);
   }
-  glEnd();
 
-  glBegin(GL_QUAD_STRIP);
-  mystepCount = 0;
-  tglColor(color0);
-  for (i = 0; i < v.size(); i += 2) {
+  int mystepCount   = 0;
+  TPixel32 color    = color0;
+  TCanvasMesh strip = plainMesh(TCanvasMesh::Mode::TriangleStrip);
+  for (i = 0; i + 1 < v.size(); i += 2) {
     if (0 != v[i].stepCount) {
-      tglColor(blend(color0, color1, (double)mystepCount / ntick));
+      color = blend(color0, color1, (double)mystepCount / ntick);
       mystepCount++;
     }
-    glVertex2dv(&v[i].x);
-    glVertex2dv(&v[i + 1].x);
+    addVertex(strip, TPointD(v[i].x, v[i].y), color);
+    addVertex(strip, TPointD(v[i + 1].x, v[i + 1].y), color);
   }
-  glEnd();
+  canvas.drawMesh(strip, plainPaint());
 }
 
 //-----------------------------------------------------------------------------
@@ -4425,10 +4679,11 @@ void recomputeStrokes(const TStroke *stroke, vector<TStroke *> &strokes,
   }
 }
 
+// \p pixelSize 0 has the outlines read it from OpenGL, as they always did.
 void recomputeOutlines(const TStroke *stroke, vector<TStroke *> &strokes,
                        vector<TStrokeOutline> &outlines,
-                       const TSolidColorStyle *style) {
-  TOutlineUtil::OutlineParameter param;
+                       const TSolidColorStyle *style, double pixelSize = 0) {
+  TOutlineUtil::OutlineParameter param(0, pixelSize);
   int strokeNumber = strokes.size();
   outlines.resize(strokeNumber + 1);
   int strokeId;
@@ -4508,6 +4763,57 @@ void TMatrioskaStrokeProp::draw(const TVectorRenderData &rd) {
 
   glPopMatrix();
 }
+//-----------------------------------------------------------------------------
+
+// draw() without OpenGL. Keep the two in step.
+void TMatrioskaStrokeProp::drawOnCanvas(TCanvas &canvas,
+                                        const TVectorRenderData &rd) {
+  if (rd.m_clippingRect != TRect() && !rd.m_is3dView &&
+      !convert(rd.m_aff * m_stroke->getBBox()).overlaps(rd.m_clippingRect))
+    return;
+
+  int strokeId;
+  canvas.save();
+  canvas.concat(toCanvas(rd.m_aff));
+
+  double pixelSize = canvas.pixelSize();
+
+  int strokeNumber =
+      (int)(m_colorStyle->getParamValue(TColorStyle::double_tag(), 0)) - 1;
+
+  if (m_strokeChanged || (UINT)strokeNumber != m_appStrokes.size()) {
+    m_strokeChanged    = false;
+    m_outlinePixelSize = pixelSize;
+    recomputeStrokes(m_stroke, m_appStrokes, strokeNumber);
+    recomputeOutlines(m_stroke, m_appStrokes, m_outline, m_colorStyle,
+                      pixelSize);
+  } else if (!isAlmostZero(pixelSize - m_outlinePixelSize, 1e-5)) {
+    m_strokeChanged    = false;
+    m_outlinePixelSize = pixelSize;
+    recomputeOutlines(m_stroke, m_appStrokes, m_outline, m_colorStyle,
+                      pixelSize);
+  }
+
+  // The stroke, and inside it thinner and thinner copies of it in the two
+  // colours in turn.
+  m_colorStyle->drawStrokeOnCanvas(canvas, rd.m_cf,
+                                   &m_outline[m_appStrokes.size()], m_stroke,
+                                   true);
+
+  TSolidColorStyle appStyle(m_colorStyle->getColorParamValue(1));
+
+  for (strokeId = strokeNumber - 1; strokeId >= 0; strokeId--) {
+    if ((m_appStrokes.size() - strokeId) & 1)
+      appStyle.drawStrokeOnCanvas(canvas, rd.m_cf, &m_outline[strokeId],
+                                  m_appStrokes[strokeId], true);
+    else
+      m_colorStyle->drawStrokeOnCanvas(canvas, rd.m_cf, &m_outline[strokeId],
+                                       m_appStrokes[strokeId], true);
+  }
+
+  canvas.restore();
+}
+
 
 //-----------------------------------------------------------------------------
 

@@ -2,6 +2,9 @@
 
 #include "flowlinestrokestyle.h"
 
+#include "colorfxcanvas.h"
+#include "tglcanvasbridge.h"
+
 #include "tcolorfunctions.h"
 #include "tcurves.h"
 #include <memory>
@@ -88,15 +91,6 @@ void insertPoint(TStroke *stroke, int indexA, int indexB) {
 }  // anonymous namespace
 
 // RAII helper to ensure OpenGL vertex array state is properly restored
-struct GLVertexArrayGuard {
-  GLVertexArrayGuard() { glEnableClientState(GL_VERTEX_ARRAY); }
-  ~GLVertexArrayGuard() { glDisableClientState(GL_VERTEX_ARRAY); }
-
-  // Non-copyable
-  GLVertexArrayGuard(const GLVertexArrayGuard &)            = delete;
-  GLVertexArrayGuard &operator=(const GLVertexArrayGuard &) = delete;
-};
-
 //=============================================================================
 // FlowLineStrokeStyle Implementation
 //=============================================================================
@@ -214,6 +208,23 @@ void FlowLineStrokeStyle::setParamValue(int index, bool value) {
 
 void FlowLineStrokeStyle::drawStroke(const TColorFunction *cf,
                                      const TStroke *stroke) const {
+  {
+    TLegacyGlCanvas gl;
+    drawStrokeOnCanvas(gl.canvas(), cf, stroke,
+                       glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  }
+  // The old code left this colour behind it.
+  glColor4d(0.0, 0.0, 0.0, 1.0);
+}
+
+//-----------------------------------------------------------------------------
+
+// Thin lines side by side along the stroke, the ones nearer the middle
+// reaching further past its ends.
+void FlowLineStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas,
+                                             const TColorFunction *cf,
+                                             const TStroke *stroke,
+                                             bool antialias) const {
   // Lambda to compute squared length of a 2D vector
   auto length2 = [](const TPointD &p) { return p.x * p.x + p.y * p.y; };
 
@@ -288,10 +299,6 @@ void FlowLineStrokeStyle::drawStroke(const TColorFunction *cf,
   // Pre-allocated vertex buffer (stack-friendly when possible)
   std::vector<float2> vertBuf(V_BUFFER_SIZE);
 
-  // RAII guard ensures OpenGL vertex array state is disabled even on early
-  // returns
-  GLVertexArrayGuard glGuard;
-
   // Calculate basic stroke metrics
   const TThickPoint tp0 = tmpStroke->getThickPoint(0.0);
   const TThickPoint tp1 = tmpStroke->getThickPoint(1.0);
@@ -327,9 +334,6 @@ void FlowLineStrokeStyle::drawStroke(const TColorFunction *cf,
     // Extension length varies based on position (longer for center lines)
     const double extensionLength =
         (1.0 - std::abs(widthRatio)) * maxThickness * m_extension;
-
-    // Set line color (all lines use the same color)
-    glColor4ub(color.r, color.g, color.b, color.m);
 
     // Pointer to fill the vertex buffer
     float2 *vp = vertBuf.data();
@@ -370,13 +374,18 @@ void FlowLineStrokeStyle::drawStroke(const TColorFunction *cf,
       }
     }
 
-    // Draw this line as a GL line strip
-    glVertexPointer(2, GL_FLOAT, 0, vertBuf.data());
-    glDrawArrays(GL_LINE_STRIP, 0, divAmount + 3);
+    // The line, through the points in the single precision they have
+    // always been rounded to.
+    TCanvasPath line;
+    for (int k = 0; k < divAmount + 3; ++k) {
+      const TCanvasPoint point(vertBuf[k].x, vertBuf[k].y);
+      if (k == 0)
+        line.moveTo(point);
+      else
+        line.lineTo(point);
+    }
+    colorfxcanvas::strokeLines(canvas, line, color, antialias);
   }
-
-  // Restore default color (optional but good practice)
-  glColor4d(0.0, 0.0, 0.0, 1.0);
 }
 
 //=============================================================================

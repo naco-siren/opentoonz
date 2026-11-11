@@ -11,6 +11,7 @@
 
 class TVectorRendeData;
 class TRandom;
+class TCanvas;
 
 #undef DVAPI
 #undef DVVAR
@@ -63,10 +64,19 @@ public:
     return 0;
   };
 
+  //! \p pixelSize is the size of a pixel in the stroke's coordinates.
   virtual void computeData(T &data, const TStroke *stroke,
-                           const TColorFunction *cf) const = 0;
+                           const TColorFunction *cf,
+                           double pixelSize) const = 0;
   virtual void drawStroke(const TColorFunction *cf, T &data,
                           const TStroke *stroke) const = 0;
+  //! The stroke on a canvas instead of straight to OpenGL. Implemented by
+  //! the classes whose canvasSupport() says so; their drawStroke() is this
+  //! seen through the OpenGL canvas. \p antialias is what the OpenGL
+  //! version reads from the state its caller has set.
+  virtual void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                                  T &data, const TStroke *stroke,
+                                  bool antialias) const {}
 };
 
 //-------------------------------------------------------------------
@@ -83,9 +93,14 @@ public:
   void invalidate() {}
 
   void computeData(Points &positions, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, Points &positions,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Points &positions,
+                  const TStroke *stroke, bool antialias) const override;
 
   QString getDescription() const override {
     return QCoreApplication::translate("TFurStrokeStyle", "Herringbone");
@@ -140,9 +155,14 @@ public:
   void setMainColor(const TPixel32 &color) override { m_color = color; }
 
   void computeData(Points &positions, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, Points &positions,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Points &positions,
+                  const TStroke *stroke, bool antialias) const override;
 
   void loadData(TInputStreamInterface &is) override { is >> m_color; }
   void saveData(TOutputStreamInterface &os) const override { os << m_color; }
@@ -181,6 +201,10 @@ public:
 
   void drawStroke(const TColorFunction *cf,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                  const TStroke *stroke, bool antialias) const override;
 
   void loadData(TInputStreamInterface &is) override {
     is >> m_color >> m_blend >> m_intensity >> m_radius;
@@ -225,9 +249,14 @@ public:
   void setParamValue(int index, double value) override;
 
   void computeData(DrawmodePointsMatrix &data, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, DrawmodePointsMatrix &data,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, DrawmodePointsMatrix &data,
+                  const TStroke *stroke, bool antialias) const override;
 
   void loadData(TInputStreamInterface &is) override {
     is >> m_color >> m_intensity;
@@ -248,9 +277,14 @@ public:
   TDottedLineStrokeStyle();
 
   void computeData(Points &positions, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, Points &positions,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Points &positions,
+                  const TStroke *stroke, bool antialias) const override;
 
   void invalidate() {}
 
@@ -296,9 +330,14 @@ public:
   TRopeStrokeStyle();
 
   void computeData(Points &positions, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, Points &positions,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Points &positions,
+                  const TStroke *stroke, bool antialias) const override;
 
   void invalidate() {}
 
@@ -340,9 +379,14 @@ public:
   TCrystallizeStrokeStyle();
 
   void computeData(Points &positions, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, Points &positions,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Points &positions,
+                  const TStroke *stroke, bool antialias) const override;
 
   void invalidate() {}
 
@@ -391,6 +435,10 @@ public:
 
   void drawStroke(const TColorFunction *cf,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                  const TStroke *stroke, bool antialias) const override;
 
   void invalidate() {}
 
@@ -462,6 +510,10 @@ public:
 
   void drawStroke(const TColorFunction *cf,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                  const TStroke *stroke, bool antialias) const override;
 
   void loadData(TInputStreamInterface &is) override {
     is >> m_color >> m_density;
@@ -508,6 +560,10 @@ public:
 
   void drawStroke(const TColorFunction *cf,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf,
+                  const TStroke *stroke, bool antialias) const override;
 
   void loadData(TInputStreamInterface &is) override {
     is >> m_color0 >> m_color1;
@@ -536,9 +592,14 @@ public:
   TColorStyle *clone() const override;
 
   void computeData(PointMatrix &data, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, PointMatrix &data,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, PointMatrix &data,
+                  const TStroke *stroke, bool antialias) const override;
 
   void invalidate() {}
 
@@ -582,6 +643,10 @@ public:
 
   void drawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, TStrokeOutline *outline,
+                  const TStroke *stroke, bool antialias) const override;
   void drawRegion(const TColorFunction *cf, const bool antiAliasing,
                   TRegionOutline &boundary) const override;
 
@@ -637,6 +702,10 @@ public:
                   TRegionOutline &boundary) const override;
   void drawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, TStrokeOutline *outline,
+                  const TStroke *stroke, bool antialias) const override;
 
   bool isRegionStyle() const override { return false; }
   bool isStrokeStyle() const override { return true; }
@@ -705,9 +774,14 @@ public:
   void setParamValue(int index, double value) override;
 
   void computeData(Doubles &positions, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, Doubles &positions,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Doubles &positions,
+                  const TStroke *stroke, bool antialias) const override;
 
   void loadData(TInputStreamInterface &is) override {
     is >> m_color >> m_blend >> m_intensity >> m_in >> m_out >> m_noise;
@@ -735,9 +809,14 @@ public:
   TColorStyle *clone() const override;
 
   void computeData(PointsAndDoubles &data, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, PointsAndDoubles &data,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, PointsAndDoubles &data,
+                  const TStroke *stroke, bool antialias) const override;
 
   void invalidate() {}
 
@@ -785,9 +864,14 @@ public:
   TColorStyle *clone() const override;
 
   void computeData(Doubles &data, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, Doubles &data,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Doubles &data,
+                  const TStroke *stroke, bool antialias) const override;
   // void drawStroke(const TColorFunction *cf, const TStroke *stroke) const;
 
   void invalidate() {}
@@ -836,6 +920,10 @@ public:
                   TRegionOutline &boundary) const override {}
   void drawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, TStrokeOutline *outline,
+                  const TStroke *stroke, bool antialias) const override;
 
   bool isRegionStyle() const override { return false; }
   bool isStrokeStyle() const override { return true; }
@@ -884,9 +972,14 @@ public:
   TColorStyle *clone() const override;
 
   void computeData(BlendAndPoints &data, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, BlendAndPoints &data,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, BlendAndPoints &data,
+                  const TStroke *stroke, bool antialias) const override;
   // void drawStroke(const TColorFunction *cf, const TStroke *stroke) const;
 
   void invalidate() {}
@@ -957,9 +1050,14 @@ public:
   TColorStyle *clone() const override;
 
   void computeData(Points &positions, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, Points &positions,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Points &positions,
+                  const TStroke *stroke, bool antialias) const override;
   // void drawStroke(const TColorFunction *cf, const TStroke *stroke) const;
 
   void invalidate() {}
@@ -1006,9 +1104,14 @@ public:
   TColorStyle *clone() const override;
 
   void computeData(Points &positions, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, Points &positions,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Points &positions,
+                  const TStroke *stroke, bool antialias) const override;
   // void drawStroke(const TColorFunction *cf, const TStroke *stroke) const;
 
   void invalidate() {}
@@ -1071,9 +1174,14 @@ public:
   void setParamValue(int index, double value) override;
 
   void computeData(std::vector<TPointD> &positions, const TStroke *stroke,
-                   const TColorFunction *cf) const override;
+                   const TColorFunction *cf,
+                   double pixelSize) const override;
   void drawStroke(const TColorFunction *cf, std::vector<TPointD> &positions,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, std::vector<TPointD> &positions,
+                  const TStroke *stroke, bool antialias) const override;
   // void drawStroke(const TColorFunction *cf, const TStroke *stroke) const;
 
   void loadData(TInputStreamInterface &is) override {
@@ -1106,6 +1214,10 @@ public:
                   TRegionOutline &boundary) const override {}
   void drawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, TStrokeOutline *outline,
+                  const TStroke *stroke, bool antialias) const override;
 
   bool isRegionStyle() const override { return false; }
   bool isStrokeStyle() const override { return true; }
@@ -1171,6 +1283,10 @@ public:
                   TRegionOutline &boundary) const override {}
   void drawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                   const TStroke *stroke) const override;
+  //! On a canvas; drawStroke() is this seen through the OpenGL canvas.
+  int canvasSupport() const override { return StrokesOnCanvas; }
+  void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, TStrokeOutline *outline,
+                  const TStroke *stroke, bool antialias) const override;
 
   bool isRegionStyle() const override { return false; }
   bool isStrokeStyle() const override { return true; }
@@ -1302,6 +1418,7 @@ public:
 
   TStrokeProp *clone(const TStroke *stroke) const override;
   void draw(const TVectorRenderData &rd) override;
+  void drawOnCanvas(TCanvas &canvas, const TVectorRenderData &rd) override;
 };
 
 class TMatrioskaStrokeStyle final : public TSolidColorStyle {
@@ -1334,6 +1451,9 @@ public:
   TStrokeProp *makeStrokeProp(const TStroke *stroke) override;
 
   bool isRegionStyle() const override { return false; }
+  //! Its strokes are solid strokes, one inside the other (see
+  //! TMatrioskaStrokeProp).
+  int canvasSupport() const override { return StrokesOnCanvas; }
   bool isStrokeStyle() const override { return true; }
 
   QString getDescription() const override {
