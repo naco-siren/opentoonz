@@ -69,9 +69,9 @@ cp -R toonz/sources/tests/fixtures/reference_project samples/reference_project
 
 Since migration step 2 of `doc/nexttoonz_canvas_ir.md`, styles draw through
 the canvas interface: solid colours and constant lines, then patterns,
-textures, vector and MyPaint brushes (step 3), then the sixteen region
-styles of colorfx (step 4). The stroke styles of colorfx do not yet. By
-default nothing changes: renders still go through `TOfflineGL`, where the
+textures, vector and MyPaint brushes (step 3), the sixteen region styles of
+colorfx (step 4) and its 25 stroke styles (step 5): every style a release
+build registers. By default nothing changes: renders still go through `TOfflineGL`, where the
 migrated styles reach OpenGL through `tnzglcanvas` and come out bit for bit
 as before.
 
@@ -80,8 +80,9 @@ In a build with `-DWITH_SKIA=ON`, two environment variables switch renders
 
 ```
 NEXTTOONZ_VECTOR_RASTERIZER=skia   rasterise vector levels with Skia; an image
-                                   that uses a style not yet on the canvas
-                                   still goes through OpenGL, as a whole
+                                   that uses a style that is not on the
+                                   canvas (none of the registered ones any
+                                   more) still goes through OpenGL, as a whole
 NEXTTOONZ_STROKE_GROW=0            draw solid strokes at their true width
                                    instead of grown by half a pixel, which
                                    is the default and the weight they have
@@ -108,7 +109,8 @@ MyPaint brushes), taken from the reference project's `vec_styles` level.
 `toonzlib/test_region_style_canvas.cpp` does it for the region styles of
 colorfx, made by their tags; its last test also rasterises all sixteen
 without OpenGL (in a build that has Skia) and checks that each covers about
-the area of the region.
+the area of the region. `toonzlib/test_stroke_style_canvas.cpp` is the same
+for the stroke styles of colorfx.
 
 ## Canvas tests
 
