@@ -35,6 +35,7 @@
 #include "tstream.h"
 #include "tstreamexception.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tenv.h"
 #include "tsystem.h"
 #include "tfiletype.h"
@@ -723,6 +724,31 @@ void ToonzScene::renderFrame(const TRaster32P &ras, int row, const TXsheet *xsh,
   const TAffine &viewAff = TScale(sc / Stage::inch) * cameraAff.inv();
 
   TRect clipRect(ras->getBounds());
+
+  ImagePainter::VisualSettings vs;
+  vs.m_plasticVisualSettings.m_drawMeshesWireframe = false;
+  vs.m_forSceneIcon                                = true;
+
+  if (TVectorRasterizer::isSelected()) {
+    // On the CPU, with no OpenGL context: the same painter, drawing on a
+    // raster cleared as the context would be
+    TRaster32P frame(ras->getSize());
+    frame->clear();
+
+    Stage::RasterPainter painter(ras->getSize(), viewAff, clipRect, vs,
+                                 checkFlags);
+    painter.setTarget(frame);
+    Stage::visit(painter, const_cast<ToonzScene *>(this),
+                 const_cast<TXsheet *>(xsh), row);
+    painter.flushRasterImages();
+
+    if (!painter.hasTargetFailed()) {
+      TRop::over(ras, frame);
+      return;
+    }
+    // Something only OpenGL draws: the whole frame is drawn with it
+  }
+
   TOfflineGL ogl(ras->getSize());
   currentOfflineGL = &ogl;
 
@@ -732,10 +758,6 @@ void ToonzScene::renderFrame(const TRaster32P &ras, int row, const TXsheet *xsh,
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-
-    ImagePainter::VisualSettings vs;
-    vs.m_plasticVisualSettings.m_drawMeshesWireframe = false;
-    vs.m_forSceneIcon                                = true;
 
     Stage::RasterPainter painter(ras->getSize(), viewAff, clipRect, vs,
                                  checkFlags);

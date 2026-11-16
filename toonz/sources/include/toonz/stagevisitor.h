@@ -194,7 +194,8 @@ DVAPI void visit(Visitor &visitor, TXshLevel *level, const TFrameId &fid,
   mesh-based
   image deformation), deals with onion-skin, and other stuff.
 
-  \warning The RasterPainter visitor expects an active OpenGL context.
+  \warning The RasterPainter visitor expects an active OpenGL context, unless
+  it has been given a raster to draw on with setTarget().
 */
 
 class DVAPI RasterPainter final : public Visitor {
@@ -268,6 +269,9 @@ private:
 
   std::vector<TStroke *> m_guidedStrokes;
 
+  TRaster32P m_target;  //!< Drawn on, on the CPU, instead of OpenGL (if set)
+  bool m_targetFailed;  //!< Something could not be drawn on m_target
+
 public:
   RasterPainter(const TDimension &dim, const TAffine &viewAff,
                 const TRect &rect, const ImagePainter::VisualSettings &vs,
@@ -297,6 +301,21 @@ public:
   void setRasterDarkenBlendedView(bool on) { m_doRasterDarkenBlendedView = on; }
   void setCurrentImageId(std::string id) { m_currentImageId = id; }
   std::vector<TStroke *> &getGuidedStrokes() { return m_guidedStrokes; }
+
+  //! Draws on \p target, a raster of the painter's size, on the CPU and with
+  //! no OpenGL context: what would be drawn on a context whose origin is the
+  //! raster's bottom left corner, translated to its centre (as
+  //! ToonzScene::renderFrame() sets one up). Premultiplied, over what is
+  //! there. Vector images are drawn with TVectorRasterizer.
+  /*!
+    Only what a camera-stand render of a frame needs is drawn this way. When
+    anything else turns up (a vector style that cannot be drawn on a canvas,
+    a Plastic deformation, meshes, masks, a colour mask, guided drawing) the
+    painter stops drawing and hasTargetFailed() says so: the caller then
+    starts again with OpenGL.
+  */
+  void setTarget(const TRaster32P &target) { m_target = target; }
+  bool hasTargetFailed() const { return m_targetFailed; }
 };
 
 //=============================================================================

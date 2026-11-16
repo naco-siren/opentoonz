@@ -61,6 +61,7 @@
 #include <QGuiApplication>
 
 #include "toonz/stagevisitor.h"
+#include "tvectorrasterizer.h"
 
 //**********************************************************************************************
 //    Stage namespace
@@ -400,18 +401,24 @@ RasterPainter::RasterPainter(const TDimension &dim, const TAffine &viewAff,
     , m_maskLevel(0)
     , m_singleColumnEnabled(false)
     , m_checkFlags(checkFlags)
-    , m_doRasterDarkenBlendedView(false) {}
+    , m_doRasterDarkenBlendedView(false)
+    , m_targetFailed(false) {}
 
 //-----------------------------------------------------------------------------
 
 //! Used only for TAB Pro
 void RasterPainter::beginMask() {
+  if (m_target) {
+    m_targetFailed = true;  // no stencil on a raster
+    return;
+  }
   flushRasterImages();  // to avoid doing it after beginMask
   ++m_maskLevel;
   TStencilControl::instance()->beginMask();
 }
 //! Used only for TAB Pro
 void RasterPainter::endMask() {
+  if (m_target) return;
   flushRasterImages();  // if there are raster images in the mask, they must
                         // come out now
   --m_maskLevel;
@@ -419,10 +426,12 @@ void RasterPainter::endMask() {
 }
 //! Used only for TAB Pro
 void RasterPainter::enableMask() {
+  if (m_target) return;
   TStencilControl::instance()->enableMask(TStencilControl::SHOW_INSIDE);
 }
 //! Used only for TAB Pro
 void RasterPainter::disableMask() {
+  if (m_target) return;
   flushRasterImages();  // if there are masked raster images, they must come out
                         // now
   TStencilControl::instance()->disableMask();
@@ -712,6 +721,15 @@ void RasterPainter::flushRasterImages() {
     TRop::quickPut(ras2, ras, TAffine());
   }
 
+  if (m_target) {
+    // On the raster as glDrawPixels() below blends it on the context: the
+    // buffer is premultiplied, its bottom left corner at rect's
+    if (!m_targetFailed) TRop::over(m_target, ras2, rect.getP00());
+    ras->unlock();
+    m_nodes.clear();
+    return;
+  }
+
   // Now, output the raster buffer on top of the OpenGL buffer
   glPushAttrib(GL_COLOR_BUFFER_BIT);  // Preserve blending and stuff
 
@@ -837,7 +855,11 @@ static void buildAutocloseImage(
 
 TEnv::DoubleVar AutocloseFactor("InknpaintAutocloseFactor", 4.0);
 
-static void drawAutocloses(TVectorImage *vi, TVectorRenderData &rd) {
+//! On \p target instead of the current OpenGL context, if there is one;
+//! sets \p failed if it cannot be drawn there.
+static void drawAutocloses(TVectorImage *vi, TVectorRenderData &rd,
+                           const TRaster32P &target = TRaster32P(),
+                           bool *failed = nullptr) {
   static TPalette *plt = 0;
   if (!plt) {
     plt = new TPalette();
@@ -854,7 +876,10 @@ static void drawAutocloses(TVectorImage *vi, TVectorRenderData &rd) {
   bool tCheckEnabledOriginal = rd.m_tcheckEnabled;
   rd.m_tcheckEnabled         = false;
   // draw
-  tglDraw(rd, vaux);
+  if (!target)
+    tglDraw(rd, vaux);
+  else if (!TVectorRasterizer::draw(target, vaux, rd))
+    *failed = true;
   // restore original value
   rd.m_tcheckEnabled = tCheckEnabledOriginal;
   delete vaux;
@@ -868,6 +893,7 @@ image recall \b onRasterImage() for toonz image    recall \b onToonzImage().
 */
 void RasterPainter::onImage(const Stage::Player &player) {
   if (m_singleColumnEnabled && !player.m_isCurrentColumn) return;
+  if (m_targetFailed) return;
 
   // Attempt Plastic-deformed drawing
   // For now generating icons of plastic-deformed image causes crash as
@@ -878,8 +904,14 @@ void RasterPainter::onImage(const Stage::Player &player) {
   // since it causes unknown error with opengl contexts..
   TStageObject *obj =
       ::plasticDeformedObj(player, m_vs.m_plasticVisualSettings);
-  if (obj && QThread::currentThread() == qGuiApp->thread() &&
-      !m_vs.m_forSceneIcon) {
+  // (The scene icon is asked about first: with no QGuiApplication, as in a
+  // command line tool, there is no gui thread to compare with.)
+  if (obj && !m_vs.m_forSceneIcon && qGuiApp &&
+      QThread::currentThread() == qGuiApp->thread()) {
+    if (m_target) {
+      m_targetFailed = true;  // the deformation is drawn with OpenGL
+      return;
+    }
     flushRasterImages();
     ::onPlasticDeformedImage(obj, player, m_vs, m_viewAff);
   } else {
@@ -893,6 +925,13 @@ void RasterPainter::onImage(const Stage::Player &player) {
     else if (TToonzImageP ti = img)
       onToonzImage(ti.getPointer(), player);
     else if (TMeshImageP mi = img) {
+      if (m_target) {
+        // onMeshImage() draws nothing unless one of these is on
+        const PlasticVisualSettings &pvs = m_vs.m_plasticVisualSettings;
+        if (pvs.m_drawMeshesWireframe || pvs.m_drawSO || pvs.m_drawRigidity)
+          m_targetFailed = true;
+        return;
+      }
       flushRasterImages();
       ::onMeshImage(mi.getPointer(), player, m_vs, m_viewAff);
     }
@@ -1038,6 +1077,15 @@ void RasterPainter::onVectorImage(TVectorImage *vi,
       prefs.getTranspCheckData(dummy, rd.m_tCheckInk, rd.m_tCheckPaint);
   }
 
+  if (m_target && (m_vs.m_colorMask != 0 || rd.m_showGuidedDrawing)) {
+    // Neither can be drawn on a raster
+    m_targetFailed = true;
+    vPalette->setFrame(oldFrame);
+    delete cf;
+    delete guidedCf;
+    return;
+  }
+
   if (m_vs.m_colorMask != 0) {
     glColorMask((m_vs.m_colorMask & TRop::RChan) ? GL_TRUE : GL_FALSE,
                 (m_vs.m_colorMask & TRop::GChan) ? GL_TRUE : GL_FALSE,
@@ -1051,14 +1099,23 @@ void RasterPainter::onVectorImage(TVectorImage *vi,
   }
 
   TStroke *guidedStroke = 0;
-  if (m_maskLevel > 0)
-    tglDrawMask(rd, vi);
-  else
-    tglDraw(rd, vi, &guidedStroke);
+  if (m_target) {
+    // The context's origin is the raster's centre
+    rd.m_aff = TTranslation(0.5 * m_dim.lx, 0.5 * m_dim.ly) * rd.m_aff;
+    if (!TVectorRasterizer::draw(m_target, vi, rd))
+      m_targetFailed = true;
+    else if (tc & ToonzCheck::eAutoclose)
+      drawAutocloses(vi, rd, m_target, &m_targetFailed);
+  } else {
+    if (m_maskLevel > 0)
+      tglDrawMask(rd, vi);
+    else
+      tglDraw(rd, vi, &guidedStroke);
 
-  if (tc & ToonzCheck::eAutoclose) drawAutocloses(vi, rd);
+    if (tc & ToonzCheck::eAutoclose) drawAutocloses(vi, rd);
 
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  }
   vPalette->setFrame(oldFrame);
 
   delete cf;
