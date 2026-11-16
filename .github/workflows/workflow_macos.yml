@@ -38,8 +38,10 @@ jobs:
         include:
           - runner: macos-15
             arch: arm64
+            skia_arch: arm64
           - runner: macos-15-intel
             arch: x86_64
+            skia_arch: x64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
@@ -99,6 +101,26 @@ jobs:
           # Not installed: the build takes the headers and the static library
           # from thirdparty. Installing it used to hide that a Homebrew libtiff
           # in /usr/local/include shadowed the bundled headers on Intel Macs.
+      # Skia, for tnzskia (WITH_SKIA): the prebuilt JetBrains skia-pack of
+      # the runner's architecture, pinned with its SHA-256 in
+      # ci-scripts/skia/skia_pack.sh. Only the zip is cached; it is unpacked
+      # and checked on every run.
+      - name: Restore Skia
+        id: skia-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ runner.temp }}/skia-pack/*.zip
+          key: skia-pack-${{ matrix.skia_arch }}-${{ hashFiles('ci-scripts/skia/skia_pack.sh') }}
+      - name: Fetch Skia
+        run: |
+          dir="$(ci-scripts/skia/skia_pack.sh ${{ matrix.skia_arch }} "$RUNNER_TEMP/skia-pack" | tail -n 1)"
+          echo "SKIA_PACK_DIR=$dir" >> "$GITHUB_ENV"
+      - name: Save Skia
+        if: steps.skia-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ runner.temp }}/skia-pack/*.zip
+          key: skia-pack-${{ matrix.skia_arch }}-${{ hashFiles('ci-scripts/skia/skia_pack.sh') }}
       - name: Build
         env:
           CCACHE_DIR: /Users/runner/.ccache
@@ -114,7 +136,8 @@ jobs:
             -DQt5_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5 \
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)/lib/cmake/Qt5;$(brew --prefix googletest)" \
             -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4 \
-            -DWITH_TRANSLATION=OFF
+            -DWITH_TRANSLATION=OFF \
+            -DWITH_SKIA=ON -DNEXTTOONZ_SKIA_PACK_DIR="$SKIA_PACK_DIR"
           ninja -j $(sysctl -n hw.ncpu)
       - name: Save cache
         if: always()

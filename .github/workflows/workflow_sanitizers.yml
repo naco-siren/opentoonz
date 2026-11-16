@@ -60,7 +60,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake pkg-config ninja-build ccache libboost-all-dev qtbase5-dev qt5-qmake qtscript5-dev qttools5-dev qttools5-dev-tools qtmultimedia5-dev qtwayland5 libqt5svg5-dev libqt5opengl5-dev libqt5multimedia5-plugins libqt5serialport5-dev libsuperlu-dev liblz4-dev libusb-1.0-0-dev liblzo2-dev libpng-dev libjpeg-dev libglew-dev freeglut3-dev libfreetype6-dev libjson-c-dev libmypaint-dev libopencv-dev libturbojpeg-dev libomp-dev libfuse2 libgtest-dev xvfb mesa-utils libgl1-mesa-dri python3-numpy python3-pil \
-          clang libclang-rt-18-dev
+          clang libclang-rt-18-dev curl zip unzip
 
     - name: Set up cache
       run: mkdir -p /home/runner/.ccache
@@ -82,19 +82,52 @@ jobs:
         CFLAGS='-fPIC' CXXFLAGS='-fPIC' ./configure --disable-jbig
         make -j $(nproc)
 
+    # Skia, for tnzskia: built with GCC through vcpkg and cached as in
+    # workflow_linux.yml (this image has its own GCC, hence its own key).
+    # Skia itself is not sanitized. vcpkg builds it without RTTI, so tnzskia
+    # and the code that includes Skia's headers are compiled with
+    # -fno-sanitize=vptr (tnzskia/CMakeLists.txt); every other check applies.
+    - name: Skia cache key
+      id: skia-key
+      run: echo "key=skia-vcpkg-$ImageOS-x64-linux-release-gcc$(gcc -dumpfullversion)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore Skia
+      id: skia-cache
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ runner.temp }}/skia-vcpkg
+        key: ${{ steps.skia-key.outputs.key }}-${{ hashFiles('ci-scripts/skia/vcpkg.json', 'ci-scripts/skia/vcpkg_skia.sh') }}
+
+    - name: Build Skia
+      if: steps.skia-cache.outputs.cache-hit != 'true'
+      env:
+        CC: gcc
+        CXX: g++
+      run: ci-scripts/skia/vcpkg_skia.sh "$RUNNER_TEMP/skia-vcpkg"
+
+    - name: Save Skia
+      if: steps.skia-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ runner.temp }}/skia-vcpkg
+        key: ${{ steps.skia-key.outputs.key }}-${{ hashFiles('ci-scripts/skia/vcpkg.json', 'ci-scripts/skia/vcpkg_skia.sh') }}
+
     - name: Configure
       working-directory: toonz/sources
       run: |
         cmake --preset asan \
           -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          -DWITH_SKIA=ON -Dunofficial-skia_DIR="$RUNNER_TEMP/skia-vcpkg/x64-linux-release/share/unofficial-skia"
 
     - name: Build tests and tcomposer
       working-directory: toonz/build-asan
       # tcomposer (with the lzo helpers it spawns for tlv levels) renders the
-      # golden scenes; the GUI executable is not needed.
+      # golden scenes; the GUI executable is not needed. Every test target
+      # ctest knows of has to be built: an unbuilt one is a failing
+      # <target>_NOT_BUILT test.
       run: |
-        targets="nexttoonz_core_tests nexttoonz_toonzlib_tests tcomposer lzocompress lzodecompress"
+        targets="nexttoonz_core_tests nexttoonz_toonzlib_tests nexttoonz_canvas_tests nexttoonz_canvas_skia_tests tcomposer lzocompress lzodecompress"
         echo "Building: $targets"
         ccache -z
         ninja -k 0 $targets
@@ -102,8 +135,10 @@ jobs:
 
     - name: Test
       working-directory: toonz/build-asan
-      # Unit tests (labels "core" and "toonzlib") and the golden renders,
-      # which run tcomposer under xvfb-run with Mesa's software rasteriser.
+      # Unit tests (labels "core", "toonzlib", "canvas", "canvas_skia") and
+      # the golden renders, which run tcomposer under xvfb-run; vectors are
+      # rasterised by Skia, the rest of the GL users by Mesa's software
+      # rasteriser.
       run: ctest --no-tests=error --output-on-failure --timeout 900
 
     - name: Upload golden renders on failure

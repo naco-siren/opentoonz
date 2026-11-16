@@ -47,14 +47,16 @@ that fetched GoogleTest. The `device` form only compiles and links.
 ### From source through vcpkg (fallback)
 
 Builds Skia with nothing but the CPU rasteriser (`default-features: false`
-in `vcpkg.json` here). The vcpkg revision is pinned by `builtin-baseline`,
-which also pins the Skia milestone.
+in `ci-scripts/skia/vcpkg.json`, the manifest the Linux CI jobs build from).
+The vcpkg revision is pinned by `builtin-baseline`, which also pins the Skia
+milestone. `ci-scripts/skia/vcpkg_skia.sh <somewhere>/vcpkg_installed <triplet>`
+does the steps below, with vcpkg checked out at that revision.
 
 ```
 git clone https://github.com/microsoft/vcpkg.git
 ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
 ./vcpkg/vcpkg install --triplet x64-osx-release \
-    --x-manifest-root=toonz/sources/tests/skia_spike \
+    --x-manifest-root=ci-scripts/skia \
     --x-install-root=<somewhere>/vcpkg_installed
 ```
 

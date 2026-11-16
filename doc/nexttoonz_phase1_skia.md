@@ -1,6 +1,6 @@
 # NextToonz Phase 1：Skia 的获取方式
 
-版本 0.3，2026-11-09（3.5 节补了 Skia 后端的跨平台像素对比）。本文回答 `doc/nexttoonz_plan.md` 第 5 节的待定事项"Skia 的获取方式"：比较了几条路线，在本机把选中的一条走通，并记录实测数据。结论先行，数据和没有验证的部分在后面。
+版本 0.4，2026-11-16（第 4 节改为 CI 的实际做法）。0.3 版 2026-11-09 补了 3.5 节 Skia 后端的跨平台像素对比。本文回答 `doc/nexttoonz_plan.md` 第 5 节的待定事项"Skia 的获取方式"：比较了几条路线，在本机把选中的一条走通，并记录实测数据。结论先行，数据和没有验证的部分在后面。
 
 实测环境：Intel Mac（i7-10700K，8 核 16 线程），macOS 26.7，Xcode 26.5 的 Apple clang；Linux 部分在本机的 lima 虚拟机 `nt-asan` 里（Ubuntu 24.04 x86_64，14 核，GCC 13.3）。作为参照，同一台机器上 OpenToonz 的全量构建是 508 秒墙钟、4,890 秒 CPU。
 
@@ -142,29 +142,40 @@ Skia 是 BSD-3-Clause。核心构建牵涉的第三方代码：port 的硬依赖
 
 ---
 
-## 4. CI 里怎样缓存
+## 4. CI 里怎样获取和缓存
 
-设计，尚未实现：
+**已实现（2026-11-16，分支 `ci/skia-in-ci`，未推送）。** 下面是实际做法；本节 0.3 版的设计（缓存 vcpkg 的二进制缓存目录）改成了缓存安装目录，理由见第 2 点。
 
-1. 仓库里放清单 `vcpkg.json`（现在在 `tests/skia_spike/` 下，正式使用时挪到 `toonz/sources/`），`builtin-baseline` 钉住 vcpkg 提交，也就钉住了 Skia 的版本。升级 Skia 等于改这一行。
-2. 每个 job 浅克隆 vcpkg 到该提交并 bootstrap（下载一个预编译的 vcpkg 可执行文件；浅克隆约 70 MB）。
-3. 用 vcpkg 的文件型二进制缓存：`VCPKG_BINARY_SOURCES=clear;files,<目录>,readwrite`，这个目录交给 `actions/cache`，键是"操作系统加架构加清单文件的哈希"。
-4. 缓存命中时恢复约 5 秒；未命中时构建一次（估计 8 到 12 分钟）并写回。
+脚本在 `ci-scripts/skia/`：
 
-vcpkg 判断"同一个包"用的是 ABI 哈希，里面包含编译器版本、CMake 版本、三元组内容和 port 的全部文件。所以 runner 镜像升级编译器时缓存自动失效并重编一次，不会出现用旧编译器的产物链接新编译器的代码这种情况。
+- `vcpkg.json`：清单（原来在 `tests/skia_spike/` 下），`builtin-baseline` 钉住 vcpkg 提交 `ec48c11e`，也就钉住了 Skia m148。升级 Skia 等于改这一行。
+- `vcpkg_skia.sh <安装目录> [三元组]`：把 vcpkg 浅取到该提交、bootstrap、`vcpkg install`，三元组默认 `x64-linux-release`。
+- `skia_pack.sh <arm64|x64> <目录>`：下载 skia-pack m144 的 macOS 包，按钉住的 SHA-256 校验（两个值取自 GitHub 为 release 资产记录的摘要），只解出头文件和 `libskia.a`。
 
-每个平台的缓存只有十几到二十几 MB，五个平台合计不到 100 MB，相对每仓库 10 GB 的配额可以忽略。`actions/cache` 会清掉 7 天没被访问的条目；如果冷构建的频率因此变得烦人，可以改用 GitHub Packages 的 NuGet 源做二进制缓存，它不过期。
+各 job：
 
-各 job 需要的额外准备：
-
-| Job | 需要 | 状态 |
+| Job | Skia 从哪来 | 缓存什么、键是什么 |
 |---|---|---|
-| macOS arm64、x86_64 | Python 3.10 以上在 PATH 里靠前（runner 上有 Homebrew 的 Python） | x86_64 本机实测；arm64 只做了交叉编译 |
-| Ubuntu 22.04，gcc 与 clang | `curl zip unzip tar pkg-config`；系统 Python 正好是 3.10 | 在 Ubuntu 24.04 加 GCC 13 上实测，22.04 加 GCC 11 没有测 |
-| Fedora 容器 | `git curl zip unzip tar pkgconf ninja-build python3` 和编译器 | 没有测 |
-| ASan/UBSan | 同 Ubuntu。Skia 本身不带清洁剂，链接进带清洁剂的测试；包含 Skia 头文件的代码要关掉 vptr 检查（5.4） | 在虚拟机的 asan 构建里实测：8 个测试通过，泄漏检测无报告 |
+| Ubuntu 22.04，gcc 与 clang | vcpkg 从源码构建，**两个 job 都用 GCC 编**（clang 也链接 libstdc++，ABI 相同），共用一份 | 安装目录（81 MB，未压缩）。键：镜像（`$ImageOS`）、三元组、GCC 版本、两个脚本文件的哈希 |
+| ASan/UBSan（Ubuntu 24.04） | 同上，GCC 13 编，Skia 本身不带清洁剂 | 同上，镜像和 GCC 版本不同所以是另一份 |
+| macOS arm64、x86_64 | skia-pack 预编译包，按 runner 的架构取 | 只缓存 zip（36 到 38 MB），每次都校验后再解包。键：架构和 `skia_pack.sh` 的哈希 |
+| Fedora 容器 | 不用 Skia（`WITH_SKIA` 默认关闭） | 无 |
 
-gcc 和 clang 两个 Ubuntu job 可以共用一份用 GCC 编出的 Skia（两者都用 libstdc++），虚拟机里的实测正是这个组合：Skia 用 GCC 编，测试用 clang 编。
+说明：
+
+1. 配置时用 `-Dunofficial-skia_DIR=<安装目录>/<三元组>/share/unofficial-skia`，**不**把安装目录放进 `CMAKE_PREFIX_PATH`：安装目录里还有 vcpkg 的静态 zlib 和 expat，放进去的话其余的 `find_package()` 会优先找到它们而不是系统的。
+2. 缓存安装目录而不是 vcpkg 的二进制缓存：命中时连 vcpkg 的克隆和 bootstrap 都省了（二进制缓存仍然要先克隆、bootstrap、下载 vcpkg 自己用的 CMake）。代价是失去 vcpkg 的 ABI 哈希，所以编译器版本写进了键里；runner 镜像换 GCC 时自动重编一次。
+3. 缓存用 `actions/cache/restore` 加 `actions/cache/save`，构建完 Skia 立刻保存，后面的测试失败也不会丢掉它。两个 Ubuntu job 第一次会同时冷构建，后保存的那个会报"缓存已存在"的警告，不影响结果。
+4. 未命中时的构建时间：虚拟机（14 核）里 GCC 11 冷构建 213 秒；runner 只有 4 个 vCPU，估计 8 到 12 分钟（**推算**）。
+5. `actions/cache` 会清掉 7 天没被访问的条目。
+
+推送之前在本机验证过的：
+
+- Ubuntu 22.04 的两个编译器：在虚拟机里装 GCC 11 和 clang 14 冷构建 m148。GCC 11 成功；clang 14 失败（它配 24.04 的 libstdc++ 13 时编不过 `<chrono>` 的 C++20 部分，22.04 上的组合不同，没有验证），这是让两个 job 都用 GCC 编 Skia 的另一个理由。
+- ASan/UBSan job：在虚拟机（Ubuntu 24.04，GCC 13 编 Skia，clang 18 编树）里按 workflow 的步骤从头跑一遍：`vcpkg_skia.sh` 新克隆 vcpkg 并冷构建 Skia 238 秒，`asan` 预设加 job 的构建目标 282 秒，`ctest` 386 个测试里只有 `golden_fx_sweep_font_a` 失败（虚拟机里的已知情况，基线要 runner 的字体），1 个按设计跳过，泄漏检测打开。
+- macOS x86_64：用 `skia_pack.sh` 解出的目录重新配置，`canvas_skia` 57 个测试通过，场景哈希仍是 `00f0bc48d7b9d098`。
+
+只能推送后才知道的：GitHub runner 上的构建时间；Ubuntu 22.04 上真实的 GCC 11 和 clang 14（树本身用 clang 14 编、链接 GCC 编的 Skia）；arm64 的 skia-pack（没有下载，SHA-256 来自 GitHub 的记录）和 arm64 上 golden 的像素；workflow 文件本身的语法（本机没有 actionlint）。
 
 ---
 

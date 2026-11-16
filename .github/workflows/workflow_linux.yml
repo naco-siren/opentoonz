@@ -46,7 +46,8 @@ jobs:
     - name: Install libraries
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential cmake pkg-config ninja-build ccache libboost-all-dev qtbase5-dev qt5-qmake qtscript5-dev qttools5-dev qttools5-dev-tools qtmultimedia5-dev qtwayland5 libqt5svg5-dev libqt5opengl5-dev libqt5multimedia5-plugins libqt5serialport5-dev libsuperlu-dev liblz4-dev libusb-1.0-0-dev liblzo2-dev libpng-dev libjpeg-dev libglew-dev freeglut3-dev libfreetype6-dev libjson-c-dev libmypaint-dev libopencv-dev libturbojpeg-dev libomp-dev libfuse2 libgtest-dev xvfb mesa-utils libgl1-mesa-dri python3-numpy python3-pil
+        sudo apt-get install -y build-essential cmake pkg-config ninja-build ccache libboost-all-dev qtbase5-dev qt5-qmake qtscript5-dev qttools5-dev qttools5-dev-tools qtmultimedia5-dev qtwayland5 libqt5svg5-dev libqt5opengl5-dev libqt5multimedia5-plugins libqt5serialport5-dev libsuperlu-dev liblz4-dev libusb-1.0-0-dev liblzo2-dev libpng-dev libjpeg-dev libglew-dev freeglut3-dev libfreetype6-dev libjson-c-dev libmypaint-dev libopencv-dev libturbojpeg-dev libomp-dev libfuse2 libgtest-dev xvfb mesa-utils libgl1-mesa-dri python3-numpy python3-pil \
+          curl zip unzip
 
     - name: Set up cache
       run: mkdir -p /home/runner/.ccache
@@ -65,6 +66,37 @@ jobs:
         CFLAGS='-fPIC' CXXFLAGS='-fPIC' ./configure --disable-jbig
         make -j $(nproc)
 
+    # Skia, for tnzskia (WITH_SKIA): built from source through vcpkg, see
+    # ci-scripts/skia/vcpkg_skia.sh. Both matrix entries share the one copy
+    # built with GCC: clang links against libstdc++ too, so the ABI is the
+    # same. The install tree is cached, keyed on the image, the compiler
+    # version and the manifest; a hit skips vcpkg altogether. Saved right
+    # after the build so that a failing test does not lose it.
+    - name: Skia cache key
+      id: skia-key
+      run: echo "key=skia-vcpkg-$ImageOS-x64-linux-release-gcc$(gcc -dumpfullversion)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore Skia
+      id: skia-cache
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ runner.temp }}/skia-vcpkg
+        key: ${{ steps.skia-key.outputs.key }}-${{ hashFiles('ci-scripts/skia/vcpkg.json', 'ci-scripts/skia/vcpkg_skia.sh') }}
+
+    - name: Build Skia
+      if: steps.skia-cache.outputs.cache-hit != 'true'
+      env:
+        CC: gcc
+        CXX: g++
+      run: ci-scripts/skia/vcpkg_skia.sh "$RUNNER_TEMP/skia-vcpkg"
+
+    - name: Save Skia
+      if: steps.skia-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ runner.temp }}/skia-vcpkg
+        key: ${{ steps.skia-key.outputs.key }}-${{ hashFiles('ci-scripts/skia/vcpkg.json', 'ci-scripts/skia/vcpkg_skia.sh') }}
+
     - name: Build
       run: |
         export CCACHE_DIR=/home/runner/.ccache
@@ -73,7 +105,8 @@ jobs:
         cd toonz
         mkdir build
         cd build
-        cmake ../sources -G Ninja -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DCMAKE_C_COMPILER=${{ matrix.cc }} -DWITH_TRANSLATION=OFF
+        cmake ../sources -G Ninja -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DCMAKE_C_COMPILER=${{ matrix.cc }} -DWITH_TRANSLATION=OFF \
+          -DWITH_SKIA=ON -Dunofficial-skia_DIR="$RUNNER_TEMP/skia-vcpkg/x64-linux-release/share/unofficial-skia"
         ninja
 
     - name: Test
@@ -179,6 +212,8 @@ jobs:
 
   # Compile-only: catches Fedora-specific breakage (package renames, newer
   # GCC/Qt) that the Ubuntu job cannot. Deliberately builds no AppImage.
+  # Built without Skia (WITH_SKIA is off by default), so it also keeps the
+  # OpenGL-only configuration compiling; it runs no golden tests.
   Fedora:
     runs-on: ubuntu-latest
     container:
