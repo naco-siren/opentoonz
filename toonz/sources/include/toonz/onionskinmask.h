@@ -46,7 +46,15 @@ public:
   };
 
 public:
-  OnionSkinMask() : m_enabled(false), m_wholeScene(false) {}
+  // Shift & Trace off, as clear() leaves it: a mask made just for a camera
+  // stand render (Stage::visit(visitor, scene, xsh, row)) used to have it
+  // read from uninitialised memory.
+  OnionSkinMask()
+      : m_enabled(false)
+      , m_wholeScene(false)
+      , m_shiftTraceStatus(DISABLED)
+      , m_showShiftOrigin(false)
+      , m_ghostFrame{0, 0} {}
 
   void clear();
 
