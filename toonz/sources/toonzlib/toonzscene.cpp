@@ -47,8 +47,6 @@
 #include "toutputproperties.h"
 #include "trop.h"
 
-TOfflineGL *currentOfflineGL = 0;
-
 #include <QProgressDialog>
 
 #if defined(MACOSX) || defined(LINUX) || defined(FREEBSD)
@@ -750,7 +748,6 @@ void ToonzScene::renderFrame(const TRaster32P &ras, int row, const TXsheet *xsh,
   }
 
   TOfflineGL ogl(ras->getSize());
-  currentOfflineGL = &ogl;
 
   ogl.makeCurrent();
   {
@@ -771,7 +768,6 @@ void ToonzScene::renderFrame(const TRaster32P &ras, int row, const TXsheet *xsh,
   }
   ogl.doneCurrent();
 
-  currentOfflineGL = 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -813,7 +809,6 @@ void ToonzScene::renderFrame(const TRaster32P &ras, int row, const TXsheet *xsh,
   glMatrixMode(GL_PROJECTION), glPushMatrix();
 #else
   TOfflineGL ogl(ras->getSize());
-  currentOfflineGL = &ogl;
   ogl.makeCurrent();
 #endif
   {
@@ -874,7 +869,6 @@ void ToonzScene::renderFrame(const TRaster32P &ras, int row, const TXsheet *xsh,
   glPopAttrib();
 #else
   ogl.doneCurrent();
-  currentOfflineGL = 0;
 #endif
 }
 

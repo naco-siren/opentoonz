@@ -95,7 +95,6 @@ set(HEADERS ${MOC_HEADERS}
     ../include/tstrokedeformations.h
     ../include/tstrokeprop.h
     ../include/tstrokeutil.h
-    ../include/ttessellator.h
     ../include/tvectorgl.h
     ../include/tvectorcanvas.h
     ../include/tvectorrasterizer.h
@@ -186,7 +185,6 @@ set(SOURCES
     ../common/tvrender/tcolorstyles.cpp
     ../common/tvrender/tellipticbrush.cpp
     ../common/tvrender/qtofflinegl.cpp
-    ../common/tvrender/tglcurves.cpp
     ../common/tvrender/tglregions.cpp
     ../common/tvrender/tinbetween.cpp
     ../common/tvrender/tofflinegl.cpp
@@ -199,7 +197,6 @@ set(SOURCES
     ../common/tvrender/tstrokedeformations.cpp
     ../common/tvrender/tstrokeprop.cpp
     ../common/tvrender/tstrokeutil.cpp
-    ../common/tvrender/ttessellator.cpp
     ../common/tvrender/tvectorbrush.cpp
     ../common/tvrender/tvectorbrushstyle.cpp
     ../common/psdlib/psd.cpp

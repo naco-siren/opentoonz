@@ -4,7 +4,6 @@ set(HEADERS
     rasterstyles.h
     regionstyles.h
     strokestyles.h
-    zigzagstyles.h
     flowlinestrokestyle.h
 )
 
@@ -14,7 +13,6 @@ set(SOURCES
     rasterstyles.cpp
     regionstyles.cpp
     strokestyles.cpp
-    zigzagstyles.cpp
     flowlinestrokestyle.cpp
 )
 

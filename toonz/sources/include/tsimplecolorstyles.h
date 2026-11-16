@@ -31,7 +31,6 @@
 class TStrokeProp;
 class TRegionProp;
 class TRegionOutline;
-class TTessellator;
 class TColorFunction;
 class TCanvas;
 class TVectorRenderData;

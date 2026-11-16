@@ -15,7 +15,6 @@
 #include "trasterimage.h"
 #include "tlevel_io.h"
 #include "tstrokeprop.h"
-#include "ttessellator.h"
 #include "tcolorfunctions.h"
 #include "tofflinegl.h"
 #include "drawutil.h"
