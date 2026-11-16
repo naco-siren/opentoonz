@@ -28,6 +28,8 @@
 #include "tgldisplaylistsmanager.h"
 #include "tconvert.h"
 #include "trop.h"
+#include "tvectorrasterizer.h"
+#include "tcanvasutil.h"
 
 #include <QOpenGLFramebufferObject>
 #include <QOffscreenSurface>
@@ -245,6 +247,90 @@ bool PlasticDeformerFx::buildTextureData(double frame, TRenderSettings &info,
 
 //-----------------------------------------------------------------------------------
 
+namespace {
+
+// The deformed mesh drawn on the CPU canvas (migration step 7 of
+// doc/nexttoonz_canvas_ir.md): the faces as tglDraw(mesh image, texture,
+// ...) draws them, in the same stacking order, each textured with the
+// input. The input stays premultiplied, as a canvas image is filtered; the
+// OpenGL path has to take the premultiplication out because it smooths the
+// mesh's border with antialiased lines, which only touch alpha. Here the
+// border is the silhouette of one mesh drawn with smooth edges.
+//
+// One difference remains: where faces fold over each other, the canvas
+// paints the topmost face over the ones below as one shape (the canvas
+// mesh is painted once where its triangles overlap), while OpenGL blends
+// each face over the ones before it. That is the same where the input is
+// opaque.
+bool drawOnCanvas(TTile &tile, const TTile &inTile, const TRectD &texBBox,
+                  const TMeshImage &meshImage,
+                  const PlasticDeformerDataGroup &group,
+                  const TAffine &meshToTextureAff,
+                  const TAffine &deformedMeshToTile) {
+  const TRaster32P in = inTile.getRaster();
+  if (!in) return false;
+
+  // The input with a transparent pixel all round, so that clamped at its
+  // edges it is transparent beyond them, as the OpenGL texture is.
+  TRaster32P tex(in->getLx() + 2, in->getLy() + 2);
+  tex->clear();
+  tex->extract(1, 1, in->getLx(), in->getLy())->copy(in);
+
+  TCanvasMesh mesh;
+  mesh.mode = TCanvasMesh::Mode::Triangles;
+  const std::vector<TTextureMeshP> &meshes = meshImage.meshes();
+  for (const std::pair<int, int> &sorted : group.m_sortedFaces) {
+    const TTextureMesh &m      = *meshes[sorted.second];
+    const double *dstCoords    = group.m_datas[sorted.second].m_output.get();
+    const TTextureMesh::face_type &fc = m.face(sorted.first);
+    const TTextureMesh::edge_type &ed0 = m.edge(fc.edge(0)),
+                                  &ed1 = m.edge(fc.edge(1));
+    const int v[3] = {ed0.vertex(0), ed0.vertex(1),
+                      ed1.vertex((ed1.vertex(0) == ed0.vertex(0)) |
+                                 (ed1.vertex(0) == ed0.vertex(1)))};
+    for (int i : v) {
+      mesh.positions.push_back(
+          TCanvasPoint(dstCoords[2 * i], dstCoords[2 * i + 1]));
+      mesh.uvs.push_back(toCanvas(meshToTextureAff * m.vertex(i).P()));
+    }
+  }
+  if (!mesh.isValid()) return false;
+
+  TCanvasPaint paint(TCanvasColor(1.f, 1.f, 1.f, 1.f));
+  paint.antialias           = true;
+  TCanvasShader &shader     = paint.shader;
+  shader.kind               = TCanvasShader::Kind::Image;
+  // (tex outlives the drawing: nothing needs keeping alive.)
+  shader.image.width        = tex->getLx();
+  shader.image.height       = tex->getLy();
+  shader.image.rowBytes     = (std::ptrdiff_t)tex->getWrap() * 4;
+  shader.image.premultiplied = true;
+  shader.imageToLocal =
+      TCanvasAffine::translation(texBBox.x0 - 1.0, texBBox.y0 - 1.0);
+  shader.tile   = TCanvasTile::Clamp;
+  shader.filter = TCanvasFilter::Linear;
+
+  TRaster32P out = tile.getRaster();
+  TRaster32P drawn = out ? out : TRaster32P(tile.getRaster()->getSize());
+  drawn->clear();
+  tex->lock();
+  shader.image.pixels = tex->getRawData();
+  const bool done =
+      TVectorRasterizer::drawOnCanvas(drawn, [&](TCanvas &canvas) {
+        canvas.concat(toCanvas(deformedMeshToTile));
+        canvas.drawMesh(mesh, paint);
+      });
+  tex->unlock();
+  if (!done) return false;
+
+  if (!out) TRop::convert(tile.getRaster(), drawn);
+  return true;
+}
+
+}  // namespace
+
+//-----------------------------------------------------------------------------------
+
 void PlasticDeformerFx::doCompute(TTile &tile, double frame,
                                   const TRenderSettings &info) {
   if (!m_port.isConnected()) {
@@ -333,6 +419,12 @@ void PlasticDeformerFx::doCompute(TTile &tile, double frame,
   TTile inTile;
   m_port->allocateAndCompute(inTile, bbox.getP00(), tileSize, TRasterP(), frame,
                              texInfo);
+
+  if (TVectorRasterizer::isSelected() &&
+      drawOnCanvas(tile, inTile, bbox, *mi, *dataGroup, meshToTextureAff,
+                   TTranslation(-tile.m_pos) * info.m_affine *
+                       meshToWorldMeshAff))
+    return;
 
   // Draw the textured mesh using the working approach
   {

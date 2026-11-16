@@ -158,3 +158,16 @@ bool TVectorRasterizer::draw(const TRaster32P &raster, TRegion *region,
   return false;
 #endif
 }
+
+//-----------------------------------------------------------------------------
+
+bool TVectorRasterizer::drawOnCanvas(
+    const TRaster32P &raster, const std::function<void(TCanvas &)> &draw) {
+#if defined(NEXTTOONZ_WITH_SKIA) && defined(TNZ_MACHINE_CHANNEL_ORDER_BGRM)
+  if (!raster || !draw) return false;
+  onCanvas(raster, draw);
+  return true;
+#else
+  return false;
+#endif
+}

@@ -646,6 +646,51 @@ TEST(SkiaCanvasShader, AMeshLooksItUpAtItsTextureCoordinates) {
   EXPECT_TRUE(pixelIs(darker, 10, 10, 128, 128, 128, 255, 2));
 }
 
+// A brush tip: a large image drawn a few pixels across. Sampled linearly
+// it shows whichever of its pixels each pixel happens to land on; with
+// mipmaps every pixel shows the average of the pixels it covers.
+TEST(SkiaCanvasShader, AMeshShrunkAGreatDealIsSampledFromMipmaps) {
+  // Columns one pixel wide, black and white by turns.
+  const int side = 60;
+  std::vector<unsigned char> stripes((std::size_t)side * side * 4);
+  for (int y = 0; y < side; ++y)
+    for (int x = 0; x < side; ++x) {
+      unsigned char *p = &stripes[((std::size_t)y * side + x) * 4];
+      p[0] = p[1] = p[2] = (x % 2) ? 255 : 0;
+      p[3]                = 255;
+    }
+
+  // Four pixels show all of it: fifteen columns each. A pixel's centre
+  // lands on the middle of one column.
+  TCanvasMesh mesh = rectMesh(0, 0, 4, 4);
+  mesh.uvs         = {{0, 0}, {0, side}, {side, 0}, {side, side}};
+  TCanvasPaint paint = paintOf(1.f, 1.f, 1.f);
+  paint.shader.kind           = TCanvasShader::Kind::Image;
+  paint.shader.image.pixels   = stripes.data();
+  paint.shader.image.width    = side;
+  paint.shader.image.height   = side;
+  paint.shader.image.rowBytes = side * 4;
+  paint.shader.tile           = TCanvasTile::Clamp;
+
+  for (TCanvasFilter filter : {TCanvasFilter::Linear, TCanvasFilter::Mipmap}) {
+    paint.shader.filter = filter;
+    Target target(4, 4);
+    TSkiaCanvas canvas(target.pixels(), 4, 4, target.rowBytes());
+    canvas.drawMesh(mesh, paint);
+    int extremes = 0, greys = 0;
+    for (int y = 0; y < 4; ++y)
+      for (int x = 0; x < 4; ++x) {
+        const int red = target.bytes[((std::size_t)y * 4 + x) * 4 + 2];
+        extremes += red < 30 || red > 225;
+        greys += red > 90 && red < 165;
+      }
+    if (filter == TCanvasFilter::Linear)
+      EXPECT_EQ(extremes, 16) << "linear: one column each";
+    else
+      EXPECT_EQ(greys, 16) << "mipmaps: the columns averaged";
+  }
+}
+
 //-----------------------------------------------------------------------------
 // Whole pictures
 

@@ -32,6 +32,10 @@
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
+// Since 1.4.
+#ifndef GL_GENERATE_MIPMAP
+#define GL_GENERATE_MIPMAP 0x8191
+#endif
 
 //=============================================================================
 // Geometry
@@ -288,7 +292,13 @@ GLuint makeTexture(int width, int height, const void *bgra,
   const GLint glFilter = filter == TCanvasFilter::Nearest ? GL_NEAREST
                                                           : GL_LINEAR;
   const GLint wrap = tile == TCanvasTile::Repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE;
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glFilter);
+  if (filter == TCanvasFilter::Mipmap) {
+    // Made from the image when it is uploaded below.
+    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    GL_LINEAR_MIPMAP_LINEAR);
+  } else
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glFilter);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glFilter);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);

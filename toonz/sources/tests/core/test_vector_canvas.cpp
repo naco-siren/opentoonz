@@ -526,6 +526,47 @@ TEST(VectorRasterizer, DrawsOverWhatIsThere) {
   EXPECT_EQ(raster->pixels(80)[50], TPixel32::White);
 }
 
+// What is not a vector image, such as a deformed mesh or brush strokes,
+// is drawn through the same canvas: over the raster, one unit a pixel, the
+// origin at its bottom left corner.
+TEST(VectorRasterizer, LendsItsCanvasForAnythingElse) {
+  // Two pixels, red and blue (BGRA, premultiplied), stretched over a mesh
+  // 20 by 10 pixels near the bottom of the raster.
+  const unsigned char twoPixels[8] = {0, 0, 255, 255, 255, 0, 0, 255};
+  TCanvasMesh mesh;
+  mesh.mode      = TCanvasMesh::Mode::TriangleStrip;
+  mesh.positions = {{0, 0}, {0, 10}, {20, 0}, {20, 10}};
+  mesh.uvs       = {{0, 0}, {0, 1}, {2, 0}, {2, 1}};
+  TCanvasPaint paint;
+  paint.shader.kind           = TCanvasShader::Kind::Image;
+  paint.shader.image.pixels   = twoPixels;
+  paint.shader.image.width    = 2;
+  paint.shader.image.height   = 1;
+  paint.shader.image.rowBytes = 8;
+  paint.shader.tile           = TCanvasTile::Clamp;
+  paint.shader.filter         = TCanvasFilter::Nearest;
+
+  TRaster32P raster(40, 30);
+  raster->fill(TPixel32::White);
+  bool called = false;
+  const bool drawn =
+      TVectorRasterizer::drawOnCanvas(raster, [&](TCanvas &canvas) {
+        called = true;
+        canvas.concat(TCanvasAffine::translation(10, 2));
+        canvas.drawMesh(mesh, paint);
+      });
+  if (!TVectorRasterizer::isAvailable()) {
+    EXPECT_FALSE(drawn);
+    EXPECT_FALSE(called);
+    return;
+  }
+  ASSERT_TRUE(drawn);
+  EXPECT_EQ(raster->pixels(5)[15], TPixel32(255, 0, 0, 255));
+  EXPECT_EQ(raster->pixels(5)[25], TPixel32(0, 0, 255, 255));
+  EXPECT_EQ(raster->pixels(5)[5], TPixel32::White) << "not cleared";
+  EXPECT_EQ(raster->pixels(20)[15], TPixel32::White) << "rows bottom up";
+}
+
 TEST(VectorRasterizer, LeavesAnImageItCannotDrawToTheCaller) {
   TPalette *palette = new TPalette();
   TVectorImageP vi  = new TVectorImage();

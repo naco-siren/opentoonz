@@ -77,7 +77,15 @@ const char *name(TCanvasMesh::Mode mode) {
 }
 
 const char *name(TCanvasFilter filter) {
-  return filter == TCanvasFilter::Nearest ? "nearest" : "linear";
+  switch (filter) {
+  case TCanvasFilter::Nearest:
+    return "nearest";
+  case TCanvasFilter::Linear:
+    break;
+  case TCanvasFilter::Mipmap:
+    return "mipmap";
+  }
+  return "linear";
 }
 
 void writeImage(Writer &out, const TCanvasImage &image) {

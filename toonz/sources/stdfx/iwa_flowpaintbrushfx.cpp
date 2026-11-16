@@ -2,6 +2,8 @@
 #include "tparamuiconcept.h"
 #include "tlevel.h"
 #include "trop.h"
+#include "tvectorrasterizer.h"
+#include "tcanvasutil.h"
 
 #include <random>
 
@@ -840,6 +842,130 @@ void Iwa_FlowPaintBrushFx::computeBrushVertices(
   }
 }
 //------------------------------------------------------------
+
+namespace {
+
+// The brush strokes drawn on the CPU canvas (migration step 7 of
+// doc/nexttoonz_canvas_ir.md), as the OpenGL path draws them: each stroke a
+// triangle strip textured with its brush, the brush tinted with the
+// stroke's colour, the strokes laid over each other in order, no
+// antialiasing (the margin of the brush texture smooths the jaggies when
+// asked). The brush rasters are premultiplied, as the stroke colours are,
+// which is how the OpenGL path blends them too.
+//
+// Both sample a brush drawn smaller than it is from its halvings (mipmaps):
+// the tips are often a few pixels across, cut from a brush the size of the
+// camera. What still differs: where a strip folds over itself OpenGL lays
+// the triangles over each other, while the canvas paints the stroke once.
+bool drawOnCanvas(TTile &tile, const FlowPaintBrushFxParam &p,
+                  const std::vector<TRasterP> &brushRasters,
+                  const TDimension &b_size,
+                  const QVector<BrushVertex> &brushVertices,
+                  const QList<BrushStroke> &brushStrokes, int vCount) {
+  // The brushes as the textures are made of them: with the margin when
+  // there is one, three times as wide and twice as high, the brush in the
+  // middle.
+  std::vector<TRaster32P> brushes;
+  for (const TRasterP &texRas : brushRasters) {
+    TRaster32P ras = texRas;
+    if (!ras || ras->getLx() < b_size.lx || ras->getLy() < b_size.ly)
+      return false;
+    ras = ras->extract(0, 0, b_size.lx - 1, b_size.ly - 1);
+    if (p.anti_jaggy) {
+      TRaster32P padded(b_size.lx * 3, b_size.ly * 2);
+      padded->clear();
+      padded
+          ->extract(b_size.lx, b_size.ly / 2, 2 * b_size.lx - 1,
+                    b_size.ly / 2 + b_size.ly - 1)
+          ->copy(ras);
+      ras = padded;
+    }
+    brushes.push_back(ras);
+  }
+
+  // What the OpenGL path draws covers the frame buffer of p.dim, whose
+  // window the tile is.
+  TRaster32P out = tile.getRaster();
+  TRaster32P drawn = out ? out : TRaster32P(tile.getRaster()->getSize());
+  drawn->clear();
+  const TDimension outDim = drawn->getSize();
+  const int x0 = tile.m_pos.x - (int)std::round(p.bbox.getP00().x);
+  const int y0 = p.dim.ly - ((int)std::round(p.bbox.getP01().y) -
+                             tile.m_pos.y - outDim.ly) -
+                 outDim.ly;
+
+  const TAffine strokesToBuffer(p.hVec.x, p.vVec.x, p.origin_pos.x, p.hVec.y,
+                                p.vVec.y, p.origin_pos.y);
+
+  for (const TRaster32P &brush : brushes) brush->lock();
+  const bool done = TVectorRasterizer::drawOnCanvas(drawn, [&](TCanvas &canvas) {
+    canvas.concat(TCanvasAffine::translation(-x0, -y0));
+    TCanvasPath buffer;
+    const TCanvasPoint corners[] = {
+        TCanvasPoint(0, 0), TCanvasPoint(p.dim.lx, 0),
+        TCanvasPoint(p.dim.lx, p.dim.ly), TCanvasPoint(0, p.dim.ly)};
+    buffer.addPolygon(corners, 4);
+    canvas.clipPath(buffer, TCanvasFillRule::NonZero, TCanvasClipOp::Intersect,
+                    false);
+    canvas.concat(toCanvas(strokesToBuffer));
+
+    int first = 0;
+    for (const BrushStroke &stroke : brushStrokes) {
+      const int begin = first;
+      first += vCount;
+      if (stroke.textureId < 0 || stroke.textureId >= (int)brushes.size() ||
+          first > brushVertices.size())
+        continue;
+      const TRaster32P &brush = brushes[stroke.textureId];
+
+      // The colour is premultiplied, a canvas colour is not.
+      const double a = stroke.color.a;
+      if (!(a > 0.0)) continue;
+      const auto straight = [a](double c) {
+        return (float)std::min(1.0, std::max(0.0, c / a));
+      };
+      const TCanvasColor color(straight(stroke.color.r),
+                               straight(stroke.color.g),
+                               straight(stroke.color.b),
+                               (float)std::min(1.0, a));
+
+      TCanvasMesh mesh;
+      mesh.mode        = TCanvasMesh::Mode::TriangleStrip;
+      mesh.smoothEdges = false;
+      for (int i = begin; i < first; ++i) {
+        const BrushVertex &v = brushVertices[i];
+        mesh.positions.push_back(TCanvasPoint(v.pos[0], v.pos[1]));
+        mesh.uvs.push_back(TCanvasPoint(v.texCoord[0], v.texCoord[1]));
+        mesh.colors.push_back(color);
+      }
+
+      TCanvasPaint paint(TCanvasColor(1.f, 1.f, 1.f, 1.f));
+      paint.antialias              = false;
+      TCanvasShader &shader        = paint.shader;
+      shader.kind                  = TCanvasShader::Kind::Image;
+      shader.image.pixels          = brush->getRawData();
+      shader.image.width           = brush->getLx();
+      shader.image.height          = brush->getLy();
+      shader.image.rowBytes        = (std::ptrdiff_t)brush->getWrap() * 4;
+      shader.image.premultiplied   = true;
+      shader.imageToLocal          = TCanvasAffine::scale(
+          1.0 / brush->getLx(), 1.0 / brush->getLy());
+      // An OpenGL texture repeats unless told otherwise.
+      shader.tile   = TCanvasTile::Repeat;
+      shader.filter = TCanvasFilter::Mipmap;
+      canvas.drawMesh(mesh, paint);
+    }
+  });
+  for (const TRaster32P &brush : brushes) brush->unlock();
+  if (!done) return false;
+
+  if (!out) TRop::convert(tile.getRaster(), drawn);
+  return true;
+}
+
+}  // namespace
+
+//------------------------------------------------------------
 void Iwa_FlowPaintBrushFx::doCompute(TTile &tile, double frame,
                                      const TRenderSettings &ri) {
   if (!m_brush.isConnected()) {
@@ -869,6 +995,11 @@ void Iwa_FlowPaintBrushFx::doCompute(TTile &tile, double frame,
   QVector<BrushVertex> brushVertices;
   QList<BrushStroke> brushStrokes;
   computeBrushVertices(brushVertices, brushStrokes, p, tile, frame, ri);
+
+  if (TVectorRasterizer::isSelected() &&
+      drawOnCanvas(tile, p, brushRasters, b_size, brushVertices, brushStrokes,
+                   vCount))
+    return;
 
   GLfloat m[16] = {(float)p.hVec.x,
                    (float)p.hVec.y,

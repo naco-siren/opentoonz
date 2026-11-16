@@ -3,6 +3,7 @@
 #include "include/core/SkBlendMode.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
+#include "include/core/SkColorFilter.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkMatrix.h"
@@ -65,9 +66,15 @@ SkColor toSkColor(const TCanvasColor &c) {
 }
 
 SkSamplingOptions toSk(TCanvasFilter filter) {
-  return SkSamplingOptions(filter == TCanvasFilter::Nearest
-                               ? SkFilterMode::kNearest
-                               : SkFilterMode::kLinear);
+  switch (filter) {
+  case TCanvasFilter::Nearest:
+    return SkSamplingOptions(SkFilterMode::kNearest);
+  case TCanvasFilter::Linear:
+    break;
+  case TCanvasFilter::Mipmap:
+    return SkSamplingOptions(SkFilterMode::kLinear, SkMipmapMode::kLinear);
+  }
+  return SkSamplingOptions(SkFilterMode::kLinear);
 }
 
 // The points go through \p map (if any) in double precision, before they
@@ -441,6 +448,28 @@ void TSkiaCanvas::Imp::endCutouts(std::vector<Cutout> &ended) {
   ended.clear();
 }
 
+// The affine map that takes the corners \p from to the corners \p to,
+// or false if \p from are on one line. (SkMatrix::setPolyToPoly() does
+// this too, but is not called the same in every Skia this builds with.)
+bool mapTriangle(const SkPoint from[3], const SkPoint to[3], SkMatrix &map) {
+  const double ax = from[1].fX - from[0].fX, ay = from[1].fY - from[0].fY;
+  const double bx = from[2].fX - from[0].fX, by = from[2].fY - from[0].fY;
+  const double det = ax * by - ay * bx;
+  if (!(std::abs(det) > 1e-12)) return false;
+  // The inverse of the columns (a, b), times the corners' offsets.
+  const double i11 = by / det, i12 = -bx / det, i21 = -ay / det,
+               i22 = ax / det;
+  const double cx = to[1].fX - to[0].fX, cy = to[1].fY - to[0].fY;
+  const double dx = to[2].fX - to[0].fX, dy = to[2].fY - to[0].fY;
+  const double m11 = cx * i11 + dx * i21, m12 = cx * i12 + dx * i22;
+  const double m21 = cy * i11 + dy * i21, m22 = cy * i12 + dy * i22;
+  const double tx = to[0].fX - (m11 * from[0].fX + m12 * from[0].fY);
+  const double ty = to[0].fY - (m21 * from[0].fX + m22 * from[0].fY);
+  map.setAll((float)m11, (float)m12, (float)tx, (float)m21, (float)m22,
+             (float)ty, 0.f, 0.f, 1.f);
+  return true;
+}
+
 // A mesh whose colour changes from vertex to vertex. Skia's rasteriser
 // draws such triangles without antialiasing and blends each one separately,
 // while the mesh is meant to be one shape: smooth at its silhouette and
@@ -589,6 +618,65 @@ void TSkiaCanvas::Imp::drawShadedMesh(const TCanvasMesh &mesh,
     canvas->clipPath(unionOfTriangles(mesh, device), SkClipOp::kIntersect,
                      true);
   canvas->saveLayer(&bounds, &layer);
+
+  // Skia's rasteriser picks the mipmap level of an image once for a whole
+  // drawVertices() call, from the canvas transform: not from how each
+  // triangle maps the image, which for a mesh is what its texture
+  // coordinates say. It would sample the image at full size however small
+  // the mesh shows it. A mesh that asks for mipmaps is therefore drawn a
+  // triangle at a time, each with the image placed where that triangle
+  // puts it - when its vertices are all of one colour, which can then be
+  // applied as a colour filter. A triangle that shows a line or a point of
+  // the image (the margin under smooth edges) has no such placement and is
+  // drawn with drawVertices() as before.
+  bool sameColour = true;
+  for (const SkColor color : colors)
+    if (color != colors[0]) {
+      sameColour = false;
+      break;
+    }
+  if (shader && paint.shader.filter == TCanvasFilter::Mipmap && sameColour) {
+    SkPaint each = inside;
+    each.setAntiAlias(false);
+    if (!colors.empty())
+      each.setColorFilter(
+          SkColorFilters::Blend(colors[0], SkBlendMode::kModulate));
+    // Those first: they are the margin under smooth edges, which the
+    // triangles are drawn over.
+    std::vector<SkPoint> restPositions, restTexs;
+    std::vector<SkColor> restColors;
+    std::vector<std::pair<std::size_t, SkMatrix>> placed;
+    for (std::size_t i = 0; i + 2 < positions.size(); i += 3) {
+      SkMatrix texToDevice;
+      if (mapTriangle(&texs[i], &positions[i], texToDevice)) {
+        placed.emplace_back(i, texToDevice);
+        continue;
+      }
+      for (std::size_t k = i; k < i + 3; ++k) {
+        restPositions.push_back(positions[k]);
+        restTexs.push_back(texs[k]);
+        if (!colors.empty()) restColors.push_back(colors[k]);
+      }
+    }
+    if (!restPositions.empty())
+      if (const sk_sp<SkVertices> rest = SkVertices::MakeCopy(
+              SkVertices::kTriangles_VertexMode, (int)restPositions.size(),
+              restPositions.data(), restTexs.data(),
+              restColors.empty() ? nullptr : restColors.data()))
+        canvas->drawVertices(rest, mix, inside);
+    for (const auto &triangle : placed) {
+      const std::size_t i = triangle.first;
+      each.setShader(shader->makeWithLocalMatrix(triangle.second));
+      SkPathBuilder path;
+      path.moveTo(positions[i]);
+      path.lineTo(positions[i + 1]);
+      path.lineTo(positions[i + 2]);
+      path.close();
+      canvas->drawPath(path.detach(), each);
+    }
+    return;
+  }
+
   canvas->drawVertices(vertices, mix, inside);
   if (!apart) return;
 

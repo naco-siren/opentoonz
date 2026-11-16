@@ -10,6 +10,8 @@
 #include "traster.h"
 #include "tvectorimage.h"
 
+#include <functional>
+
 #undef DVAPI
 #undef DVVAR
 #ifdef TVRENDER_EXPORTS
@@ -23,6 +25,7 @@
 class TVectorRenderData;
 class TStroke;
 class TRegion;
+class TCanvas;
 
 namespace TVectorRasterizer {
 
@@ -68,6 +71,14 @@ DVAPI bool draw(const TRaster32P &raster, const TStroke *stroke,
 //! them.
 DVAPI bool draw(const TRaster32P &raster, TRegion *region,
                 const TVectorRenderData &rd);
+
+//! Calls \p draw with a canvas that draws over what is in \p raster, on the
+//! CPU, in the raster's pixels (one unit a pixel, the origin at its bottom
+//! left corner): for what is not a vector image, such as a deformed mesh or
+//! brush strokes. Returns false, without calling it, in a build that has no
+//! such canvas.
+DVAPI bool drawOnCanvas(const TRaster32P &raster,
+                        const std::function<void(TCanvas &)> &draw);
 
 //! By how many pixels solid strokes are grown when they are antialiased
 //! on a canvas. The old renderer's fringe added about half a pixel on each

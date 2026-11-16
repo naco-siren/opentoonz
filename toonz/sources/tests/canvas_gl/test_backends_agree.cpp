@@ -244,6 +244,54 @@ TEST(CanvasBackends, AgreeOnShadersAndImages) {
   EXPECT_LT(d.mean, 6.0);
 }
 
+// Brush tips: an image drawn far smaller than it is, tinted by the
+// vertices' colour, sampled from its mipmaps on both canvases. Columns one
+// pixel wide come out as the grey in between, wherever each pixel lands.
+TEST(CanvasBackends, AgreeOnImagesShrunkWithMipmaps) {
+  const int side = 64;
+  std::vector<unsigned char> stripes((std::size_t)side * side * 4);
+  for (int y = 0; y < side; ++y)
+    for (int x = 0; x < side; ++x) {
+      unsigned char *p = &stripes[((std::size_t)y * side + x) * 4];
+      p[0] = p[1] = p[2] = (x % 2) ? 255 : 0;
+      p[3]                = 255;
+    }
+  TCanvasImage image;
+  image.pixels   = stripes.data();
+  image.width    = side;
+  image.height   = side;
+  image.rowBytes = side * 4;
+
+  const Difference d = bothWays("mipmaps", 60, 40, [&](TCanvas &canvas) {
+    TCanvasPaint paint     = paintOf(1.f, 1.f, 1.f);
+    paint.antialias        = false;
+    paint.shader.kind      = TCanvasShader::Kind::Image;
+    paint.shader.image     = image;
+    paint.shader.tile      = TCanvasTile::Clamp;
+    paint.shader.filter    = TCanvasFilter::Mipmap;
+    paint.shader.imageToLocal =
+        TCanvasAffine::scale(1.0 / side, 1.0 / side);
+
+    // A square sixteen pixels across, and a long thin tip turned a little.
+    TCanvasMesh square = rectMesh(4, 4, 20, 20);
+    square.uvs         = {{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+    square.colors.assign(4, TCanvasColor(0.9f, 0.6f, 0.3f));
+    square.smoothEdges = false;
+    canvas.drawMesh(square, paint);
+
+    TCanvasMesh tip;
+    tip.mode      = TCanvasMesh::Mode::TriangleStrip;
+    tip.positions = {{26, 10}, {28, 18}, {54, 4}, {56, 12}};
+    tip.uvs       = {{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+    tip.colors.assign(4, TCanvasColor(0.3f, 0.6f, 0.9f));
+    tip.smoothEdges = false;
+    canvas.drawMesh(tip, paint);
+  });
+  EXPECT_LT(d.noticeable, 0.05);
+  EXPECT_LT(d.gross, 0.025);
+  EXPECT_LT(d.mean, 6.0);
+}
+
 TEST(CanvasBackends, AgreeOnClips) {
   const Difference d = bothWays("clips", 240, 120, [](TCanvas &canvas) {
     canvas.save();

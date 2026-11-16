@@ -181,7 +181,12 @@ struct TCanvasImage {
   bool isEmpty() const { return !pixels || width <= 0 || height <= 0; }
 };
 
-enum class TCanvasFilter { Nearest, Linear };
+//! Mipmap: linear, and for an image drawn smaller than it is, also
+//! between the halvings of the image the size lies between, as OpenGL's
+//! GL_LINEAR_MIPMAP_LINEAR. For an image shrunk a great deal, such as a
+//! brush tip drawn a few pixels across, which Linear would sample a few of
+//! the pixels of.
+enum class TCanvasFilter { Nearest, Linear, Mipmap };
 enum class TCanvasTile { Clamp, Repeat };
 
 struct TCanvasImageOptions {
