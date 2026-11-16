@@ -75,8 +75,10 @@ build registers. Since step 6 the other places that draw a vector drawing,
 or one stroke or region of it, into a raster (the conversion to a Toonz
 raster image, `TVectorImage::render`, style and level icons, export, the
 tracker, meshify, the script rasterizer) ask the CPU rasteriser first too,
-and since step 7 so do the two effects that drew meshes through OpenGL (the
-plastic deformer and the flow paint brush). By default nothing changes: renders still go through `TOfflineGL`, where the
+since step 7 so do the two effects that drew meshes through OpenGL (the
+plastic deformer and the flow paint brush), and since step 8 so does the
+camera-stand render of a frame (`ToonzScene::renderFrame`: scene icons,
+xsheet thumbnails, printing). By default nothing changes: renders still go through `TOfflineGL`, where the
 migrated styles reach OpenGL through `tnzglcanvas` and come out bit for bit
 as before.
 
@@ -89,7 +91,9 @@ NEXTTOONZ_VECTOR_RASTERIZER=skia   rasterise vector levels with Skia; an image
                                    canvas (none of the registered ones any
                                    more) still goes through OpenGL, as a whole.
                                    The plastic deformer and the flow paint
-                                   brush draw their meshes with Skia too
+                                   brush draw their meshes with Skia too, and
+                                   scene icons and thumbnails are drawn with
+                                   no OpenGL context
 NEXTTOONZ_STROKE_GROW=0            draw solid strokes at their true width
                                    instead of grown by half a pixel, which
                                    is the default and the weight they have
@@ -125,6 +129,10 @@ one there. The two effects of step 7 are covered by the golden scenes
 need of the canvas (a textured mesh drawn over a raster, an image shrunk a
 great deal and sampled from its mipmaps) by `core/test_vector_canvas.cpp`,
 `canvas_skia/test_skia_meshes.cpp` and `canvas_gl/test_backends_agree.cpp`.
+`toonzlib/test_camstand_canvas.cpp` draws two frames of eight reference
+scenes the way `renderFrame` does with the CPU rasteriser selected, and
+checks that the painter did not have to give up on its raster (and go back
+to OpenGL) and that `renderFrame` puts the same pixels over its background.
 
 ## Canvas tests
 
