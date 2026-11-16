@@ -2120,6 +2120,120 @@ TFilePath absolutePath(const char *arg) {
 
 }  // namespace
 
+// Vector levels under the fxs that work on palette indices: a palette
+// filter on lines, one on areas that also deletes every line, calligraphic
+// and outBorder. Those
+// cannot work on a vector image as such, so the renderer first converts it
+// to a Toonz raster image (ToonzImageUtils::vectorToToonzImage: every
+// stroke and region rasterised on its own, the strokes' coverage becoming
+// the tone) and applies them to that. No other scene goes that way.
+//
+// One drawing in each quarter of the frame: two filled shapes that
+// overlap, outlined in a thick and a thin ink, a line across them of a
+// thickness that changes, and a stroke of no thickness. It moves a little
+// from frame to frame.
+//
+// blendTz would belong here too, but it samples its blur at random (rand()
+// in CBlurMatrix::createRandom) and comes out different on every render.
+struct CmappedCardStyles {
+  int inkDark = -1, inkRed = -1, paintYellow = -1, paintBlue = -1;
+};
+
+void drawCmappedCard(TVectorImageP vi, TPalette *plt, int f, TPointD centre,
+                     CmappedCardStyles &st) {
+  if (st.inkDark < 0) {
+    st.inkDark     = addSolidStyle(plt, TPixel32(30, 25, 60, 255));
+    st.inkRed      = addSolidStyle(plt, TPixel32(220, 40, 40, 255));
+    st.paintYellow = addSolidStyle(plt, TPixel32(250, 210, 60, 255));
+    st.paintBlue   = addSolidStyle(plt, TPixel32(70, 140, 230, 255));
+  }
+  const double w = kHalfW * 0.42, h = kHalfH * 0.38;
+  const TPointD c = centre + TPointD((f - 1) * 3.0, (f - 1) * -1.5);
+
+  vi->addStroke(makeCircle(c + TPointD(-w * 0.35, 0), h * 0.85, 3.0,
+                           st.inkDark));
+  vi->addStroke(makeRect(TRectD(c.x - w * 0.1, c.y - h * 0.7, c.x + w * 0.85,
+                                c.y + h * 0.55),
+                         1.2, st.inkRed));
+  vi->findRegions();
+  // The circle yellow, the rectangle and where they overlap blue.
+  for (UINT i = 0; i < vi->getRegionCount(); ++i) {
+    TRegion *r = vi->getRegion(i);
+    r->setStyle(r->getBBox().getP00().x < c.x - w * 0.12 ? st.paintYellow
+                                                         : st.paintBlue);
+  }
+
+  std::vector<TThickPoint> pts;
+  for (int i = 0; i <= 6; ++i) {
+    const double t = i / 6.0;
+    pts.push_back(TThickPoint(c.x - w + 2 * w * t,
+                              c.y - h + 2 * h * t + ((i % 2) ? 6 : -6),
+                              0.5 + 3.0 * t));
+  }
+  TStroke *across = new TStroke(pts);
+  across->setStyle(st.inkDark);
+  vi->addStroke(across);
+  vi->addStroke(makeLine(c + TPointD(-w, h * 0.9), c + TPointD(w, h * 0.9),
+                         0.0, st.inkRed));
+}
+
+void sceneVectorCmappedFx(const TFilePath &projectFolder) {
+  const int frames = 4;
+  SceneBuild b     = newScene("vector_cmapped_fx", frames);
+
+  auto ids = [](std::initializer_list<int> styles) {
+    std::wstring text;
+    for (int id : styles)
+      text += (text.empty() ? L"" : L",") + std::to_wstring(id);
+    return text;
+  };
+
+  const TPointD quarters[4] = {
+      TPointD(-kHalfW * 0.5, kHalfH * 0.5), TPointD(kHalfW * 0.5, kHalfH * 0.5),
+      TPointD(-kHalfW * 0.5, -kHalfH * 0.5),
+      TPointD(kHalfW * 0.5, -kHalfH * 0.5)};
+  const wchar_t *names[4] = {L"vec_cm_filter", L"vec_cm_areas",
+                             L"vec_cm_calligraphic", L"vec_cm_outborder"};
+  CmappedCardStyles styles[4];
+  for (int col = 0; col < 4; ++col) {
+    CmappedCardStyles &st = styles[col];
+    const TPointD centre  = quarters[col];
+    TXshSimpleLevel *sl   = makeVectorLevel(
+        b.scene.get(), names[col], frames,
+        [&st, centre](TVectorImageP vi, TPalette *plt, int f) {
+          drawCmappedCard(vi, plt, f, centre, st);
+        });
+    fillColumn(b.xsh, col, sl, frames);
+  }
+
+  // On lines: the red ink is filtered out, every paint stays.
+  TFxP filter = createFx("STD_paletteFilterFx");
+  setString(filter, "indexes", ids({styles[0].inkRed, styles[0].paintBlue}));
+  setEnumIndex(filter, "type", 1);
+  insertFxAboveColumn(b.xsh, 0, filter.getPointer());
+
+  // On areas, every line deleted: the yellow paint is filtered out too, and
+  // only the blue area is left.
+  TFxP areas = createFx("STD_paletteFilterFx");
+  setString(areas, "indexes", ids({styles[1].paintYellow, styles[1].inkDark}));
+  setEnumIndex(areas, "type", 5);
+  insertFxAboveColumn(b.xsh, 1, areas.getPointer());
+
+  TFxP calligraphic = createFx("STD_calligraphicFx");
+  setString(calligraphic, "Color_Index",
+            ids({styles[2].inkDark, styles[2].inkRed}));
+  setDouble(calligraphic, "Thickness", 30);
+  insertFxAboveColumn(b.xsh, 2, calligraphic.getPointer());
+
+  TFxP outBorder = createFx("STD_outBorderFx");
+  setDouble(outBorder, "Thickness", 30);
+  insertFxAboveColumn(b.xsh, 3, outBorder.getPointer());
+
+  saveScene(b, projectFolder, "vector_cmapped_fx");
+}
+
+//-----------------------------------------------------------------------------
+
 int main(int argc, char *argv[]) {
   QCoreApplication app(argc, argv);
   const bool listOnly = argc == 3 && std::string(argv[1]) == "--list-fx";
@@ -2199,6 +2313,7 @@ int main(int argc, char *argv[]) {
     scenesFxSweep(projectFolder);
     sceneVectorStyles(projectFolder);
     sceneStageShowcase(projectFolder);
+    sceneVectorCmappedFx(projectFolder);
   } catch (const TException &e) {
     std::cerr << "error: " << ::to_string(e.getMessage()) << std::endl;
     return 1;
