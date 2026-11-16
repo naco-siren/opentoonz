@@ -334,6 +334,7 @@ TRect ToonzImageUtils::addInkStroke(const TToonzImageP &ti, TStroke *stroke,
   s->transform(TTranslation(tiCenter.x, tiCenter.y));
   TRect rect =
       fastAddInkStroke(ti, s, inkId, selective, filled, clip, doAntialiasing);
+  delete s;
   rect -= tiCenter;
   return rect;
 }
