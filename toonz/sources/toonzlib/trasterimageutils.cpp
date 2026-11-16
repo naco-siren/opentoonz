@@ -8,6 +8,7 @@
 #include "tvectorrenderdata.h"
 #include "ttzpimagefx.h"
 #include "tvectorgl.h"
+#include "tvectorrasterizer.h"
 #include "trop.h"
 #include "tregion.h"
 #include "tcolorstyles.h"
@@ -43,11 +44,26 @@ QImage rasterToQImage(const TRasterP &ras, bool premultiplied, bool mirrored) {
 
 //--------------------------------------------------------------------------
 
-void rasterizeWholeStroke(TOfflineGL *&gl, TStroke *stroke, TPalette *palette,
-                          bool doAnialias) {
+// The whole stroke in its own colours over transparent pixels, its bounding
+// box enlarged by a pixel. On the CPU when renders are to be done there and
+// the style can be drawn that way (TVectorRasterizer); otherwise, as before,
+// through an offscreen OpenGL context.
+TRaster32P rasterizeWholeStroke(TStroke *stroke, TPalette *palette,
+                                bool doAnialias) {
   TRectD bbox = stroke->getBBox();
   TRect rect  = convert(bbox).enlarge(1);
-  gl          = new TOfflineGL(rect.getSize());
+
+  if (TVectorRasterizer::isSelected()) {
+    TPaletteP plt = palette->clone();
+    TTranslation affine(-convert(rect.getP00()));
+    TVectorRenderData rd(affine, TRect(rect.getSize()), plt.getPointer(), 0,
+                         true, doAnialias);
+    TRaster32P ras(rect.getSize());
+    ras->clear();
+    if (TVectorRasterizer::draw(ras, stroke, rd)) return ras;
+  }
+
+  TOfflineGL *gl = new TOfflineGL(rect.getSize());
   gl->makeCurrent();
   gl->clear(TPixel32(0, 0, 0, 0));
   glEnable(GL_ALPHA_TEST);
@@ -79,7 +95,12 @@ void rasterizeWholeStroke(TOfflineGL *&gl, TStroke *stroke, TPalette *palette,
       }
     }
 
-    if (!prop) return;
+    if (!prop) {
+      // The old code returned here leaving the context to its caller,
+      // which laid its pixels, all transparent, over the image: nothing.
+      delete gl;
+      return TRaster32P();
+    }
     prop->getMutex()->lock();
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     prop->draw(rd);
@@ -87,14 +108,17 @@ void rasterizeWholeStroke(TOfflineGL *&gl, TStroke *stroke, TPalette *palette,
   }
   glDisable(GL_ALPHA_TEST);
   glFinish();
+  TRaster32P ras = gl->getRaster();
   gl->doneCurrent();
+  delete gl;
+  return ras;
 }
 
 //--------------------------------------------------------------------------
 
 TRect fastAddInkStroke(const TRasterImageP &ri, TStroke *stroke, TRectD clip,
                        double opacity, bool doAntialiasing) {
-  TOfflineGL *gl   = 0;
+  TRaster32P strokeRas;
   TRectD bbox      = stroke->getBBox();
   TRect sBBox      = convert(bbox).enlarge(1);
   TRect rectRender = sBBox * ri->getRaster()->getBounds();
@@ -107,45 +131,55 @@ TRect fastAddInkStroke(const TRasterImageP &ri, TStroke *stroke, TRectD clip,
       color.m        = 255 * opacity;
       TPaletteP newPlt(plt);
       newPlt->getStyle(styleId)->setMainColor(color);
-      rasterizeWholeStroke(gl, stroke, newPlt.getPointer(), doAntialiasing);
+      strokeRas = rasterizeWholeStroke(stroke, newPlt.getPointer(),
+                                       doAntialiasing);
     } else
-      rasterizeWholeStroke(gl, stroke, ri->getPalette(), doAntialiasing);
+      strokeRas =
+          rasterizeWholeStroke(stroke, ri->getPalette(), doAntialiasing);
+    // A stroke whose style draws nothing gives nothing to put over.
+    if (!strokeRas) return rectRender;
     TRect tmp        = rectRender - sBBox.getP00();
-    TRaster32P glRas = gl->getRaster()->extract(tmp);
+    TRaster32P glRas = strokeRas->extract(tmp);
     TRop::over(ri->getRaster(), glRas, rectRender.getP00());
-    delete gl;
   }
   return rectRender;
 }
 
 //-------------------------------------------------------------------
 
-TRect rasterizeRegion(TOfflineGL *&gl, TRect rasBounds, TRegion *region,
-                      TPalette *palette, TRectD clip) {
+// The region and the regions inside it, in their own colours over
+// transparent pixels. \p rect is set to where in \p rasBounds the result
+// goes; an empty one draws nothing. Where it is drawn: as above.
+TRaster32P rasterizeRegion(TRect &rect, TRect rasBounds, TRegion *region,
+                           TPalette *palette, TRectD clip) {
   TRectD regionBBox = region->getBBox();
   if (!clip.isEmpty()) regionBBox = regionBBox * clip;
+  rect = convert(regionBBox) * rasBounds;
+  if (rect.isEmpty()) return TRaster32P();
 
-  TRect rect = convert(regionBBox) * rasBounds;
-  if (!rect.isEmpty()) {
-    gl = new TOfflineGL(rect.getSize());
-    gl->makeCurrent();
-    gl->clear(TPixel32::Transparent);
-    glPushAttrib(GL_ALL_ATTRIB_BITS);
-    glEnable(GL_ALPHA_TEST);
-    glAlphaFunc(GL_GREATER, 0);
+  TTranslation affine(-convert(rect.getP00()));
+  TVectorRenderData rd(affine, TRect(rect.getSize()), palette, 0, true, true);
 
-    TTranslation affine(-convert(rect.getP00()));
-    TVectorRenderData rd(affine, gl->getBounds(), palette, 0, true, true);
-
-    tglDraw(rd, region);
-
-    glDisable(GL_ALPHA_TEST);
-    glPopAttrib();
-
-    glFinish();
-    gl->doneCurrent();
+  if (TVectorRasterizer::isSelected()) {
+    TRaster32P ras(rect.getSize());
+    ras->clear();
+    if (TVectorRasterizer::draw(ras, region, rd)) return ras;
   }
-  return rect;
+
+  TOfflineGL *gl = new TOfflineGL(rect.getSize());
+  gl->makeCurrent();
+  gl->clear(TPixel32::Transparent);
+  glPushAttrib(GL_ALL_ATTRIB_BITS);
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0);
+  tglDraw(rd, region);
+  glDisable(GL_ALPHA_TEST);
+  glPopAttrib();
+  glFinish();
+  TRaster32P ras = gl->getRaster();
+  gl->doneCurrent();
+  delete gl;
+  return ras;
 }
 
 //-------------------------------------------------------------------
@@ -154,15 +188,13 @@ void fastAddPaintRegion(const TRasterImageP &ri, TRegion *region,
                         int newPaintId, int maxStyleId,
                         TRectD clip = TRectD()) {
   TRaster32P ras = ri->getRaster();
-  TOfflineGL *gl;
-  TRect rect =
-      rasterizeRegion(gl, ras->getBounds(), region, ri->getPalette(), clip);
+  TRect rect;
+  TRaster32P glRas =
+      rasterizeRegion(rect, ras->getBounds(), region, ri->getPalette(), clip);
   if (rect.isEmpty()) return;
 
-  TRaster32P glRas = gl->getRaster();
   assert(TPixelCM32::getMaxTone() == 255);
   TRop::over(ri->getRaster(), glRas, rect.getP00());
-  delete gl;
 
   TRegion *subregion;
   UINT i = 0;

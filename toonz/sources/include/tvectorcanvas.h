@@ -19,6 +19,8 @@
 #endif
 
 class TCanvas;
+class TRegion;
+class TStroke;
 class TVectorImage;
 class TVectorRenderData;
 
@@ -40,5 +42,18 @@ DVAPI bool tcanvasCanDraw(const TVectorRenderData &rd,
 //! says; that flag is about how OpenGL has to be driven.
 DVAPI void tcanvasDraw(TCanvas &canvas, const TVectorRenderData &rd,
                        const TVectorImage *vim);
+
+//! The same for one stroke, drawn as tglDraw(rd, stroke) draws it: with
+//! the style \p rd's palette gives it (or the colour of a check mode),
+//! whether or not that shows.
+DVAPI bool tcanvasCanDraw(const TVectorRenderData &rd, const TStroke *stroke);
+DVAPI void tcanvasDraw(TCanvas &canvas, const TVectorRenderData &rd,
+                       const TStroke *stroke);
+
+//! The same for one region and the regions inside it, drawn as
+//! tglDraw(rd, region) draws them.
+DVAPI bool tcanvasCanDraw(const TVectorRenderData &rd, TRegion *region);
+DVAPI void tcanvasDraw(TCanvas &canvas, const TVectorRenderData &rd,
+                       TRegion *region);
 
 #endif  // TVECTORCANVAS_H

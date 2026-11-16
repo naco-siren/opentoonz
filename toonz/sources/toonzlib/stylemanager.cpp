@@ -5,6 +5,7 @@
 #include "trasterimage.h"
 #include "tlevel_io.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tropcm.h"
 #include "tvectorrenderdata.h"
 #include "tsystem.h"
@@ -418,36 +419,6 @@ QImage CustomStyleManager::makeIcon(
       assert(vPalette);
       vimg->setPalette(vPalette);
 
-#ifdef LINUX
-      TOfflineGL *glContext = 0;
-      glContext             = TOfflineGL::getStock(chipSize);
-      glContext->clear(TPixel32::White);
-#else
-      QOpenGLContext *glContext = new QOpenGLContext();
-      if (QOpenGLContext::currentContext())
-        glContext->setShareContext(QOpenGLContext::currentContext());
-      glContext->setFormat(QSurfaceFormat::defaultFormat());
-      glContext->create();
-      glContext->makeCurrent(offsurf.get());
-      // attaching stencil buffer here as some styles use it
-      QOpenGLFramebufferObject fb(
-          chipSize.lx, chipSize.ly,
-          QOpenGLFramebufferObject::CombinedDepthStencil);
-
-      fb.bind();
-      // Draw
-      glViewport(0, 0, chipSize.lx, chipSize.ly);
-      glClearColor(1.0, 1.0, 1.0, 1.0);  // clear with white color
-      glClear(GL_COLOR_BUFFER_BIT);
-
-      glMatrixMode(GL_PROJECTION);
-      glLoadIdentity();
-      gluOrtho2D(0, chipSize.lx, 0, chipSize.ly);
-
-      glMatrixMode(GL_MODELVIEW);
-      glLoadIdentity();
-#endif
-
       TRectD bbox = img->getBBox();
       double scx  = 0.8 * chipSize.lx / bbox.getLx();
       double scy  = 0.8 * chipSize.ly / bbox.getLy();
@@ -460,20 +431,64 @@ QImage CustomStyleManager::makeIcon(
           TTranslation(-0.5 * (bbox.x0 + bbox.x1), -0.5 * (bbox.y0 + bbox.y1));
       TVectorRenderData rd(aff, chipSize, vPalette, 0, true);
 
-#ifdef LINUX
-      glContext->draw(img, rd);
-      // No need to clone! The received raster already is a copy of the
-      // context's buffer
-      ras = glContext->getRaster();  //->clone();
-#else
-      tglDraw(rd, vimg.getPointer());
-
-      image = QImage(fb.toImage().scaled(QSize(chipSize.lx, chipSize.ly),
-                                         Qt::IgnoreAspectRatio,
-                                         Qt::SmoothTransformation));
-      fb.release();
-      glContext->deleteLater();
+      // On the CPU when renders are to be done there and the level's styles
+      // can be drawn that way; otherwise, as before, with OpenGL.
+      bool drawn = false;
+      if (TVectorRasterizer::isSelected()) {
+        ras = TRaster32P(chipSize);
+        ras->fill(TPixel32::White);
+        drawn = TVectorRasterizer::draw(ras, vimg.getPointer(), rd);
+        if (!drawn) ras = TRaster32P();
+#ifndef LINUX
+        if (drawn) image = rasterToQImage(ras);
 #endif
+      }
+      if (!drawn) {
+#ifdef LINUX
+        TOfflineGL *glContext = 0;
+        glContext             = TOfflineGL::getStock(chipSize);
+        glContext->clear(TPixel32::White);
+#else
+        QOpenGLContext *glContext = new QOpenGLContext();
+        if (QOpenGLContext::currentContext())
+          glContext->setShareContext(QOpenGLContext::currentContext());
+        glContext->setFormat(QSurfaceFormat::defaultFormat());
+        glContext->create();
+        glContext->makeCurrent(offsurf.get());
+        // attaching stencil buffer here as some styles use it
+        QOpenGLFramebufferObject fb(
+            chipSize.lx, chipSize.ly,
+            QOpenGLFramebufferObject::CombinedDepthStencil);
+
+        fb.bind();
+        // Draw
+        glViewport(0, 0, chipSize.lx, chipSize.ly);
+        glClearColor(1.0, 1.0, 1.0, 1.0);  // clear with white color
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        gluOrtho2D(0, chipSize.lx, 0, chipSize.ly);
+
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+#endif
+
+#ifdef LINUX
+        glContext->draw(img, rd);
+        // No need to clone! The received raster already is a copy of the
+        // context's buffer
+        ras = glContext->getRaster();  //->clone();
+#else
+        tglDraw(rd, vimg.getPointer());
+
+        image = QImage(fb.toImage().scaled(QSize(chipSize.lx, chipSize.ly),
+                                           Qt::IgnoreAspectRatio,
+                                           Qt::SmoothTransformation));
+        fb.release();
+        glContext->deleteLater();
+#endif
+      }
     } else if (source) {
       TDimension size = source->getSize();
       if (size == chipSize)

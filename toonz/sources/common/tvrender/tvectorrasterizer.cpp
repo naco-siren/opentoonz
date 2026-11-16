@@ -74,6 +74,28 @@ double TVectorRasterizer::defaultStrokeGrow() { return kDefaultStrokeGrow; }
 
 //-----------------------------------------------------------------------------
 
+namespace {
+
+#if defined(NEXTTOONZ_WITH_SKIA) && defined(TNZ_MACHINE_CHANNEL_ORDER_BGRM)
+// Calls draw(canvas) with a Skia canvas over the raster's pixels. A TRaster32
+// is what the Skia canvas draws into: rows bottom up, and as far apart as the
+// raster says (it may be a window on a larger one).
+template <class Draw>
+void onCanvas(const TRaster32P &raster, Draw draw) {
+  raster->lock();
+  {
+    TSkiaCanvas canvas(raster->getRawData(), raster->getLx(), raster->getLy(),
+                       (std::ptrdiff_t)raster->getWrap() * 4);
+    draw(canvas);
+  }
+  raster->unlock();
+}
+#endif
+
+}  // namespace
+
+//-----------------------------------------------------------------------------
+
 bool TVectorRasterizer::rasterize(const TRasterP &raster,
                                   const TVectorImageP &image,
                                   const TVectorRenderData &rd) {
@@ -84,18 +106,53 @@ bool TVectorRasterizer::rasterize(const TRasterP &raster,
   TRaster32P ras32 = raster;
   if (!ras32) ras32 = TRaster32P(raster->getSize());
 
-  ras32->lock();
   ras32->clear();
-  {
-    // A TRaster32 is what the Skia canvas draws into: rows bottom up, and
-    // as far apart as the raster says (it may be a window on a larger one).
-    TSkiaCanvas canvas(ras32->getRawData(), ras32->getLx(), ras32->getLy(),
-                       (std::ptrdiff_t)ras32->getWrap() * 4);
+  onCanvas(ras32, [&](TCanvas &canvas) {
     tcanvasDraw(canvas, rd, image.getPointer());
-  }
-  ras32->unlock();
+  });
 
   if (ras32.getPointer() != raster.getPointer()) TRop::copy(raster, ras32);
+  return true;
+#else
+  return false;
+#endif
+}
+
+//-----------------------------------------------------------------------------
+
+bool TVectorRasterizer::draw(const TRaster32P &raster,
+                             const TVectorImage *image,
+                             const TVectorRenderData &rd) {
+#if defined(NEXTTOONZ_WITH_SKIA) && defined(TNZ_MACHINE_CHANNEL_ORDER_BGRM)
+  if (!raster || !image) return false;
+  if (!tcanvasCanDraw(rd, image)) return false;
+  onCanvas(raster, [&](TCanvas &canvas) { tcanvasDraw(canvas, rd, image); });
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool TVectorRasterizer::draw(const TRaster32P &raster, const TStroke *stroke,
+                             const TVectorRenderData &rd) {
+#if defined(NEXTTOONZ_WITH_SKIA) && defined(TNZ_MACHINE_CHANNEL_ORDER_BGRM)
+  if (!raster || !stroke) return false;
+  if (!tcanvasCanDraw(rd, stroke)) return false;
+  onCanvas(raster,
+           [&](TCanvas &canvas) { tcanvasDraw(canvas, rd, stroke); });
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool TVectorRasterizer::draw(const TRaster32P &raster, TRegion *region,
+                             const TVectorRenderData &rd) {
+#if defined(NEXTTOONZ_WITH_SKIA) && defined(TNZ_MACHINE_CHANNEL_ORDER_BGRM)
+  if (!raster || !region) return false;
+  if (!tcanvasCanDraw(rd, region)) return false;
+  onCanvas(raster,
+           [&](TCanvas &canvas) { tcanvasDraw(canvas, rd, region); });
   return true;
 #else
   return false;

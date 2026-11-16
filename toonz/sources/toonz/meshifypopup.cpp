@@ -47,6 +47,7 @@
 #include "ttoonzimage.h"
 #include "tvectorimage.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tvectorrenderdata.h"
 #include "tmsgcore.h"
 #include "tsystem.h"
@@ -119,13 +120,21 @@ TRaster32P render(const TVectorImageP &vi, double &rasDpi, int margin,
   worldOriginPos = -convert(bbox.getP00());
   rasDpi         = scale * Stage::inch;
 
+  TVectorRenderData rd(TTranslation(worldOriginPos) * TScale(scale),
+                       TRect(bbox.getSize()), vi->getPalette(), 0, true, true);
+
+  // On the CPU when renders are to be done there and every style of the
+  // image can be drawn that way; otherwise, as before, with OpenGL.
+  if (TVectorRasterizer::isSelected()) {
+    TRaster32P ras(bbox.getSize());
+    if (TVectorRasterizer::rasterize(ras, vi, rd)) return ras;
+  }
+
   // Initialize a corresponding OpenGL context
   std::unique_ptr<TOfflineGL> offlineGlContext(new TOfflineGL(bbox.getSize()));
   offlineGlContext->makeCurrent();
 
   // Draw the image
-  TVectorRenderData rd(TTranslation(worldOriginPos) * TScale(scale),
-                       TRect(bbox.getSize()), vi->getPalette(), 0, true, true);
   offlineGlContext->draw(vi, rd, false);
 
   return offlineGlContext->getRaster();

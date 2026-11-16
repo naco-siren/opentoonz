@@ -907,9 +907,31 @@ bool regionCanBeDrawnOnCanvas(const TVectorRenderData &rd, TRegion *r) {
 
 //-----------------------------------------------------------------------------
 
+namespace {
+
+// What every canvas drawing needs before it can start: no 3D view or
+// guided drawing, and a palette.
+bool canvasSettingsAllow(const TVectorRenderData &rd) {
+  return !rd.m_is3dView && !rd.m_showGuidedDrawing;
+}
+
+bool strokeCanBeDrawnOnCanvas(const TVectorRenderData &rd, const TStroke *s) {
+  const bool checked =
+      (rd.m_inkCheckEnabled && s->getStyle() == rd.m_colorCheckIndex) ||
+      (rd.m_ink1CheckEnabled && s->getStyle() == 1) || rd.m_tcheckEnabled;
+  if (checked) return true;
+  const TColorStyle *style = rd.m_palette->getStyle(s->getStyle());
+  return !(style->isStrokeStyle() && style->isEnabled() &&
+           !(style->canvasSupport() & TColorStyle::StrokesOnCanvas));
+}
+
+}  // namespace
+
+//-----------------------------------------------------------------------------
+
 bool tcanvasCanDraw(const TVectorRenderData &_rd, const TVectorImage *vim) {
   if (!vim) return true;
-  if (_rd.m_is3dView || _rd.m_showGuidedDrawing) return false;
+  if (!canvasSettingsAllow(_rd)) return false;
 
   QMutexLocker sl(vim->getMutex());
 
@@ -917,17 +939,8 @@ bool tcanvasCanDraw(const TVectorRenderData &_rd, const TVectorImage *vim) {
   if (!rd.m_palette) rd.m_palette = vim->getPalette();
   if (!rd.m_palette) return true;  // nothing is drawn without one
 
-  for (UINT i = 0; i < vim->getStrokeCount(); i++) {
-    const TStroke *s = vim->getStroke(i);
-    const bool checked =
-        (rd.m_inkCheckEnabled && s->getStyle() == rd.m_colorCheckIndex) ||
-        (rd.m_ink1CheckEnabled && s->getStyle() == 1) || rd.m_tcheckEnabled;
-    if (checked) continue;
-    const TColorStyle *style = rd.m_palette->getStyle(s->getStyle());
-    if (style->isStrokeStyle() && style->isEnabled() &&
-        !(style->canvasSupport() & TColorStyle::StrokesOnCanvas))
-      return false;
-  }
+  for (UINT i = 0; i < vim->getStrokeCount(); i++)
+    if (!strokeCanBeDrawnOnCanvas(rd, vim->getStroke(i))) return false;
 
   if (rd.m_drawRegions)
     for (UINT i = 0; i < vim->getRegionCount(); i++)
@@ -952,4 +965,34 @@ void tcanvasDraw(TCanvas &canvas, const TVectorRenderData &_rd,
   doDrawOnCanvas(canvas, vim, rd, false);
   if (!rd.m_isIcon && vim->isInsideGroup() > 0)
     doDrawOnCanvas(canvas, vim, rd, true);
+}
+
+//-----------------------------------------------------------------------------
+
+bool tcanvasCanDraw(const TVectorRenderData &rd, const TStroke *stroke) {
+  if (!stroke) return true;
+  if (!canvasSettingsAllow(rd)) return false;
+  if (!rd.m_palette) return false;  // tglDraw() would not draw it either
+  return strokeCanBeDrawnOnCanvas(rd, stroke);
+}
+
+void tcanvasDraw(TCanvas &canvas, const TVectorRenderData &rd,
+                 const TStroke *stroke) {
+  assert(stroke && rd.m_palette);
+  if (!stroke || !rd.m_palette) return;
+  drawStrokeOnCanvas(canvas, rd, stroke);
+}
+
+bool tcanvasCanDraw(const TVectorRenderData &rd, TRegion *region) {
+  if (!region) return true;
+  if (!canvasSettingsAllow(rd)) return false;
+  if (!rd.m_palette) return false;
+  return regionCanBeDrawnOnCanvas(rd, region);
+}
+
+void tcanvasDraw(TCanvas &canvas, const TVectorRenderData &rd,
+                 TRegion *region) {
+  assert(region && rd.m_palette);
+  if (!region || !rd.m_palette) return;
+  drawRegionOnCanvas(canvas, rd, region);
 }

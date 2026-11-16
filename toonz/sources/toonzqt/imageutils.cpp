@@ -35,6 +35,7 @@
 #include "trasterimage.h"
 #include "tvectorrenderdata.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tconvert.h"
 #include "trop.h"
 #include "timageinfo.h"
@@ -449,10 +450,21 @@ static void convertFromVI(const TLevelReaderP &lr, const TPaletteP &plt,
         vectorImage->transform(aff, true);
         const TVectorRenderData rd(TTranslation(-maxBbox.getP00()), TRect(),
                                    plt.getPointer(), 0, true, true);
-        TOfflineGL *glContext = new TOfflineGL(convert(maxBbox).getSize());
-        glContext->clear(TPixel32::Transparent);
-        glContext->draw(vectorImage, rd);
-        TRaster32P rasImage = (glContext->getRaster());
+        TRaster32P rasImage;
+        // On the CPU when renders are to be done there and every style of
+        // the image can be drawn that way; otherwise, as before, with
+        // OpenGL.
+        if (TVectorRasterizer::isSelected()) {
+          TRaster32P ras(convert(maxBbox).getSize());
+          if (TVectorRasterizer::rasterize(ras, vectorImage, rd))
+            rasImage = ras;
+        }
+        if (!rasImage) {
+          TOfflineGL *glContext = new TOfflineGL(convert(maxBbox).getSize());
+          glContext->clear(TPixel32::Transparent);
+          glContext->draw(vectorImage, rd);
+          rasImage = (glContext->getRaster());
+        }
         TImageWriterP iw    = lw->getFrameWriter(TFrameId(i + 1));
         iw->save(TRasterImageP(rasImage));
       }

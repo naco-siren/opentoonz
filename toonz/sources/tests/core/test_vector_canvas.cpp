@@ -174,14 +174,15 @@ TEST(VectorCanvas, StrokesAreGrownByHalfAPixelUnlessToldOtherwise) {
                     "drawMesh strip color=(0 0 0 1) grow"),
               0);
   }
-  // Without antialiasing there is no soft edge to keep the weight of.
+  // Without antialiasing too: there the old renderer drew a line one pixel
+  // wide down each side of the stroke, which is the same half pixel, and
+  // without which a stroke thinner than a pixel comes out in pieces.
   const StrokeGrow usual(TVectorRasterizer::defaultStrokeGrow());
   TVectorRenderData jaggy = production(palette);
   jaggy.m_antiAliasing    = false;
-  EXPECT_EQ(count(record(vi, jaggy), "drawMesh strip color=(0 0 0 1) noaa"),
+  EXPECT_EQ(count(record(vi, jaggy),
+                  "drawMesh strip color=(0 0 0 1) noaa grow=0.5px"),
             1);
-  EXPECT_EQ(
-      count(record(vi, jaggy), "drawMesh strip color=(0 0 0 1) noaa grow"), 0);
 }
 
 TEST(VectorCanvas, ARegionIsOneFilledPathUnderItsStrokes) {

@@ -8,6 +8,7 @@
 #include "timage_io.h"
 #include "tlevel_io.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tvectorrenderdata.h"
 #include "tstroke.h"
 
@@ -304,19 +305,27 @@ TRasterImageP ImageExporter::exportedRasterImage(TVectorImageP vi) {
                        camera.getStageToCameraRef(), TRect(), vi->getPalette());
   rd.m_antiAliasing = !m_opts.m_noAntialias;
 
-  if (!m_glContext.get()) m_glContext.reset(new TOfflineGL(camera.getRes()));
-
   // Render the vector image to fullcolor raster
   TRasterImageP ri;
-  {
+  // On the CPU when renders are to be done there and every style of the
+  // image can be drawn that way; otherwise, as before, with OpenGL.
+  if (TVectorRasterizer::isSelected()) {
+    TRaster32P ras(camera.getRes());
+    ras->fill(m_opts.m_bgColor);
+    if (TVectorRasterizer::draw(ras, vi.getPointer(), rd))
+      ri = TRasterImageP(ras);
+  }
+  if (!ri) {
+    if (!m_glContext.get()) m_glContext.reset(new TOfflineGL(camera.getRes()));
+
     m_glContext->clear(m_opts.m_bgColor);
     m_glContext->draw(vi, rd);
 
     ri = TRasterImageP(m_glContext->getRaster());
-
-    const TPointD &dpi = camera.getDpi();
-    ri->setDpi(dpi.x, dpi.y);
   }
+
+  const TPointD &dpi = camera.getDpi();
+  ri->setDpi(dpi.x, dpi.y);
 
   return ri;
 }

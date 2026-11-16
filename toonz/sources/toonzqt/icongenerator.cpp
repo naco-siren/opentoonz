@@ -12,6 +12,7 @@
 #include "timage_io.h"
 #include "tlevel_io.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tgl.h"
 #include "tvectorrenderdata.h"
 #include "tstroke.h"
@@ -269,9 +270,6 @@ TRaster32P convertToIcon(TVectorImageP vimage, int frame,
   if (!plt) return TRaster32P();
   plt->setFrame(frame);
 
-  TOfflineGL *glContext =
-      IconGenerator::instance()->getOfflineGLContext(iconSize);
-
   // Image bounding box with a small margin to prevent issues with empty images
   TRectD imageBox;
   {
@@ -318,15 +316,28 @@ TRaster32P convertToIcon(TVectorImageP vimage, int frame,
   rd.m_ink1CheckColor  = pref->getInk1CheckColor();
   rd.m_paintCheckColor = pref->getPaintCheckColor();
 
-  // Draw the vector image to the offline GL context
-  glContext->makeCurrent();
-  glContext->clear(rd.m_blackBgEnabled ? TPixel::Black : TPixel32::White);
-  glContext->draw(vimage, rd);
-
-  // Retrieve the rendered raster
   TRaster32P ras(iconSize);
-  glContext->getRaster(ras);
-  glContext->doneCurrent();
+  // On the CPU when renders are to be done there and every style of the
+  // image can be drawn that way; otherwise, as before, with OpenGL.
+  bool drawn = false;
+  if (TVectorRasterizer::isSelected()) {
+    ras->fill(rd.m_blackBgEnabled ? TPixel::Black : TPixel32::White);
+    drawn = TVectorRasterizer::draw(ras, vimage.getPointer(), rd);
+  }
+
+  if (!drawn) {
+    TOfflineGL *glContext =
+        IconGenerator::instance()->getOfflineGLContext(iconSize);
+
+    // Draw the vector image to the offline GL context
+    glContext->makeCurrent();
+    glContext->clear(rd.m_blackBgEnabled ? TPixel::Black : TPixel32::White);
+    glContext->draw(vimage, rd);
+
+    // Retrieve the rendered raster
+    glContext->getRaster(ras);
+    glContext->doneCurrent();
+  }
 
   delete plt;
   return ras;

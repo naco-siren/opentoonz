@@ -15,6 +15,7 @@
 
 #include "tgl.h"
 #include "tvectorgl.h"
+#include "tvectorrasterizer.h"
 #include "tofflinegl.h"
 
 #include "timagecache.h"
@@ -328,6 +329,20 @@ TImageP ImageRasterizer::build(int imFlags, void *extData) {
               TRect(), vi->getPalette());
           rd.m_antiAliasing = m_antiAliasing;
           rd.m_show0ThickStrokes = Preferences::instance()->getShow0ThickLines();
+
+          // On the CPU when renders are to be done there and every style of
+          // the image can be drawn that way; otherwise, as before, with
+          // OpenGL. The image's bounding box, in pixels, is the raster.
+          if (TVectorRasterizer::isSelected()) {
+            TVectorRenderData rdRaster(rd);
+            rdRaster.m_aff = TTranslation(-bbox.x0, -bbox.y0) * rd.m_aff;
+            TRaster32P ras(d);
+            if (TVectorRasterizer::rasterize(ras, vi, rdRaster)) {
+              TRasterImageP ri = TRasterImageP(ras);
+              ri->setOffset(TPoint(bbox.x1 - (d.lx / 2), bbox.y1 - (d.ly / 2)));
+              return ri;
+            }
+          }
 
           //Is this too slow?
           {

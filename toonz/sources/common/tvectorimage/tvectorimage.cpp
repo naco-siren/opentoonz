@@ -10,6 +10,7 @@
 #include "tmathutil.h"
 // #include "tdebugmessage.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 // #include "tcolorstyles.h"
 #include "tpaletteutil.h"
 #include "tthreadmessage.h"
@@ -688,12 +689,21 @@ TRaster32P TVectorImage::render(bool onlyStrokes) {
   TRect bBox = convert(getBBox());
   if (bBox.isEmpty()) return (TRaster32P)0;
 
-  std::unique_ptr<TOfflineGL> offlineGlContext(new TOfflineGL(bBox.getSize()));
-  offlineGlContext->clear(TPixel32(0, 0, 0, 0));
-  offlineGlContext->makeCurrent();
   TVectorRenderData rd(TTranslation(-convert(bBox.getP00())),
                        TRect(bBox.getSize()), getPalette(), 0, true, true);
   rd.m_drawRegions = !onlyStrokes;
+
+  // On the CPU when renders are to be done there and every style of the
+  // image can be drawn that way; otherwise, as before, with OpenGL.
+  if (TVectorRasterizer::isSelected()) {
+    TRaster32P ras(bBox.getSize());
+    ras->clear();
+    if (TVectorRasterizer::draw(ras, this, rd)) return ras;
+  }
+
+  std::unique_ptr<TOfflineGL> offlineGlContext(new TOfflineGL(bBox.getSize()));
+  offlineGlContext->clear(TPixel32(0, 0, 0, 0));
+  offlineGlContext->makeCurrent();
   offlineGlContext->draw(this, rd, false);
 
   return offlineGlContext->getRaster()->clone();

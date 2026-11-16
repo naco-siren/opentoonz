@@ -6,6 +6,7 @@
 #include "toonz/tcamera.h"
 #include "toonz/stage.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tvectorrenderdata.h"
 #include "ttoonzimage.h"
 #include "toonz/toonzimageutils.h"
@@ -52,9 +53,21 @@ static TImageP renderVectorImage(TOfflineGL *glContext,
                                  const TVectorRenderData &rd,
                                  const TPointD &dpi, const TImageP &img,
                                  const TPixel32 &color) {
-  glContext->clear(color);
-  glContext->draw(img, rd);
-  TRasterImageP rimg(glContext->getRaster());
+  TRasterImageP rimg;
+  // On the CPU when renders are to be done there and every style of the
+  // image can be drawn that way; otherwise, as before, with OpenGL.
+  TVectorImageP vi = img;
+  if (vi && TVectorRasterizer::isSelected()) {
+    TRaster32P ras(glContext->getLx(), glContext->getLy());
+    ras->fill(color);
+    if (TVectorRasterizer::draw(ras, vi.getPointer(), rd))
+      rimg = TRasterImageP(ras);
+  }
+  if (!rimg) {
+    glContext->clear(color);
+    glContext->draw(img, rd);
+    rimg = TRasterImageP(glContext->getRaster());
+  }
   rimg->setDpi(dpi.x, dpi.y);
   return rimg;
 }

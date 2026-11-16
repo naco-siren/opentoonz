@@ -8,6 +8,7 @@
 #include "tvectorrenderdata.h"
 #include "tconvert.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tpixelutils.h"
 #include "tcolorstyles.h"
 
@@ -209,12 +210,6 @@ void TColorStyle::makeIcon(const TDimension &d) {
   int contextLy = pow(2.0, tceil(log((double)d.ly) / log(2.0)));
   TDimension dim(contextLx, contextLy);
 
-  TOfflineGL *glContext = TOfflineGL::getStock(dim);
-
-  checkErrorsByGL;
-  glContext->clear(TPixel32::White);
-  checkErrorsByGL;
-
   TVectorImageP img = new TVectorImage;
   checkErrorsByGL;
   img->setPalette(tmpPalette.getPointer());
@@ -314,6 +309,23 @@ void TColorStyle::makeIcon(const TDimension &d) {
 
   checkErrorsByGL;
   const TVectorRenderData rd(aff, TRect(), tmpPalette.getPointer(), 0, true);
+  checkErrorsByGL;
+
+  // On the CPU when renders are to be done there and the style can be drawn
+  // that way; otherwise, as before, with OpenGL.
+  if (TVectorRasterizer::isSelected()) {
+    TRaster32P icon(d);
+    icon->fill(TPixel32::White);
+    if (TVectorRasterizer::draw(icon, img.getPointer(), rd)) {
+      m_icon = icon;
+      return;
+    }
+  }
+
+  TOfflineGL *glContext = TOfflineGL::getStock(dim);
+
+  checkErrorsByGL;
+  glContext->clear(TPixel32::White);
   checkErrorsByGL;
   glContext->draw(img, rd);
   checkErrorsByGL;

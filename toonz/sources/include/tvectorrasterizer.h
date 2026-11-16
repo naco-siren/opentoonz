@@ -21,6 +21,8 @@
 #endif
 
 class TVectorRenderData;
+class TStroke;
+class TRegion;
 
 namespace TVectorRasterizer {
 
@@ -46,6 +48,26 @@ DVAPI void select(bool on);
 */
 DVAPI bool rasterize(const TRasterP &raster, const TVectorImageP &image,
                      const TVectorRenderData &rd);
+
+//! Draws \p image over what is in \p raster, as \p rd says: what an
+//! offscreen OpenGL context does that has been cleared to some colour and
+//! is drawn on with tglDraw(). Returns false, and leaves the raster alone,
+//! when it cannot (see rasterize()).
+/*!
+  The raster's pixels are premultiplied, and so is the result, whatever
+  TVectorRenderData::m_alphaChannel says.
+*/
+//! (A plain pointer: an image that is not reference counted, one on the
+//! stack, can be drawn without being taken over and deleted.)
+DVAPI bool draw(const TRaster32P &raster, const TVectorImage *image,
+                const TVectorRenderData &rd);
+//! One stroke, as tglDraw(rd, stroke) draws it.
+DVAPI bool draw(const TRaster32P &raster, const TStroke *stroke,
+                const TVectorRenderData &rd);
+//! One region and the regions inside it, as tglDraw(rd, region) draws
+//! them.
+DVAPI bool draw(const TRaster32P &raster, TRegion *region,
+                const TVectorRenderData &rd);
 
 //! By how many pixels solid strokes are grown when they are antialiased
 //! on a canvas. The old renderer's fringe added about half a pixel on each

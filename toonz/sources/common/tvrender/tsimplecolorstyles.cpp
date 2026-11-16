@@ -561,9 +561,12 @@ void TSolidColorStyle::drawStrokeOnCanvas(TCanvas &canvas,
 
   TCanvasPaint paint(toCanvas(color));
   paint.antialias = antialias;
-  // Grown, so that strokes keep the weight the old fringe gave them
-  // (doc/nexttoonz_canvas_ir.md, Q2).
-  if (antialias) paint.growDevice = TVectorRasterizer::strokeGrow();
+  // Grown, so that strokes keep the weight the old renderer gave them
+  // (doc/nexttoonz_canvas_ir.md, Q2): with antialiasing a smooth band one
+  // pixel wide along both sides, without it a line one pixel wide down each
+  // side. Either way about half a pixel more on each side, and without it a
+  // stroke thinner than a pixel would come out in pieces, or not at all.
+  paint.growDevice = TVectorRasterizer::strokeGrow();
   canvas.drawMesh(mesh, paint);
 }
 
@@ -1634,8 +1637,6 @@ void TVectorImagePatternStrokeStyle::makeIcon(const TDimension &size) {
   TPalette *vPalette = m_level->getPalette();
   assert(vPalette);
   img->setPalette(vPalette);
-  TOfflineGL *glContext = TOfflineGL::getStock(size);
-  glContext->clear(TPixel32::White);
   TRectD bbox = img->getBBox();
   double scx  = 0.8 * size.lx / bbox.getLx();
   double scy  = 0.8 * size.ly / bbox.getLy();
@@ -1644,6 +1645,20 @@ void TVectorImagePatternStrokeStyle::makeIcon(const TDimension &size) {
   double dy   = (size.ly - bbox.getLy() * sc) * 0.5;
   TAffine aff = TScale(sc) * TTranslation(-bbox.getP00() + TPointD(dx, dy));
   TVectorRenderData rd(aff, size, vPalette, 0, true);
+
+  // On the CPU when renders are to be done there and the stamp's styles can
+  // be drawn that way; otherwise, as before, with OpenGL.
+  if (TVectorRasterizer::isSelected()) {
+    TRaster32P icon(size);
+    icon->fill(TPixel32::White);
+    if (TVectorRasterizer::draw(icon, img.getPointer(), rd)) {
+      m_icon = icon;
+      return;
+    }
+  }
+
+  TOfflineGL *glContext = TOfflineGL::getStock(size);
+  glContext->clear(TPixel32::White);
   glContext->draw(img, rd);
   if (!m_icon || m_icon->getSize() != size)
     m_icon = glContext->getRaster()->clone();

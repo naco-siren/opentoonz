@@ -38,6 +38,7 @@
 #include "tvectorimage.h"
 #include "tropcm.h"
 #include "tofflinegl.h"
+#include "tvectorrasterizer.h"
 #include "tvectorrenderdata.h"
 #include "tsystem.h"
 
@@ -121,11 +122,17 @@ TRaster32P loadFrame(int frame, const TAffine &affine) {
     TVectorRenderData rd(TVectorRenderData::ProductionSettings(), TAffine(),
                          size, plt.getPointer());
 
-    TOfflineGL offlineContext(size);
-    offlineContext.makeCurrent();
-    offlineContext.clear(TPixel32(0, 0, 0, 0));
-    offlineContext.draw(vimage, rd);
-    TRaster32P raster = offlineContext.getRaster();
+    TRaster32P raster(size);
+    // On the CPU when renders are to be done there and every style of the
+    // image can be drawn that way; otherwise, as before, with OpenGL.
+    if (!TVectorRasterizer::isSelected() ||
+        !TVectorRasterizer::rasterize(raster, vimage, rd)) {
+      TOfflineGL offlineContext(size);
+      offlineContext.makeCurrent();
+      offlineContext.clear(TPixel32(0, 0, 0, 0));
+      offlineContext.draw(vimage, rd);
+      raster = offlineContext.getRaster();
+    }
 
     assert(raster->getSize() == size);
     return resampleRaster(raster, affine);
@@ -456,11 +463,17 @@ bool Tracker::setup() {
     TVectorRenderData rd(TVectorRenderData::ProductionSettings(), TAffine(),
                          size, plt.getPointer());
 
-    TOfflineGL offlineContext(size);
-    offlineContext.makeCurrent();
-    offlineContext.clear(TPixel32(0, 0, 0, 0));
-    offlineContext.draw(vimage, rd);
-    m_raster = offlineContext.getRaster();
+    m_raster = TRaster32P(size);
+    // On the CPU when renders are to be done there and every style of the
+    // image can be drawn that way; otherwise, as before, with OpenGL.
+    if (!TVectorRasterizer::isSelected() ||
+        !TVectorRasterizer::rasterize(m_raster, vimage, rd)) {
+      TOfflineGL offlineContext(size);
+      offlineContext.makeCurrent();
+      offlineContext.clear(TPixel32(0, 0, 0, 0));
+      offlineContext.draw(vimage, rd);
+      m_raster = offlineContext.getRaster();
+    }
     assert(m_raster->getSize() == size);
   } else if (ti) {
     assert(plt);
