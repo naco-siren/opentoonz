@@ -675,6 +675,32 @@ void drawFringe(const std::vector<TCanvasPoint> &loop,
 
 // A 16-bit stipple pattern and its repeat factor for dashes and gaps given
 // in pixels. Exact when they add up to 16 pixels or a multiple of it.
+// Line state for drawing lines, set only where it changes. A driver may do
+// more on such a call than the specification says: after a glLineWidth()
+// or glLineStipple() that changed nothing, AMD's driver on macOS started
+// the dashes of a stippled line elsewhere, which a picture showed and a
+// trace of the calls explained (the old code did not make those calls).
+// Mesa returns early from both. What the old code did make, such as putting
+// the width back to 1 after its lines, is still made as it was.
+// The widths are compared as the driver draws them, within \p range.
+void lineWidth(GLfloat width, const GLfloat range[2]) {
+  GLfloat now = 0.f;
+  glGetFloatv(GL_LINE_WIDTH, &now);
+  const auto drawn = [&](GLfloat w) {
+    return std::min(std::max(w, range[0]), range[1]);
+  };
+  if (drawn(now) != drawn(width)) glLineWidth(width);
+}
+
+void lineStipple(GLint factor, GLushort pattern) {
+  if (!glIsEnabled(GL_LINE_STIPPLE)) glEnable(GL_LINE_STIPPLE);
+  GLint nowFactor = 0, nowPattern = 0;
+  glGetIntegerv(GL_LINE_STIPPLE_REPEAT, &nowFactor);
+  glGetIntegerv(GL_LINE_STIPPLE_PATTERN, &nowPattern);
+  if (nowFactor != factor || (GLushort)nowPattern != pattern)
+    glLineStipple(factor, pattern);
+}
+
 void setStipple(const std::vector<double> &dash) {
   std::vector<double> lengths;
   for (double length : dash) lengths.push_back(std::max(length, 0.0));
@@ -699,8 +725,7 @@ void setStipple(const std::vector<double> &dash) {
       position -= lengths[i];
     }
   }
-  glEnable(GL_LINE_STIPPLE);
-  glLineStipple(factor, pattern);
+  lineStipple(factor, (GLushort)pattern);
 }
 
 }  // namespace
@@ -962,8 +987,9 @@ void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
   const double pixels =
       pen.unit == TCanvasPen::Unit::Device ? pen.width
                                            : pen.width / pixelSize();
-  glLineWidth((GLfloat)std::min(std::max(pixels, (double)range[0]),
-                                (double)range[1]));
+  lineWidth((GLfloat)std::min(std::max(pixels, (double)range[0]),
+                              (double)range[1]),
+            range);
   // Whether lines are smooth is the caller's business when the state is.
   if (m_state == State::Own) {
     if (paint.antialias) {
@@ -995,9 +1021,9 @@ void TGlCanvas::onStrokePath(const TCanvasPath &path, const TCanvasPen &pen,
   }
 
   if (m_state == State::Callers) {
-    // What the old line styles left behind them.
+    // What the old line styles left behind them. (Those that put the width
+    // back to 1 afterwards do so themselves.)
     if (!pen.dash.empty()) glDisable(GL_LINE_STIPPLE);
-    glLineWidth(1.f);
   }
 }
 

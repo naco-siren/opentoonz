@@ -622,6 +622,12 @@ TColorStyle *TCenterLineStrokeStyle::clone() const {
 
 void TCenterLineStrokeStyle::drawStroke(const TColorFunction *cf,
                                         const TStroke *stroke) const {
+  // The old function touched no OpenGL state when it had nothing to draw.
+  if (!stroke || stroke->getChunkCount() == 0) return;
+  TPixel32 color = m_color;
+  if (cf) color = (*cf)(m_color);
+  if (color.m == 0) return;
+
   // Through OpenGL the width goes by what the driver says it can draw, as
   // it always has, and smoothing by what the caller has set.
   GLfloat range[2];
@@ -639,9 +645,30 @@ void TCenterLineStrokeStyle::drawStroke(const TColorFunction *cf,
     glLineStipple(1, m_stipple);
   }
 
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, stroke, glIsEnabled(GL_LINE_SMOOTH),
-                     range[0], range[1], 0.00001f);
+  // It also set the width of a thin line whatever the width already was,
+  // and put it back to 1 at the end. The canvas leaves the width alone when
+  // it is what it needs (see tglcanvas.cpp: on one driver even a call that
+  // changes nothing moves the dashes of the next stippled line), so those
+  // two calls are made here, where the old code made them.
+  float width = float(m_width);
+  if (width < range[0])
+    width = range[0];
+  else if (width > range[1])
+    width = range[1];
+  width = 2 * width;
+  if (width <= 1.0) {
+    if (m_width != 0.0) width /= sqrt(tglGetPixelSize2());
+    if (width == 0.F) width = 0.00001f;
+    glLineWidth(width);
+  }
+
+  {
+    TLegacyGlCanvas gl;
+    drawStrokeOnCanvas(gl.canvas(), cf, stroke, glIsEnabled(GL_LINE_SMOOTH),
+                       range[0], range[1], 0.00001f);
+  }
+
+  glLineWidth(1.0);
 }
 
 //------------------------------------------------------------------------------------
