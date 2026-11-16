@@ -34,9 +34,9 @@ namespace TVectorRasterizer {
 DVAPI bool isAvailable();
 
 //! Whether renders are to try rasterize() before they fall back on
-//! TOfflineGL. Off unless the environment has
-//! NEXTTOONZ_VECTOR_RASTERIZER=skia when this is first asked, or select()
-//! says otherwise. Always false in a build without Skia.
+//! TOfflineGL. On unless the environment has NEXTTOONZ_VECTOR_RASTERIZER=gl
+//! when this is first asked, or select() says otherwise. Always false in a
+//! build without Skia.
 DVAPI bool isSelected();
 DVAPI void select(bool on);
 

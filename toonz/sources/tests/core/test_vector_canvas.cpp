@@ -21,6 +21,7 @@
 
 #include <cmath>
 #include <sstream>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -439,10 +440,21 @@ TEST(VectorCanvas, OneStrokeOrOneRegionIsDrawnOnItsOwn) {
 // Rasterising
 
 TEST(VectorRasterizer, IsSelectedOnlyInABuildThatHasIt) {
+  const bool was = TVectorRasterizer::isSelected();
   TVectorRasterizer::select(true);
   EXPECT_EQ(TVectorRasterizer::isSelected(), TVectorRasterizer::isAvailable());
   TVectorRasterizer::select(false);
   EXPECT_FALSE(TVectorRasterizer::isSelected());
+  TVectorRasterizer::select(was);
+}
+
+// The CPU is the default since migration step 9, unless the environment
+// asks for OpenGL (NEXTTOONZ_VECTOR_RASTERIZER=gl).
+TEST(VectorRasterizer, IsSelectedByDefault) {
+  const char *env = std::getenv("NEXTTOONZ_VECTOR_RASTERIZER");
+  if (env && std::string(env) == "gl")
+    GTEST_SKIP() << "OpenGL asked for in the environment";
+  EXPECT_EQ(TVectorRasterizer::isSelected(), TVectorRasterizer::isAvailable());
 }
 
 TEST(VectorRasterizer, ReplacesTheRasterWithTheImage) {

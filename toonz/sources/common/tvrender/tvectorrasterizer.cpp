@@ -41,8 +41,10 @@ bool TVectorRasterizer::isSelected() {
   if (!isAvailable()) return false;
   int selected = s_selected.load();
   if (selected < 0) {
+    // The CPU is the default (migration step 9 of doc/nexttoonz_canvas_ir.md);
+    // NEXTTOONZ_VECTOR_RASTERIZER=gl goes back to TOfflineGL.
     const char *value = std::getenv("NEXTTOONZ_VECTOR_RASTERIZER");
-    selected          = (value && std::strcmp(value, "skia") == 0) ? 1 : 0;
+    selected          = (value && std::strcmp(value, "gl") == 0) ? 0 : 1;
     s_selected.store(selected);
   }
   return selected == 1;

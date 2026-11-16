@@ -80,12 +80,14 @@ bool samePixels(const TRaster32P &a, const TRaster32P &b) {
 
 class CamstandCanvas : public ::testing::TestWithParam<const char *> {
 protected:
+  bool m_wasSelected = false;  // put back afterwards
   void SetUp() override {
     if (!TVectorRasterizer::isAvailable())
       GTEST_SKIP() << "this build has no rasteriser but OpenGL";
+    m_wasSelected = TVectorRasterizer::isSelected();
     TVectorRasterizer::select(true);
   }
-  void TearDown() override { TVectorRasterizer::select(false); }
+  void TearDown() override { TVectorRasterizer::select(m_wasSelected); }
 };
 
 }  // namespace

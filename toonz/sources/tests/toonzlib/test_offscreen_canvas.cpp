@@ -58,6 +58,7 @@ TStroke *line(const TPointD &a, const TPointD &b, double thick, int style) {
 // The CPU rasteriser selected for the test, and deselected afterwards.
 class OffscreenCanvas : public ::testing::Test {
 protected:
+  bool m_wasSelected = false;  // put back afterwards
   TPaletteP m_palette;
   int m_ink = 0, m_thinInk = 0, m_paint = 0;
   TVectorImageP m_vi;
@@ -65,6 +66,7 @@ protected:
   void SetUp() override {
     if (!TVectorRasterizer::isAvailable())
       GTEST_SKIP() << "this build has no rasteriser but OpenGL";
+    m_wasSelected = TVectorRasterizer::isSelected();
     TVectorRasterizer::select(true);
 
     m_palette = new TPalette();
@@ -88,7 +90,7 @@ protected:
     m_vi->addStroke(line(TPointD(-45, 20), TPointD(45, 20), 0.3, m_thinInk));
   }
 
-  void TearDown() override { TVectorRasterizer::select(false); }
+  void TearDown() override { TVectorRasterizer::select(m_wasSelected); }
 };
 
 }  // namespace
