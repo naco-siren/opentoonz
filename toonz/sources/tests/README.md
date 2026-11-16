@@ -74,7 +74,9 @@ colorfx (step 4) and its 25 stroke styles (step 5): every style a release
 build registers. Since step 6 the other places that draw a vector drawing,
 or one stroke or region of it, into a raster (the conversion to a Toonz
 raster image, `TVectorImage::render`, style and level icons, export, the
-tracker, meshify, the script rasterizer) ask the CPU rasteriser first too. By default nothing changes: renders still go through `TOfflineGL`, where the
+tracker, meshify, the script rasterizer) ask the CPU rasteriser first too,
+and since step 7 so do the two effects that drew meshes through OpenGL (the
+plastic deformer and the flow paint brush). By default nothing changes: renders still go through `TOfflineGL`, where the
 migrated styles reach OpenGL through `tnzglcanvas` and come out bit for bit
 as before.
 
@@ -85,7 +87,9 @@ In a build with `-DWITH_SKIA=ON`, two environment variables switch renders
 NEXTTOONZ_VECTOR_RASTERIZER=skia   rasterise vector levels with Skia; an image
                                    that uses a style that is not on the
                                    canvas (none of the registered ones any
-                                   more) still goes through OpenGL, as a whole
+                                   more) still goes through OpenGL, as a whole.
+                                   The plastic deformer and the flow paint
+                                   brush draw their meshes with Skia too
 NEXTTOONZ_STROKE_GROW=0            draw solid strokes at their true width
                                    instead of grown by half a pixel, which
                                    is the default and the weight they have
@@ -116,7 +120,11 @@ the area of the region. `toonzlib/test_stroke_style_canvas.cpp` is the same
 for the stroke styles of colorfx. `toonzlib/test_offscreen_canvas.cpp`
 runs the functions of step 6 with the CPU rasteriser selected; with no
 window system there is no OpenGL context, so none of them can fall back on
-one there.
+one there. The two effects of step 7 are covered by the golden scenes
+`plastic_basic` and `fx_sweep_iwa_a` (by default, through OpenGL); what they
+need of the canvas (a textured mesh drawn over a raster, an image shrunk a
+great deal and sampled from its mipmaps) by `core/test_vector_canvas.cpp`,
+`canvas_skia/test_skia_meshes.cpp` and `canvas_gl/test_backends_agree.cpp`.
 
 ## Canvas tests
 
