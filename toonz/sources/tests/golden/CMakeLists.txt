@@ -4,11 +4,15 @@
 # Each test renders the scene with the freshly built tcomposer and compares
 # the frames with tests/golden/expected/<scene>/ (see run_golden.py).
 #
-# Vector levels and GL effects still need an OpenGL context (Phase 1 removes
-# that). On Linux the tests therefore run under xvfb-run with Mesa's
-# software rasteriser when NEXTTOONZ_GOLDEN_XVFB is ON (the default on
-# Linux); macOS runs tcomposer directly on the default cocoa platform
-# (its offscreen plugin has no OpenGL).
+# In a build with Skia (WITH_SKIA) vector levels are rasterised on the CPU,
+# and the baselines of the scenes that have vectors are such renders
+# (migration step 9 of doc/nexttoonz_canvas_ir.md). The GLSL effects, and
+# vector levels in a build without Skia or with
+# NEXTTOONZ_VECTOR_RASTERIZER=gl, still need an OpenGL context. On Linux the
+# tests therefore run under xvfb-run with Mesa's software rasteriser when
+# NEXTTOONZ_GOLDEN_XVFB is ON (the default on Linux); macOS runs tcomposer
+# directly on the default cocoa platform (its offscreen plugin has no
+# OpenGL).
 
 find_package(Python3 COMPONENTS Interpreter)
 
@@ -57,17 +61,19 @@ foreach(_scene ${_scenes})
     get_filename_component(_name ${_scene} NAME_WE)
 
     # Scenes whose output depends on more than the code under test. Their
-    # goldens come from Linux (Mesa llvmpipe, glibc) and they are compared
-    # there only:
+    # goldens come from Linux (glibc, and Mesa llvmpipe for the GLSL ones)
+    # and they are compared there only:
     #   fx_sweep_font_*   text fxs draw with the system's fonts
     #   fx_sweep_rand_*   fxs that call rand(), whose sequence is the C
     #                     library's
     #   fx_sweep_gpu*_*   GLSL shader fxs: the result is the driver's, and the
     #                     ones with input ports crash tcomposer on macOS
     #                     (doc/nexttoonz_known_issues.md, item 15)
-    #   vector_styles     the special colour styles are drawn with OpenGL
-    #                     lines, textures and smoothing, which rasterise
-    #                     differently on every driver (item 18)
+    #   vector_styles     the special colour styles: drawn with OpenGL they
+    #                     rasterised differently on every driver (item 18);
+    #                     drawn with Skia, macOS and Linux still differ on
+    #                     up to 2.8% of the pixels (by at most 49 levels),
+    #                     spread over many of the styles and not yet traced
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" AND _name MATCHES
             "^(fx_sweep_font_|fx_sweep_rand_|fx_sweep_gpu_|fx_sweep_gpuin_|vector_styles$)")
         continue()

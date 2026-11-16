@@ -6,7 +6,8 @@ vector levels are rasterised through OpenGL today, so antialiasing differs
 between platforms and drivers, and the planned Skia CPU rasteriser will
 change it again. Instead a frame passes when the fraction of pixels whose
 largest channel difference exceeds ``--max-channel-diff`` is at most
-``--max-diff-fraction``.
+``--max-diff-fraction``. Colours are compared premultiplied by alpha (see
+load_rgba()).
 
 The defaults (2 levels, 0.5% of the pixels) come from the goldens being
 rendered with Mesa's llvmpipe on Linux: Apple's OpenGL rasteriser differs
@@ -38,8 +39,20 @@ DEFAULT_MAX_DIFF_FRACTION = 0.005
 
 
 def load_rgba(path: Path) -> np.ndarray:
+    """The pixels premultiplied by their alpha, rounded, as int16.
+
+    PNG frames are written unpremultiplied: tcomposer divides each colour by
+    its alpha. Along antialiased edges, where alpha is a few levels, that
+    turns a difference of one or two levels in the rendered (premultiplied)
+    colour into tens or even 255, so the comparison would be about
+    rounding, not about what is drawn. Multiplying back first compares what
+    the renderer produced.
+    """
     with Image.open(path) as im:
-        return np.asarray(im.convert("RGBA"), dtype=np.int16)
+        rgba = np.asarray(im.convert("RGBA"), dtype=np.float64)
+    alpha = rgba[..., 3:4]
+    premultiplied = np.concatenate([rgba[..., :3] * alpha / 255.0, alpha], axis=2)
+    return np.rint(premultiplied).astype(np.int16)
 
 
 def compare(

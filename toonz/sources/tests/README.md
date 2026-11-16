@@ -78,34 +78,37 @@ tracker, meshify, the script rasterizer) ask the CPU rasteriser first too,
 since step 7 so do the two effects that drew meshes through OpenGL (the
 plastic deformer and the flow paint brush), and since step 8 so does the
 camera-stand render of a frame (`ToonzScene::renderFrame`: scene icons,
-xsheet thumbnails, printing). By default nothing changes: renders still go through `TOfflineGL`, where the
-migrated styles reach OpenGL through `tnzglcanvas` and come out bit for bit
-as before.
+xsheet thumbnails, printing). Since step 9 this is the default in a build with Skia: renders draw vectors
+on the CPU, and `NEXTTOONZ_VECTOR_RASTERIZER=gl` goes back to `TOfflineGL`,
+where the migrated styles reach OpenGL through `tnzglcanvas` and come out bit
+for bit as before step 2. A build without Skia always uses OpenGL.
 
-In a build with `-DWITH_SKIA=ON`, two environment variables switch renders
-(tcomposer, tconverter) to the CPU rasteriser:
+In a build with `-DWITH_SKIA=ON`, two environment variables change how
+renders (tcomposer, tconverter, the application's renders and icons) draw
+vectors:
 
 ```
-NEXTTOONZ_VECTOR_RASTERIZER=skia   rasterise vector levels with Skia; an image
-                                   that uses a style that is not on the
-                                   canvas (none of the registered ones any
-                                   more) still goes through OpenGL, as a whole.
-                                   The plastic deformer and the flow paint
-                                   brush draw their meshes with Skia too, and
-                                   scene icons and thumbnails are drawn with
-                                   no OpenGL context
+NEXTTOONZ_VECTOR_RASTERIZER=gl     rasterise vector levels with OpenGL, as
+                                   before step 9; without it they are drawn
+                                   with Skia (an image that uses a style
+                                   that is not on the canvas, none of the
+                                   registered ones any more, would still go
+                                   through OpenGL, as a whole), and so are
+                                   the meshes of the plastic deformer and
+                                   the flow paint brush, scene icons and
+                                   thumbnails
 NEXTTOONZ_STROKE_GROW=0            draw solid strokes at their true width
                                    instead of grown by half a pixel, which
                                    is the default and the weight they have
                                    through OpenGL
 ```
 
-The golden baselines are OpenGL renders, so the golden tests of vector
-scenes fail with the first variable set; that is expected, and the way to
-get pictures to compare:
+The golden baselines of the scenes with vectors are Skia renders, so their
+golden tests fail with the first variable set, and in a build without
+Skia; that is expected, and the way to get OpenGL pictures to compare:
 
 ```
-NEXTTOONZ_VECTOR_RASTERIZER=skia python3 ../sources/tests/golden/run_golden.py \
+NEXTTOONZ_VECTOR_RASTERIZER=gl python3 ../sources/tests/golden/run_golden.py \
     --tcomposer <tcomposer> --stuff ../../stuff \
     --project ../sources/tests/fixtures/reference_project \
     --scene scenes/vector_basic.tnz \
@@ -250,19 +253,29 @@ Each scene in `fixtures/reference_project/scenes/` becomes a ctest named
    `<build>/golden/<scene>/diff/` on failure.
 
 Comparison is tolerant, not bit-exact: a frame fails when more than 0.5% of
-its pixels differ by more than 2 in any channel. Vector levels and some
-effects are rasterised through OpenGL today, so antialiasing differs
-between drivers and platforms: the goldens come from Mesa's llvmpipe on
-Linux, and Apple's OpenGL rasteriser disagrees with it on up to about 0.4%
-of the pixels of a stroke-heavy frame. The tolerance absorbs that while
-still catching real regressions (a missing stroke, a wrong colour or a
-blank frame changes far more pixels). On failure the log also reports how
-many non-blank pixels each image has, so a frame that rendered empty is
-recognisable without downloading it. Expect the goldens to be regenerated
-once Phase 1 replaces the OpenGL rasteriser with a deterministic CPU one.
+its pixels differ by more than 2 in any channel, colours taken premultiplied
+by alpha (the PNG files are unpremultiplied, which turns a difference of a
+level or two along an antialiased edge into tens). The tolerance absorbs
+the differences between platforms while still catching real regressions
+(a missing stroke, a wrong colour or a blank frame changes far more
+pixels). On failure the log also reports how many non-blank pixels each
+image has, so a frame that rendered empty is recognisable without
+downloading it.
+
+Where the baselines come from (step 9 of `doc/nexttoonz_canvas_ir.md`):
+the scenes whose frames Skia changes (every scene with vectors, and the
+effects whose input has vectors) are Skia renders made on an x86_64 Mac,
+and Linux agrees with them within the tolerance (the largest difference is
+0.24% of a frame's pixels); `vector_styles`, compared on Linux only, is a
+Linux Skia render. The other scenes keep the baselines that came from the
+Ubuntu clang CI job, which every platform matched already. So a baseline
+can now be made on a development machine with `--update`, as long as the
+build has Skia; CI builds without Skia (`WITH_SKIA` is off by default) draw
+vectors with OpenGL and do not match them.
 
 On Linux the renders run under `xvfb-run` with Mesa's software rasteriser
-because the OpenGL paths need a display (`NEXTTOONZ_GOLDEN_XVFB`, on by
+because the OpenGL paths (GLSL effects, and vectors without Skia) need a
+display (`NEXTTOONZ_GOLDEN_XVFB`, on by
 default on Linux). This needs `xvfb`, `mesa-utils`, `libgl1-mesa-dri`,
 `python3-numpy` and `python3-pil`.
 
@@ -354,7 +367,7 @@ every frame, so that a regression anywhere shows up somewhere.
 | `fx_sweep_gpu_a` | 5 | GLSL shader fxs without inputs |
 | `fx_sweep_gpuin_a` | 4 | GLSL shader fxs with inputs (they crash tcomposer on macOS, known issue 15) |
 | `vector_styles` | 7 | every registered colour style class, eight per frame, on a stroke and a region |
-| `vector_cmapped_fx` | 4 | vector levels under the fxs that work on palette indices (palette filter on lines, palette filter on areas deleting every line, calligraphic, outBorder): the renderer converts each vector frame to a Toonz raster image first (`ToonzImageUtils::vectorToToonzImage`). No golden baseline yet |
+| `vector_cmapped_fx` | 4 | vector levels under the fxs that work on palette indices (palette filter on lines, palette filter on areas deleting every line, calligraphic, outBorder): the renderer converts each vector frame to a Toonz raster image first (`ToonzImageUtils::vectorToToonzImage`) |
 | `stage_showcase` | 12 | keyframe interpolation types, rotation, non-uniform scale, shear, a two-level pegbar hierarchy, a motion path, stacking order, column opacity, colour filter and visibility, cell timing |
 
 `fx_sweep_font_*`, `fx_sweep_rand_*`, `fx_sweep_gpu*_*` and `vector_styles`
