@@ -370,6 +370,72 @@ TEST(VectorCanvas, AnImageCanBeDrawnWhenEveryStyleItUsesIsOnCanvas) {
 }
 
 //-----------------------------------------------------------------------------
+// One stroke, one region
+
+// What tglDraw(rd, stroke) and tglDraw(rd, region) draw, which the code that
+// converts a drawing one stroke or one region at a time uses.
+TEST(VectorCanvas, OneStrokeOrOneRegionIsDrawnOnItsOwn) {
+  TPalette *palette = new TPalette();
+  TVectorImageP vi  = new TVectorImage();
+  vi->setPalette(palette);
+  const int ink = addStyle(palette, new TSolidColorStyle(TPixel32(0, 0, 255)));
+  const int paint =
+      addStyle(palette, new TSolidColorStyle(TPixel32(255, 255, 0)));
+  TStroke *outer = makeCircle(TPointD(0, 0), 30, 2.0);
+  outer->setStyle(ink);
+  vi->addStroke(outer);
+  TStroke *inner = makeCircle(TPointD(0, 0), 10, 2.0);
+  inner->setStyle(ink);
+  vi->addStroke(inner);
+  vi->findRegions();
+  for (UINT i = 0; i < vi->getRegionCount(); ++i) {
+    vi->getRegion(i)->setStyle(paint);
+    for (UINT j = 0; j < vi->getRegion(i)->getSubregionCount(); ++j)
+      vi->getRegion(i)->getSubregion(j)->setStyle(paint);
+  }
+
+  const TVectorRenderData rd = production(palette);
+  const auto dump = [&](auto draw) {
+    TCanvasRecorder recorder(TCanvasIRect(0, 0, 100, 100));
+    draw(recorder);
+    return calls([&] {
+      std::vector<std::string> lines;
+      std::istringstream text(recorder.displayList().dump());
+      for (std::string line; std::getline(text, line);) {
+        const std::size_t start = line.find_first_not_of(' ');
+        lines.push_back(start == std::string::npos ? "" : line.substr(start));
+      }
+      return lines;
+    }());
+  };
+
+  const TStroke *stroke = vi->getStroke(0);
+  ASSERT_TRUE(tcanvasCanDraw(rd, stroke));
+  std::vector<std::string> lines =
+      dump([&](TCanvas &canvas) { tcanvasDraw(canvas, rd, stroke); });
+  EXPECT_EQ(count(lines, "drawMesh strip color=(0 0 1 1)"), 1);
+  EXPECT_EQ(count(lines, "fillPath"), 0);
+
+  // The outer region, then the one inside it.
+  TRegion *region = 0;
+  for (UINT i = 0; i < vi->getRegionCount(); ++i)
+    if (vi->getRegion(i)->getSubregionCount() > 0) region = vi->getRegion(i);
+  ASSERT_NE(region, nullptr);
+  ASSERT_TRUE(tcanvasCanDraw(rd, region));
+  lines = dump([&](TCanvas &canvas) { tcanvasDraw(canvas, rd, region); });
+  EXPECT_EQ(count(lines, "fillPath nonzero color=(1 1 0 1)"),
+            1 + (int)region->getSubregionCount());
+  EXPECT_EQ(count(lines, "drawMesh"), 0);
+
+  // A style that cannot be drawn on a canvas says so for its stroke.
+  const int derived = addStyle(palette, new DerivedColorStyle());
+  TStroke *other    = makeLine(TPointD(-30, 0), TPointD(30, 0), 3.0);
+  other->setStyle(derived);
+  EXPECT_FALSE(tcanvasCanDraw(rd, other));
+  delete other;
+}
+
+//-----------------------------------------------------------------------------
 // Rasterising
 
 TEST(VectorRasterizer, IsSelectedOnlyInABuildThatHasIt) {
@@ -424,6 +490,40 @@ TEST(VectorRasterizer, ReplacesTheRasterWithTheImage) {
   EXPECT_EQ(deep->pixels(50)[80].b, 65535);
   EXPECT_EQ(deep->pixels(50)[80].m, 65535);
   EXPECT_EQ(deep->pixels(2)[2].m, 0);
+}
+
+// draw() puts the image over what is there already, the way a context that
+// has been cleared to some colour and then drawn on does.
+TEST(VectorRasterizer, DrawsOverWhatIsThere) {
+  const StrokeGrow none(0.0);
+  TPalette *palette = new TPalette();
+  TVectorImageP vi  = new TVectorImage();
+  vi->setPalette(palette);
+  const int ink =
+      addStyle(palette, new TSolidColorStyle(TPixel32(0, 0, 255, 255)));
+  TStroke *s = makeLine(TPointD(-30, 0), TPointD(30, 0), 3.0);
+  s->setStyle(ink);
+  vi->addStroke(s);
+
+  TRaster32P raster(100, 100);
+  raster->fill(TPixel32::White);
+  const bool drawn =
+      TVectorRasterizer::draw(raster, vi.getPointer(), production(palette));
+  if (!TVectorRasterizer::isAvailable()) {
+    EXPECT_FALSE(drawn);
+    EXPECT_EQ(raster->pixels(50)[50], TPixel32::White) << "left alone";
+    return;
+  }
+  ASSERT_TRUE(drawn);
+  EXPECT_EQ(raster->pixels(50)[50], TPixel32(0, 0, 255, 255));
+  EXPECT_EQ(raster->pixels(80)[50], TPixel32::White) << "not cleared";
+
+  // One stroke on its own, through the same entry point.
+  raster->fill(TPixel32::White);
+  ASSERT_TRUE(TVectorRasterizer::draw(raster, vi->getStroke(0),
+                                      production(palette)));
+  EXPECT_EQ(raster->pixels(50)[50], TPixel32(0, 0, 255, 255));
+  EXPECT_EQ(raster->pixels(80)[50], TPixel32::White);
 }
 
 TEST(VectorRasterizer, LeavesAnImageItCannotDrawToTheCaller) {
