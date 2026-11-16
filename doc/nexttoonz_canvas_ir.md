@@ -1,6 +1,6 @@
 # NextToonz 画布 IR 设计草案
 
-版本 0.10，2026-11-15。所有者已审过第 9 节的问题，迁移第 0 步（4.6 节）、第 1 步（第 7 节的两个后端）、第 2 步（第 8 节，纯色笔触与区域）、第 3 步（图案、贴图、矢量笔刷、MyPaint 样式，见 5.6 节）、第 4 步（colorfx 的 16 个区域样式，见 5.7 节）、第 5 步（colorfx 的 25 个笔触样式，见 5.8 节）、第 6 步（把矢量画进栅格的离屏 GL 使用方，见 6.1 节）、第 7 步（plastic 变形与流动笔刷两个特效，见 6.2 节）和第 8 步（摄影表画法的场景图标与缩略图，见 6.3 节）已经实现。其余仍是设计。Q2（笔触线重）所有者已经看图定了：保持现在的线重。本文是 `doc/nexttoonz_plan.md` Phase 1 第一个工作项"定义路径级画布 IR"的设计草案，以及支撑它的绘制操作清单。第 2 步起渲染路径开始改动：默认仍走 OpenGL，逐像素与改动前相同；Skia 路径要显式打开。
+版本 0.11，2026-11-16。所有者已审过第 9 节的问题，迁移第 0 步（4.6 节）、第 1 步（第 7 节的两个后端）、第 2 步（第 8 节，纯色笔触与区域）、第 3 步（图案、贴图、矢量笔刷、MyPaint 样式，见 5.6 节）、第 4 步（colorfx 的 16 个区域样式，见 5.7 节）、第 5 步（colorfx 的 25 个笔触样式，见 5.8 节）、第 6 步（把矢量画进栅格的离屏 GL 使用方，见 6.1 节）、第 7 步（plastic 变形与流动笔刷两个特效，见 6.2 节）、第 8 步（摄影表画法的场景图标与缩略图，见 6.3 节）和第 9 步（默认切到 Skia、换基线、去掉能去的 GL 链接，见 6.4 节）已经实现。其余仍是设计。Q2（笔触线重）所有者已经看图定了：保持现在的线重。本文是 `doc/nexttoonz_plan.md` Phase 1 第一个工作项"定义路径级画布 IR"的设计草案，以及支撑它的绘制操作清单。第 2 步到第 8 步默认仍走 OpenGL，逐像素与改动前相同，Skia 路径要显式打开；第 9 步起默认走 Skia，`NEXTTOONZ_VECTOR_RASTERIZER=gl` 回到 OpenGL，那条路径仍与改动前逐位相同。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `6d043a367`。所有路径相对于 `toonz/sources/`。标着"实测"的结论来自 `tests/skia_spike/`、`tests/canvas_skia/`、`tests/canvas_gl/` 里的测试（Skia m144 和 m148，x86_64 macOS），其余来自读代码；清单的逐类明细由自动化代码调查产出，带文件与行号，我抽查过其中的关键几处，没有逐行复核全部。
 
@@ -485,6 +485,35 @@ tcomposer 之外，摄影表画法（`ToonzScene::renderFrame`）画场景图标
 
 **没有覆盖的。** 同一帧里栅格层和矢量层交替叠放的场景，参考项目里没有；叠放顺序的代码没有改（画矢量之前先把攒着的栅格层叠上去），但没有图验证过。图标生成线程里的实际运行（应用里）没有验证过，单元测试和对照程序都在主线程里画。速度没有量：单元测试里 320x180 两帧连同加载场景每个场景 5 到 90 毫秒。
 
+### 6.4 第 9 步：默认切到 Skia（2026-11-16）
+
+所有者对三件事的决定（2026-11-16）：原来的 OpenGL 分支留着，用环境变量切回；基线在本机生成、在 Linux 上验证；"四个库不再链接 GL"先去掉能去的，其余记入 Phase 3。
+
+**默认。** 编进了 Skia 的构建里，`TVectorRasterizer::isSelected()` 默认为真，`NEXTTOONZ_VECTOR_RASTERIZER=gl` 回到 OpenGL。这影响前面各步改过的所有调用点：tcomposer 和应用里的渲染、矢量转色指定栅格、图标、两个画网格的特效、场景图标和缩略图。交互 viewer 不受影响（它不问栅格化器）。没有编进 Skia 的构建（`WITH_SKIA` 默认关闭，CI 现在就是这样）照旧走 OpenGL。设 `=gl` 时各套对照与改动前逐位相同（8.1 节），所以这条退路是完整的。
+
+**速度。** 先量了，再切。10 节原来记的"Skia 慢四倍"只算画图本身；在 tcomposer 里，OpenGL 每一帧都要建离屏上下文、读回像素，这部分比画图贵得多。把六个矢量场景的摄影机改成 1920x1080，单线程（tcomposer 报告的渲染时间，8 帧，秒，OpenGL 对 Skia）：`vector_basic` 0.19 对 0.08，`vector_styles` 0.51 对 0.24，`stage_showcase` 3.74 对 0.21，`pegbar_hierarchy` 1.11 对 0.05，`sound_column` 0.34 对 0.06，`subxsheet` 0.53 对 0.07；`plastic_basic`（320x180）1.02 对 0.23。两遍的数字相差不到一成。库里三张最复杂的矢量图（`myra`、`stencil_flame`、`scribble_chalk`）放大铺满画面也一样是 Skia 快，但同一张图重复 8 帧，渲染器只算了一次，这组数字不算数。真实作品没有量过，仓库里没有。
+
+**基线。** 用 Skia 渲，矢量场景对旧基线有 0.8% 到 2% 的像素差超过 2，过不了 0.5% 的容差，所以要换。先发现比较方法本身的问题：PNG 存的是未预乘的颜色，tcomposer 存图前除以 alpha；反走样边上 alpha 只有几个色阶的像素，渲染结果差一两个色阶，存出来就差几十甚至 255。macOS 和 Linux 的 Skia 渲染按这种比法有 0.7% 的像素超差，按预乘值比最多差 3。`compare_images.py` 改成按预乘值比，这对"丢了笔触、颜色错了、整帧空白"的检测没有影响。然后：
+
+- Skia 改变了的场景（有矢量的，以及输入里有矢量的特效：`fx_blur_over_colorcard`、`fx_gallery_cpu`、`fx_sweep_iwa_a`、`particles_basic`、`pegbar_hierarchy`、`plastic_basic`、`sound_column`、`stage_showcase`、`subxsheet`、`vector_basic`、`vector_cmapped_fx`）换成本机（x86_64 macOS）的 Skia 渲染。Linux 的 Skia 渲染与之相比，最差的一帧是 `plastic_basic` 的 0.24%。`vector_cmapped_fx` 第一次有了基线。
+- `vector_styles` 用 Skia 画之后，macOS 和 Linux 之间仍有 2.8% 的像素超差（最大差 49），分散在许多样式上，原因没有查（怀疑是两边数学库算出的几何不同，没有核实）。它仍只在 Linux 上比较，基线换成 Linux 的 Skia 渲染。
+- 其余场景 Skia 不改变任何像素，保留原来从 CI 取的基线。字体、`rand()`、GLSL 那几个只在 Linux 上比较的场景都在其中。
+- 结果：本机 golden 25 个全部通过，包括以前在 AMD 显卡上过不了的 `plastic_basic`；Linux 虚拟机 30 个里只有 `fx_sweep_font_a` 不过，它一直不过（虚拟机的字体和 CI 不同）。
+
+所以基线现在可以在开发机上生成（`run_golden.py --update`），前提是构建里有 Skia。**CI 的构建没有 Skia**，推上去之后有矢量的场景都会失败，要先让 CI 编进 Skia（9 节之外的一项后续工作，要推分支才能做）。arm64 也要等 CI。
+
+**没有 GL 时 tcomposer 能不能渲完。** Linux 虚拟机里去掉 X 服务器（不设 `DISPLAY`），用 offscreen 平台插件，再让 GL 的厂商库加载不到（`__GLX_VENDOR_LIBRARY_NAME=none`、`__EGL_VENDOR_LIBRARY_FILENAMES=/dev/null`、`LIBGL_DRIVERS_PATH` 指向不存在的目录），把 30 个场景都渲一遍，与有 GL 时的渲染比：26 个逐字节相同；三个 GLSL 场景（`shader_fx`、`fx_sweep_gpu_a`、`fx_sweep_gpuin_a`）出不了正确的图，这是预期的；`fx_sweep_font_a` 有一帧不同，但同样用 offscreen 插件、GL 可用时渲出来也是这样，差别来自平台插件的字体，与 GL 无关。所以计划的第一条判据（"无 GL 完成全部场景，ShaderFx 除外"）在 Linux 上达到了。macOS 上没有办法拿掉 GL，没有做。
+
+**链接。** toonzlib 不再链接 GLUT（它一个也不调用）和 Qt5::OpenGL（它只用 QtGui 里的 OpenGL 类），改为显式链接它其实一直在用的 Qt5::Widgets（以前是 Qt5::OpenGL 顺带进来的）；tnzext 不再链接 Qt5::OpenGL。删掉的死代码：GLU 细分器 `TglTessellator`（纯色样式上画布之后没有人调用）、整个被条件编译掉的 `tglcurves.cpp` 和 colorfx 的 zigzag 样式、toonzlib 里没人调用的 `buildIcon` 和只写不读的 `currentOfflineGL`。四个库仍然链接 GL，剩下的都是 viewer 那一侧的：
+
+- tnzcore：`tgl` 工具函数、`TOfflineGL`、stencil、显示列表、GL 桥接（因此链接 tnzglcanvas），以及样式和 prop 的 GL 入口（`tglDraw` → `prop->draw` → 样式的 `drawStroke`/`drawRegion`，每个都包一个 `TLegacyGlCanvas`）。viewer、工具和图标仍在调用这一层。
+- toonzlib：`Stage::RasterPainter` 的 OpenGL 分支和 `OpenGlPainter`、第二个 `renderFrame`、`ImagePainter`（唯一用 GLEW 的地方）、`GLRasterPainter`、贴图管理、笔画反馈、子场景贴图。还有一处耦合：数据模型改关卡时会让 tnzext 的 GL 贴图缓存失效。
+- colorfx：只有样式的 GL 入口；`TNormal2StrokeStyle` 的 GL 入口还留着一份固定管线光照的画法。
+- tnzext：网格显示、网格贴图、贴图缓存、pinch 工具的显示（用 GLUT 写字）；另外 `buildMesh` 用 GLU 的细分器三角化，这是 CPU 上的网格生成，不是画图，要换一个三角化库。
+- 各处保留的 OpenGL 旧分支（退路）本身也用 `TOfflineGL`。
+
+这些都要等 viewer 改成在 `TGlCanvas` 上调画布遍历、并把 GL 基础设施挪进 viewer 一侧的库（Phase 3），或者删掉退路之后才能去掉。另外 `tellipticbrushP.h` 在像素大小未知时还会读 GL 状态（`tglGetPixelSize2()`），画布路径不会走到，但要记着。
+
 ---
 
 ## 7. 两个后端怎样消费 IR
@@ -602,7 +631,7 @@ Phase 3 的 QRhi 后端和 Phase 4 的 Metal 后端消费的是网格级 IR。�
 | 6（已完成） | `vectorToToonzImage`、`TVectorImage::render`、`trasterimageutils`、导出、追踪、网格化弹窗、脚本绑定、样式图标、关卡图标、界面里的格式转换、自定义样式色块、"把矢量显示成栅格" | 新场景 `vector_cmapped_fx`；默认路径的对照见 6.1、8.1 |
 | 7（已完成） | `PlasticDeformerFx`、`Iwa_FlowPaintBrushFx` 改用画网格；IR 的图像采样加 mipmap | `plastic_basic`、特效扫场 `fx_sweep_iwa_a`；默认路径的对照见 8.1，Skia 的对照图见 6.2 |
 | 8（已完成） | 摄影表画法 `ToonzScene::renderFrame`（场景图标、缩略图、打印）；按 Q4 的决定只做第一个 `renderFrame` | 摄影表对照加到 11 个场景 22 帧；默认路径的对照见 8.1，Skia 的对照图见 6.3 |
-| 9 | 默认后端切到 Skia；基线换成本机可生成的；tnzcore、toonzlib、colorfx、tnzext 去掉 GL 链接 | Phase 1 的完成判据 |
+| 9（已完成） | 默认后端切到 Skia；基线换成本机可生成的；tnzcore、toonzlib、colorfx、tnzext 去掉能去的 GL 链接 | Phase 1 的完成判据，达到的程度见 6.4 节 |
 
 ### 8.1 每一步怎样验证"默认路径没有变"
 
@@ -621,6 +650,8 @@ macOS 上"改动前"用的是 Phase 0 的构建，它的渲染路径没有被这
 - **笔触样式表**（第 5 步加的，做法同区域样式表）：25 个笔触样式，各画三条笔触（粗细变化的波浪线、闭合的圈、一条细短线），三组参数，五种设置。375 张图。
 
 - **离屏函数表**（第 6 步加的）：第 6 步那些函数各在同一张图上调一遍（转色指数栅格两种比例、加墨线四种组合、改色、往全彩栅格加笔触两种、转全彩、`TVectorImage::render` 两种、六种样式图标），外加为了追查虚线相位做的几张拆分图。29 张。Linux 上"改动前"是迁移前的树编出来的 toonzlib。
+
+第 9 步的结果：默认切到 Skia 之后，"默认路径没有变"改成"设 `NEXTTOONZ_VECTOR_RASTERIZER=gl` 时没有变"。macOS 上 262 帧 golden、70 + 9 + 224 + 375 张、摄影表 22 帧全部与 Phase 0 逐位相同，离屏函数表仍是那 6 张虚线相位；Linux 上 282 帧 golden、70 + 9 + 224 + 375 张、离屏函数表 29 张、第 6、7 步的三个场景全部逐字节相同。默认（Skia）渲出来的与第 8 步时用环境变量选 Skia 渲出来的逐位相同（macOS 266 帧）。
 
 第 8 步的结果：摄影表对照加到 11 个场景 22 帧（6.3 节），macOS 上与 Phase 0 的构建逐位相同；Linux 虚拟机上也做了这一套（`vm/camstand_linux.sh`），与迁移前的树逐字节相同。迁移前的树在这条路上会读到未初始化的 Shift & Trace 状态（6.3 节），所以那一遍 UBSan 只报告、不中止，渲了两遍，两遍相同。其余各套：macOS 上 262 帧 golden、70 + 9 + 224 + 375 张全部逐位相同，离屏函数表仍是那 6 张虚线相位；Linux 上 282 帧 golden、70 + 9 + 224 + 375 张、离屏函数表 29 张、第 6、7 步的三个场景 28 帧全部逐字节相同。
 
@@ -698,7 +729,7 @@ macOS 上"改动前"用的是 Phase 0 的构建，它的渲染路径没有被这
 - **半透明排线的重叠**在 Skia 下只算一次，GL 下每条算一次（5.7 节）。排线密到互相重叠时 Skia 的阴影会淡一些；没有量过。
 - **点状阴影和粉笔样式每个点、每个方块一次调用**，密度高时一张图有几千次。GL 下和旧代码一样快慢（旧代码也是逐个画），Skia 下没有测过性能。
 - **`TPointShadowFillStyle` 在 Mesa 上的点比在 Skia 下大四倍**，因为 Mesa 报告的点大小上限是 256（5.7 节）。现在的 golden 基线来自 Mesa；默认后端切到 Skia 时这个样式的基线一定会变。
-- **Skia 路径现在比 OpenGL 慢，只有一个数据点。** 一张测试图（4 条笔触、4 个区域，半透明的占一半）放大到 1920x1760，本机单线程：OpenGL 画加读回每帧约 11 毫秒，Skia 约 40 毫秒（外扩半像素时 36 到 40 毫秒）。去掉"固定宽度线"之后数字不变，所以时间花在纯色笔触和区域上。我的判断是笔触网格的画法：每个三角形一条轮廓，放大后一条笔触有几千条轮廓，扫描线上同时活动的边很多；这是推测，没有做剖析。可以试的办法：按四边形而不是三角形出轮廓，或者只出带子的外边界。另外发射代码每次绘制都把轮廓点拷进一个新的路径或网格。Skia 路径没有上下文、可以多线程，这一点还没有利用。这些都没有做；在默认后端切到 Skia（第 9 步）之前要用真实场景量过并处理。
+- **Skia 路径的速度只量过参考场景。** 只算画图本身时，一张测试图放大到 1920x1760，本机单线程 OpenGL 画加读回约 11 毫秒，Skia 约 40 毫秒（笔触网格每个三角形一条轮廓，推测是原因，没有剖析）。但在 tcomposer 里 OpenGL 每帧建上下文、读回的开销大得多，1920x1080 的参考场景整体是 Skia 快 2 到 20 多倍（6.4 节）。真实作品（几千条笔触、大量半透明区域）没有量过；画图本身那部分的优化（按四边形出轮廓、少拷贝点）和多线程都还没有做。
 - **arm64 上的像素没有验证。** x86_64 上，macOS（Apple clang）与 Ubuntu（GCC 13）画同一个小场景，在各自的本机像素格式下逐位相同，指定 BGRA 时有 5 个像素差 1；换成用到全部操作的图，有一成多的像素不同，最大相差 3（`doc/nexttoonz_phase1_skia.md` 3.5）。但 Skia 的光栅管线按 CPU 指令集分派（SSE、AVX2、NEON），arm64 没有跑过。计划对 golden 的要求是容差内一致，不要求逐位；"基线合并成一份、本机可生成"仍然需要 arm64 上的实测。spike 的最后一个测试会打印场景哈希并能导出像素，可以拿来比。
 - **网格并集转路径的规模。** 一条长笔触的轮廓可以有上千个四边形，全部作为独立轮廓放进一条路径。Skia 的扫描线填充对边数是线性到线性对数的，预计不成问题，但没有测过大场景的性能。备选：先把三角带的外边界提取成一条轮廓（自相交时仍需并集语义）。
 - **光照样式在两个后端是两份代码**（5.8 节）。画布版本和 OpenGL 版本看起来接近（差超过 32 的像素 2.1%），但只在本机的驱动上比过；别的驱动的光照结果本来就不一样，没有"正确答案"可对。
