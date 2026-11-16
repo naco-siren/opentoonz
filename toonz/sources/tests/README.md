@@ -71,7 +71,10 @@ Since migration step 2 of `doc/nexttoonz_canvas_ir.md`, styles draw through
 the canvas interface: solid colours and constant lines, then patterns,
 textures, vector and MyPaint brushes (step 3), the sixteen region styles of
 colorfx (step 4) and its 25 stroke styles (step 5): every style a release
-build registers. By default nothing changes: renders still go through `TOfflineGL`, where the
+build registers. Since step 6 the other places that draw a vector drawing,
+or one stroke or region of it, into a raster (the conversion to a Toonz
+raster image, `TVectorImage::render`, style and level icons, export, the
+tracker, meshify, the script rasterizer) ask the CPU rasteriser first too. By default nothing changes: renders still go through `TOfflineGL`, where the
 migrated styles reach OpenGL through `tnzglcanvas` and come out bit for bit
 as before.
 
@@ -110,7 +113,10 @@ MyPaint brushes), taken from the reference project's `vec_styles` level.
 colorfx, made by their tags; its last test also rasterises all sixteen
 without OpenGL (in a build that has Skia) and checks that each covers about
 the area of the region. `toonzlib/test_stroke_style_canvas.cpp` is the same
-for the stroke styles of colorfx.
+for the stroke styles of colorfx. `toonzlib/test_offscreen_canvas.cpp`
+runs the functions of step 6 with the CPU rasteriser selected; with no
+window system there is no OpenGL context, so none of them can fall back on
+one there.
 
 ## Canvas tests
 
@@ -295,8 +301,10 @@ ninja nexttoonz_gen_fixtures
 ./bin/nexttoonz_gen_fixtures ../../stuff ../sources/tests/fixtures/reference_project
 ```
 
-The generator deletes and recreates the project folder, so the result is
-deterministic. It works on a scratch copy of `stuff/`; the `TOONZROOT not
+The generator deletes and recreates the project folder. The result is not
+byte for byte the same from one run to the next: the order of the terminal
+fxs and of the cast in some scenes, and the bytes of the mesh, change. When
+adding a scene, add only its own files and leave the others as they were. It works on a scratch copy of `stuff/`; the `TOONZROOT not
 set` messages it prints come from `TEnv` looking for an installed
 configuration and are harmless.
 
@@ -330,6 +338,7 @@ every frame, so that a regression anywhere shows up somewhere.
 | `fx_sweep_gpu_a` | 5 | GLSL shader fxs without inputs |
 | `fx_sweep_gpuin_a` | 4 | GLSL shader fxs with inputs (they crash tcomposer on macOS, known issue 15) |
 | `vector_styles` | 7 | every registered colour style class, eight per frame, on a stroke and a region |
+| `vector_cmapped_fx` | 4 | vector levels under the fxs that work on palette indices (palette filter on lines, palette filter on areas deleting every line, calligraphic, outBorder): the renderer converts each vector frame to a Toonz raster image first (`ToonzImageUtils::vectorToToonzImage`). No golden baseline yet |
 | `stage_showcase` | 12 | keyframe interpolation types, rotation, non-uniform scale, shear, a two-level pegbar hierarchy, a motion path, stacking order, column opacity, colour filter and visibility, cell timing |
 
 `fx_sweep_font_*`, `fx_sweep_rand_*`, `fx_sweep_gpu*_*` and `vector_styles`
