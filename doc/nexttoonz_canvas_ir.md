@@ -487,7 +487,7 @@ tcomposer 之外，摄影表画法（`ToonzScene::renderFrame`）画场景图标
 
 ### 6.4 第 9 步：默认切到 Skia（2026-11-16）
 
-所有者对三件事的决定（2026-11-16）：原来的 OpenGL 分支留着，用环境变量切回；基线在本机生成、在 Linux 上验证；"四个库不再链接 GL"先去掉能去的，其余记入 Phase 3。
+所有者对三件事的决定（2026-11-16）：原来的 OpenGL 分支留着，用环境变量切回；基线在本机生成、在 Linux 上验证；"四个库不再链接 GL"先去掉能去的，其余记入 Phase 3。看过对照图之后，所有者也认可了矢量外观的变化和发布说明（`doc/nexttoonz_phase1_release_note.md`）。
 
 **默认。** 编进了 Skia 的构建里，`TVectorRasterizer::isSelected()` 默认为真，`NEXTTOONZ_VECTOR_RASTERIZER=gl` 回到 OpenGL。这影响前面各步改过的所有调用点：tcomposer 和应用里的渲染、矢量转色指定栅格、图标、两个画网格的特效、场景图标和缩略图。交互 viewer 不受影响（它不问栅格化器）。没有编进 Skia 的构建（`WITH_SKIA` 默认关闭，CI 现在就是这样）照旧走 OpenGL。设 `=gl` 时各套对照与改动前逐位相同（8.1 节），所以这条退路是完整的。
 
