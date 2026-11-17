@@ -144,7 +144,7 @@ Skia 是 BSD-3-Clause。核心构建牵涉的第三方代码：port 的硬依赖
 
 ## 4. CI 里怎样获取和缓存
 
-**已实现（2026-11-16，分支 `ci/skia-in-ci`，未推送）。** 下面是实际做法；本节 0.3 版的设计（缓存 vcpkg 的二进制缓存目录）改成了缓存安装目录，理由见第 2 点。
+**已实现（2026-11-16，分支 `ci/skia-in-ci`），CI 已全部通过。** 下面是实际做法；本节 0.3 版的设计（缓存 vcpkg 的二进制缓存目录）改成了缓存安装目录，理由见第 2 点。
 
 脚本在 `ci-scripts/skia/`：
 
@@ -175,7 +175,19 @@ Skia 是 BSD-3-Clause。核心构建牵涉的第三方代码：port 的硬依赖
 - ASan/UBSan job：在虚拟机（Ubuntu 24.04，GCC 13 编 Skia，clang 18 编树）里按 workflow 的步骤从头跑一遍：`vcpkg_skia.sh` 新克隆 vcpkg 并冷构建 Skia 238 秒，`asan` 预设加 job 的构建目标 282 秒，`ctest` 386 个测试里只有 `golden_fx_sweep_font_a` 失败（虚拟机里的已知情况，基线要 runner 的字体），1 个按设计跳过，泄漏检测打开。
 - macOS x86_64：用 `skia_pack.sh` 解出的目录重新配置，`canvas_skia` 57 个测试通过，场景哈希仍是 `00f0bc48d7b9d098`。
 
-只能推送后才知道的：GitHub runner 上的构建时间；Ubuntu 22.04 上真实的 GCC 11 和 clang 14（树本身用 clang 14 编、链接 GCC 编的 Skia）；arm64 的 skia-pack（没有下载，SHA-256 来自 GitHub 的记录）和 arm64 上 golden 的像素；workflow 文件本身的语法（本机没有 actionlint）。
+推送后 CI 的结果（2026-11-16，提交 `42a2f517c`）：全部 job 通过，没有需要修的。
+
+| Job | 测试 | Skia 这一步 |
+|---|---|---|
+| Ubuntu clang | 386 个全部通过，含 30 个 golden（矢量场景和 font_a 都过了） | 冷构建 4.5 分钟 |
+| Ubuntu gcc | 386 个，0 失败，1 个按设计跳过 | 冷构建 6.2 分钟（和 clang job 同时冷构建，两边都存上了） |
+| ASan/UBSan | 386 个，0 失败，1 个跳过 | 冷构建 5.5 分钟 |
+| macOS arm64 | 381 个全部通过，含 25 个 golden：**arm64 的像素与 x86_64 Mac 渲染的基线在容差内一致** | 下载加校验 2 秒 |
+| macOS x86_64 | 381 个全部通过，含 25 个 golden | 5 秒（整个构建在 Intel runner 上 42 分钟） |
+
+缓存命中的路径也验证过：重跑 Ubuntu clang 和 macOS arm64 两个 job，Linux 跳过了 Skia 的构建，macOS 从缓存取出 zip。缓存每份 19 到 36 MB。GitHub 的缓存按分支隔离，其他分支只能读自己的和默认分支（master）的缓存，所以改动到别的分支后第一次仍会冷构建。
+
+还没验证的：Windows（没有动）；workflow 里 shellcheck 报的 17 条警告是改动前就有的。
 
 ---
 
