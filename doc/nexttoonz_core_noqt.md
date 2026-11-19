@@ -1,8 +1,8 @@
 # NextToonz 核心去 Qt 设计草案
 
-版本 0.2，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
+版本 0.3，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
-迁移第 1 步（递归互斥锁与无 Qt 构建的骨架，第 7、8 节）已经实现，在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
+迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）和第 3 步（字符串转换）已经实现（第 7 节，做成的样子在 8.1 到 8.3 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`（Phase 1 合并之后）。所有路径相对于 `toonz/sources/`。标着"实测"的数字来自编译器和链接器，不是读代码：预处理器的包含树（`-E -H`，用构建目录里 `compile_commands.json` 的原样参数）、已构建的 dylib 的未定义符号（`nm -m`）和链接的框架（`otool -L`）。按类分的行数来自正则统计，有噪声，只当量级看。测量脚本不在版本库里，做法记在 2.1 节。
 
@@ -260,7 +260,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 0（本稿） | 实测清单与设计 | | |
 | 1（已完成） | `TThread::Mutex`/`MutexLocker` 换成 std；另外六处 `QMutex::Recursive`；`tpalette.h`、`tstroke.h`、`tgldisplaylistsmanager.h` 去掉 `<QMutex>`；`WITH_QT` 选项与无 Qt 构建的骨架 | tnzcore 10 个：tgeometry、tcolor（5）、trandom、tstopwatch、tdebugmessage、tsmartpointer | 8.1 节 |
 | 2（已完成，未推送） | 无 Qt 构建进 CI（Q8）：macOS x86_64 上一个不装 Qt 的 job，构建、检查没有任何东西碰到 Qt、跑单测，再在 iPad 模拟器里跑核心单测 | | 8.2 节；推送后 CI 的新 job 绿，要所有者同意推送 |
-| 3 | 字符串转换：`tstring.cpp` 不用 QString，`tconvert.h` 的 QString 重载改成第 6 节的适配 | tnzcore：`tmathutil`、`texception`、`tcurves`、`tcurveutil`、`tstroke` 与笔触几何、`tsound`… | 新旧实现的差分测试：随机与构造的 UTF-8/UTF-16 输入（含无效序列、代理对、非 BMP 字符）逐字相同 |
+| 3（已完成） | 字符串转换：`tstring.cpp` 不用 QString，`tconvert.h` 的 QString 重载改成第 6 节的适配 | tnzcore 8 个：`tstring`、`tmathutil`、`texception`、`tcurves`、`tcurveutil`、`tstrokeoutline`、`cornerdetector`、`tsound`（`tstroke` 要等第 8 步，见 8.3 节） | 8.3 节 |
 | 4 | `TFilePath`、`TFrameId` 不用 QString、QChar、QRegularExpression；QString 重载改成适配 | `tfilepath.cpp`、`tfiletype.cpp`、`tdata.cpp`… | 现有 `test_tfilepath.cpp`；加一个路径语料（参考工程、stuff 目录里的所有文件名，加构造的边界情况）的差分测试，新旧 `getName`/`getFrame`/`withFrame`/`getLevelName` 等逐字相同 |
 | 5 | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList | 栅格（`traster.cpp`）、trop 全部、图像读写框架、`tstream.cpp` | 现有 tstream、traster 的单测进入无 Qt 构建；round-trip 测试 |
 | 6 | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
@@ -349,6 +349,32 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 本机（x86_64 macOS，带 Skia）：脚本退出码 0，7 个库没有一个碰到 Qt，114 个测试通过，iPad 模拟器里 26 个通过。CI 上没有跑过：要推送，推送要所有者同意。runner 上会不会已经装了 Qt、iPad 模拟器是否可用，都只能推送后才知道；前一件 job 会在日志里打印出来，后一件失败时 job 失败。
 
 这个 job 现在还不是阻塞的：仓库没有分支保护（计划的待定事项"CI 阻塞合并的落实方式"），第 20 步收口时再定。
+
+### 8.3 第 3 步实际做成的样子（2026-11-18）
+
+**代码。** `common/tcore/tstring.cpp` 的 `to_wstring(std::string)` 和 `to_string(std::wstring)` 不再经过 QString，改成自己的 UTF-8、UTF-16、UTF-32 转换。原来的代码表面上在"判断是不是 UTF-8"，实际上那段判断永远不成立（Qt 5 的 `fromStdString` 本来就按 UTF-8 解码），所以真正的语义是 Qt 5 的解码与编码规则本身。先写了一个链接 Qt 的探针程序，把 Qt 在边界情况上的行为一条条量出来，再照着实现，最后用差分测试证明逐字相同。量出来的规则（都写进了 `tstring.cpp` 开头的注释）：
+
+- UTF-8 到宽字符：字符串开头的一个 BOM 丢掉（只丢第一个）；解不出的序列，首字节换成一个 U+FFFD，再从下一个字节接着解，所以每个孤立的续字节各得一个；被字符串结尾截断的序列，每个字节各一个 U+FFFD；超长形式、代理区、超过 U+10FFFF 都算解不出；非字符（U+FFFE 等）照常解出；NUL 保留。
+- 宽字符到 UTF-8：Qt 按 UTF-32 读宽字符串，并且做字节序检测：第一个是 U+FEFF 就丢掉，第一个是 0xFFFE0000 就丢掉并把后面所有的值字节反转；0x10000 以上的值不检查范围地拆成代理对，所以超过 U+10FFFF 的值会变成坏的代理，甚至变成 NUL；转 UTF-8 时不成对的代理变成 `?`；结果在第一个 NUL 处截断——ASCII 那条分支本来不截断，但它判断"是不是 ASCII"时用的是按 `qstrnlen` 量长度的比较，含 NUL 的字符串必然走到截断的那条分支。
+
+`to_string(const TFilePath&)` 的定义从 `tstring.cpp` 搬到 `tfilepath.cpp`（声明不变），`tstring.cpp` 于是不再包含 `tfilepath.h`。死代码 `TNZCORE_LIGHT` 分支删掉。
+
+`tconvert.h` 的两个 `fromStr(…, QString)` 重载放进 `#ifdef NEXTTOONZ_QT_INTEROP`，这是第 6 节适配机制的第一次使用：顶层 `CMakeLists.txt` 在 `WITH_QT` 时定义 INTERFACE 目标 `nexttoonz_qt_interop`（带这个宏、链接 `Qt5::Core`），用到这两个重载的只有应用（`toonz/batches.cpp`）和两个渲染农场程序，它们链接这个目标。`tconvert.h` 不再包含 `<QString>` 以后，有两个头原来是经它拿到 QString 的：`tproperty.h` 和 `toonzfarm/include/tfarmproxy.h`，各自补了 `#include <QString>`（`tproperty.h` 本身就用 QString，是个泄漏者，后面的步骤再处理）。
+
+**进入无 Qt 构建的。** 按包含树，这一步之后又有 7 个编译单元不再碰到 Qt（tnzcore 4 个，tnzbase 的 `tunit.cpp`，toonzlib 2 个），核心库里碰到 Qt 的从 510 降到 503。链接闭合的是 tnzcore 的 8 个：`tstring`、`tmathutil`、`texception`、`tcurves`、`tcurveutil`、`tstrokeoutline`、`cornerdetector`、`tsound`，`TNZCORE_NOQT_SOURCES` 从 10 个变成 18 个。`tstroke.cpp` 编译时已经不碰 Qt，但链接要 `TOutlineUtil::computeBBox`，它和 `makeOutline` 在 `tellipticbrush.cpp` 里，而 `makeOutline` 在调用方不给像素大小时会去问 OpenGL（`tglGetPixelSize2`，画布文档第 10 节记过的隐藏读取）；所以笔触等第 8 步。tnzbase 的 `tunit.cpp` 也不碰 Qt 了，等 tnzbase 有了自己的清单再进。
+
+**新测试。** `tests/core/test_tstring_qt.cpp`（只在 Qt 构建里编）把改动前的两个函数原样留在测试里，与新实现逐字比较：两字节以内的全部 65,792 个字节串；从 33 个"有意义"的字节（ASCII、NUL、续字节与首字节的每个边界、BOM 的字节、非法首字节）里取的全部 3 到 5 字节组合，约 120 万个；U+0000 到 U+10FFFF 每个码点的合法编码，部分再加 BOM 或夹在 ASCII 之间；30 万个随机字节串；宽字符方向，U+0000 到 U+10FFFF 的每个值以及一批越界值，各在单独、前面有字符、后面有字符、重复两次四种位置；30 万个随机宽字符串（混入代理、BOM、反字节序的 BOM 和任意 32 位值）。6 个测试一共约 4 秒，全部逐字相同。`tests/core/test_tstring.cpp`（8 个）把探针量出的那些规则写成固定的期望值，不需要 Qt，进了无 Qt 构建和 iPad 模拟器。
+
+**结果（x86_64 macOS）。**
+
+- 默认构建的编译命令：只多了 `test_tstring.cpp`；变了的 353 个编译单元全是应用（351 个）和两个农场程序，变化只有一处，多了 `-DNEXTTOONZ_QT_INTEROP`。核心库的编译命令一个都没变。
+- 全部测试：448 个通过（第 1 步之后的 434 个加 14 个新的）。
+- golden：25 个场景 266 帧与 Phase 2 之前逐字节相同。
+- 28 个场景单线程和 8 线程的 554 帧：550 帧相同，`fx_sweep_font_a` 的 2 帧（两种线程数各 2 帧）不同。原因不在这一步：用 Phase 2 之前构建的 tcomposer 副本当天重渲这个场景，结果与这一步的构建逐字节相同，而与前一天它自己渲的不同。这个场景的文字特效没有指定字族，用的是系统默认字体，本机的字体状态隔夜变了（计划里它本来就只在 Linux 上比较）。以后对照字体场景，"改动前"要当天重渲。
+- OpenGL 退路单线程 277 帧：同上，只有 `fx_sweep_font_a` 的 2 帧不同，原因相同。
+- 无 Qt 构建（`ci-scripts/noqt/noqt_test.sh`）：三道检查通过，122 个测试通过，iPad 模拟器里 34 个通过。
+
+**结果（Linux 虚拟机）。** 又是 macOS 编得过、Linux 编不过：`tsound.cpp` 和 `toonzlib/sandor_fxs/toonz4_6staff.cpp` 用的 `memset`、`strlen`、`strcpy` 原来经 `<QString>` 间接得到，各补了 `#include <cstring>`。会出这种问题的正好是这一步之后不再包含任何 Qt 头的那几个编译单元，所以以后每步都可以先把这批文件挑出来查。改掉以后：全部目标编译通过；422 个测试里 421 个通过，失败的仍是虚拟机里一直失败的 `golden_fx_sweep_font_a`；差分测试的 6 个和固定值测试的 8 个在 Linux 的 Qt 5.15.13 加 libstdc++ 上也全部通过；GL 画布 32 个通过；无 Qt 构建 122 个通过。
 
 ---
 
