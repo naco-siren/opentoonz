@@ -2,7 +2,7 @@
 
 版本 0.7，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
-迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）、第 6b 步（`SystemVar.ini` 经键值存储）、第 6c 步（应用与进程信息，`tenv` 进无 Qt 构建）和第 7 步（样式的界面文字由界面翻译）已经实现（第 7 节，做成的样子在 8.1 到 8.9 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
+迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）、第 6b 步（`SystemVar.ini` 经键值存储）、第 6c 步（应用与进程信息，`tenv` 进无 Qt 构建）、第 7 步（样式的界面文字由界面翻译）和第 8a 步（矢量图和样式里不带 GL 的 Qt）已经实现（第 7 节，做成的样子在 8.1 到 8.10 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`（Phase 1 合并之后）。所有路径相对于 `toonz/sources/`。标着"实测"的数字来自编译器和链接器，不是读代码：预处理器的包含树（`-E -H`，用构建目录里 `compile_commands.json` 的原样参数）、已构建的 dylib 的未定义符号（`nm -m`）和链接的框架（`otool -L`）。按类分的行数来自正则统计，有噪声，只当量级看。测量脚本不在版本库里，做法记在 2.1 节。
 
@@ -266,8 +266,8 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 4（已完成） | `TFilePath`、`TFrameId` 不用 QString、QChar、QRegularExpression；带 Qt 类型的成员留给 Qt 一侧（8.4 节） | `tfilepath.cpp`、`tfiletype.cpp` | 8.4 节 |
 | 5（已完成） | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList（8.5 节） | `tsound_io.cpp`、`tdata.cpp`；栅格和 trop 要等第 6 步（`TBigMemoryManager`）和第 9 步（`TImageCache` 的 `QThreadStorage`） | 8.5 节 |
 | 6（拆成 6a、6b、6c，见第 10 节；都已完成，8.6 到 8.8 节） | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
-| 7（已完成，8.9 节；矢量图和样式进无 Qt 构建要等第 8 步） | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名改成源文本加上下文（Q2）；`tsimplecolorstyles`、`tpalette`、colorfx 的 `translate` 一并改 | 矢量图（`tvectorimage`、`tregion`、`tcomputeregions`…）、样式；colorfx 的非 GL 部分（GL 入口在第 8 步移出） | 每个注册样式的名字在界面里显示的译文与改动前相同（一个测试：遍历注册表，经 Qt 翻译后与旧实现逐字比较） |
-| 8 | tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzqt、tnztools、toonz 链接它，也由它链接 `tnzglcanvas`）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收 |
+| 7（已完成，8.9 节） | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名、枚举项改成核心产生 `TTranslatableText`、界面翻译（Q2）；`TPalette` 第一页名字经窄的数据翻译服务；`tvectorimage.h` 的 `QSet` | `ttranslatabletext.cpp`；矢量图和样式的 16 个源文件从此编译时碰不到 Qt 的头，但链接要等第 8 步 | 每个注册样式的描述、参数名、枚举项在 11 种语言下经 Qt 翻译后与改动前逐字相同（导出对照）；lupdate 前后产出的 .ts 相同 |
+| 8（8a 已完成，8.10 节） | 开头先清矢量图和样式里不带 GL 的 Qt（第 7 步之后剩下的）：`tpalette.cpp` 的帧号区间解析与 `QString::number(…, 'g', 17)`、`toDouble`，`tsimplecolorstyles.cpp` 的 `QDir::match`、`sourceFilters`、`QMutexLocker`，`tl2lautocloser.cpp`、`tsegmentadjuster.cpp` 的 `qDebug`；然后 tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzqt、tnztools、toonz 链接它，也由它链接 `tnzglcanvas`）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`）；矢量图和样式（第 7 步留下的 16 个源文件和 `tpalette`、`tsimplecolorstyles`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收；`.tpl` 里的数字与 Qt 逐字节相同（大量随机 double 和边界值的差分测试），帧号区间解析与旧代码差分对照，`QDir::match` 的通配规则照 Qt 5.15 对照 |
 | 9 | 线程：`TThread::Executor`/`Runnable` 换成线程池，`TThread::Message` 换成派发器，`QThreadStorage`、`QReadWriteLock`、`QWaitCondition` 换成 std；toonzqt 加 Runnable 的 Qt 适配和 Qt 派发器 | `tthread.cpp`、`threadmessage.cpp`、`timagecache.cpp`… | golden 用 `-nthreads 1` 和 `-nthreads 8` 各渲一遍，与改动前逐字节相同；线程池的单测在 ThreadSanitizer 下跑；应用里人工验收（预览、渲染进度、取消） |
 | 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`tundo.h` 的 `TUndoManager` 去 QObject；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
 | 11 | 引擎 API 第一版（第 9 节），tcomposer 改用它 | | tcomposer 的全部 golden 与改动前逐字节相同 |
@@ -604,6 +604,58 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 **结果（Linux 虚拟机）。** 又有 3 个文件在 Linux 上失去了间接带来的 `<cstring>`（trop 的 `tresample.cpp`、`tropcm.cpp`，toonzlib 的 `sandor_fxs/blend.cpp`），补了包含；虚拟机的构建是逐轮查出来的，每次只有一个库报错。之后：全部目标编译通过；460 个测试里 459 个通过，失败的仍是 `golden_fx_sweep_font_a`；GL 画布 32 个、无 Qt 构建 149 个通过。macOS 上补完这几处包含以后又跑了一遍全部测试，486 个通过。
 
+### 8.10 第 8a 步实际做成的样子（2026-11-18）
+
+**新函数**（`tconvert.h`、`tstring.cpp`，与第 3、4 步的那几个同类，在无 Qt 构建里也有）：
+
+- `toStringAsQString(v)`：等于 `QString::number(v, 'g', 17)`。实测（Qt 5.15.19）与 printf 的 `%.17g` 有三处不同，都照 Qt 做了：
+  - 正负零都写成 `"0"`（printf 写 `"-0"`）；
+  - 任何 NaN 都写成 `"nan"`；
+  - 第 18 位有效数字上正好是 5 的精确平局，Qt（double-conversion）远离零进位，printf 进到偶数。例如 `-121544296184850.125` 在 Qt 里是 `"-121544296184850.13"`，printf 给 `...850.12`。只在第 18 位是 5 时才走慢路：取完整的十进制展开，自己舍入。
+- `toDoubleAsQString(s, ok)`：等于 `QString::fromStdString(s).toDouble(ok)`。实测的规则：
+  - 两端的空白照 `QChar::isSpace` 去掉，U+FEFF 不算空白（开头那个是 BOM，读的时候本来就丢了）；
+  - U+2212 MINUS SIGN 在任何能放 `-` 的地方都当 `-`，指数里也一样；
+  - 不分大小写的 `nan` 和可带符号的 `inf` 可以，`+nan`、`infinity`、十六进制、千分位都不行；
+  - 上溢给无穷大但 ok 为假，下溢（`1e-400`）给 0 也不 ok。
+- `toIntAsQString(s, ok)`：等于 `QString::fromStdString(s).toInt(ok)`，空白和 U+2212 的规则同上，超出 int 时给 0。
+- `matchesWildcardsAsQDir(filters, name)`：等于 `QDir::match`。照 Qt 5.15 的 `QRegularExpression::wildcardToRegularExpression` 加不分大小写：
+  - `*` 和 `?` 不跨 `/`；
+  - `[...]` 里 `!` 和 `^` 都表示取反，紧跟着的 `]` 是字面字符；
+  - 没有闭合的 `[`、类里出现 `/`、倒过来的区间，都使正则表达式无效，因而什么都不匹配；
+  - 反斜杠和正则表达式的元字符都是字面字符；
+  - 大小写按 Unicode 的简单大小写折叠比，用第 6a 步的那张表，所以 `ſ.png` 匹配 `*.png`。
+
+**用到的地方。**
+- `tpalette.cpp`：参考帧列表的写法从 `QList` 换成 `std::vector`，读法换成上面的 split 和 `toIntAsQString`；拖尾大小倍数的写读换成 `toStringAsQString`、`toDoubleAsQString`；快捷键的 `Qt::Key_0`、`Key_1`、`Key_9` 换成同值的常量（调用方传进来的就是这些值）。
+- `tsimplecolorstyles.cpp`：`sourceFilters` 多了 std 版本 `sourceFilterPatterns`，QString 版本搬到 `tcolorstyles_qt.cpp` 当包装（Q2）；`findSource` 用 `matchesWildcardsAsQDir`。
+- 只在 Windows 上编译的显示列表那段里有两处 `QMutexLocker` 锁着 `TThread::Mutex`，是第 1 步漏掉的，在 Windows 上会编译不过，改成 `TThread::MutexLocker`。
+- 两处 `<QDebug>` 的包含去掉了：用到它的两句 `qDebug()` 本来就在注释里。
+
+这一步之后，矢量图和样式的源文件里只剩桌面 GL，没有 Qt 了。
+
+**新测试。**
+- `test_tstring_qt.cpp`（Qt 构建）加了 4 个对照：
+  - 写：一百万个随机比特模式和一百万个随机的"好看"数，外加约两千个边界值（±0、次正规数、最大最小、inf、各种 NaN、10 的每个整数次幂附近）；
+  - 读：语料、开头和结尾放上 U+3100 以下每个码位的 `2.5`、写出再读回的三十万个随机数、三十万个由数字字符随机拼成的串；
+  - 整数：语料和二十万个随机串；
+  - 通配符：TrailStyles 的 16 个模式对各种名字、扩展名的每个字母换成每个 BMP 码位、33 个带 `?`、`[]` 和各种角落的模式对 29 个名字。
+  - 实测的样本（负零、NaN、平局、U+2212、BOM、下溢）都单独写成了断言。
+- `test_tstring.cpp`（两个构建都有，也在 iPad 模拟器里跑）：同一批实测样本。
+
+**调色板的前后对照**（工具在 `toonz/build-phase1/ab/phase2/tpl/`，不进版本库，`README.md` 写了怎么重跑）。
+- 用改动前（`84f17b336` 的头加 Phase 2 之前的库）和改动后各编一个程序。
+- 写：各自写出 161 个调色板，每个有 50 个拖尾样式，大小倍数取自 8,000 多个值（样式会把它夹到范围里），参考帧列表随机，两边逐字节相同。
+- 读：各自读进再写出 206 个 `.tpl`（改动前写的那 161 个、参考工程的 4 个、30 个把大小倍数换成怪串的、11 个把帧列表换成怪串的），两边逐字节相同。
+- 另有 3 个帧列表（`"3-2"`、`""`、`"-"`）会得到"已指定但为空"的参考帧，存档时两边都读空列表的第 0 个元素，是未定义行为：改动前写出垃圾数，改动后会崩溃。没有放进对照，记为已知问题第 32 条。
+
+**结果（x86_64 macOS）。**
+
+- 全部测试：491 个通过。
+- 渲染对照：golden 通过；单线程和 8 线程的 554 帧、OpenGL 退路单线程的 277 帧都与 Phase 2 之前的构建同一天渲的逐字节相同。
+- 无 Qt 构建：三道检查通过，150 个测试通过，iPad 模拟器里 62 个通过。
+
+**结果（Linux 虚拟机）。** 全部目标编译通过，没有新的 `<cstring>` 问题；464 个测试里 463 个通过，失败的仍是 `golden_fx_sweep_font_a`；GL 画布 32 个通过。最后一次提交后又在虚拟机里跑了核心测试：清洁剂构建 211 个全部通过，其中包括上面那些与 Qt 的对照，所以在 glibc 的 printf 和 strtod 上也相同；无 Qt 构建 150 个通过。
+
 ---
 
 ## 9. 引擎 API 的第一版
@@ -681,6 +733,17 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 1. **样式的界面文字（Q7-A 取 (a)）**：核心公共头里的 `TTranslatableText`，字段只有三项：上下文、UTF-8 的源文本、是否翻译。新增虚函数 `getDescriptionText`、`getParamNameText`、`getParamRangeText` 返回它；原来的 `getDescription`、`getParamNames`、`getParamRange(int, QStringList &)` 改成非虚的 Qt 包装，调用点不改（Q2 的做法）。要翻译的串写成 `TTranslatableText("类名", QT_TRANSLATE_NOOP("类名", "文本"))`，全树统一这一种写法；不改 lupdate 的参数，lupdate 产出的 .ts 必须逐字节不变。MyPaint 这类运行时的串标为不翻译，与现状一致。
 2. **核心存进数据的译文（Q7-B 取 (a)）**：一个窄的翻译服务，照 6b、6c 的做法（可设置的函数指针，唯一切换点，有注入测试）。只给"核心把译文存进数据"的地方用，目前只有 `TPalette` 第一页的名字 "colors"；头注释写明这一限制，免得以后被当成通用的翻译入口。Qt 构建默认 `QCoreApplication::translate`，无 Qt 构建默认原样返回。所以无 Qt 构建和 iPad 在壳注入服务之前，新建调色板的页名是英文的 "colors"；注入它是 iPad 壳要做的事之一。
 3. **验证**：一个导出程序装上每种语言的译文，导出全部注册样式的描述、参数名、枚举项和新调色板的页名。改动前用 Phase 2 之前应用包里的库和 `84f17b336` 的头，改动后用新构建，两份逐字节相同。对新源码跑 lupdate，产出的 .ts 与改动前一样。导出程序和结果放在 `toonz/build-phase1/ab/phase2/`，不进版本库，做成的样子里写明怎么重跑。
+
+**第 7 步做完后的决定（2026-11-18，所有者委托主会话拍板）。** 第 7 步那一栏原来写的"矢量图、样式进入无 Qt 构建"做不到：那些源文件要链接 `tsimplecolorstyles.cpp` 和离线 GL，而它们带着桌面 GL。主会话认可的安排：矢量图和样式里剩下的不带 GL 的 Qt 放到第 8 步开头，和桌面 GL 迁出核心一起做，第 8 步结束时矢量图和样式进无 Qt 构建；迁移表的第 7、8 步已照此改写。要求：`QString::number(x, 'g', 17)` 和 `toDouble` 进了 `.tpl` 文件，替代实现要与 Qt 逐字节相同（负零、inf、nan、指数格式、小数点），用大量随机 double 和边界值的差分测试覆盖；帧号区间的解析也与旧代码差分对照；`QDir::match` 的通配规则（`*`、`?`、`[]`、大小写）照 Qt 5.15 移植并对照；GL 迁到 `tnzglview` 时核心库对外的类布局不变（无 Qt 构建和 Qt 构建的核心对象要能互换），样式的 GL 入口留在 viewer 一侧；开工前先把第 8 步的拆分和每个子步的验证方式报主会话确认。
+
+**第 8 步开工前的决定（2026-11-18，所有者委托主会话拍板）。** 拆成 8a（矢量图和样式里不带 GL 的 Qt）、8b（核心对 GL 的每次使用都经接缝，实现暂留在 tnzcore）、8c（GL 搬进新库 `tnzglview`，tnzcore 和 colorfx 不再链接 GL）、8d（矢量图、样式、colorfx 进无 Qt 构建和 iPad 模拟器），每个子步验证完再进下一个。四件事都按建议：
+
+1. **Q8-A 接缝**取三种：给薄壳的"viewer 画布"钩子；给直接画 GL 的样式函数和属性类 `draw` 的按类注册的 GL 画法；给图标、图案笔刷和 `TVectorRasterizer` GL 退路的离线栅格化后端。三种都做成可设置、唯一切换点、有注入测试；核心类的布局在两种构建里相同，GL 虚函数的声明留在原来的类里。函数体搬到 tnzglview 以后经友元结构访问私有成员，类注释里写明那是 tnzglview 的实现细节。
+2. **Q8-B** 每个要 GL 的程序在 `main` 里显式调 `TGLView::install()`。逐个程序判断能否走到 GL 路径（OpenToonz、tcomposer 要；tconverter、tcleanup、两个农场程序查清），结论列成表写进做成的样子。
+3. **Q8-C** 没装 tnzglview 时 GL 入口什么都不画，图标和图案笔刷改走默认的 Skia 栅格化器，结果与桌面不同；写进文档和 iPad 待办。保险：桌面 Qt 构建里接缝未装而 GL 入口被调用时，一次性往标准错误打一行（Debug 构建下 assert），免得漏了 install 的程序悄悄什么都不画；无 Qt 构建里不打。
+4. **Q8-D** 没有调用者的调试画法（`drawPointSquare`、`drawPointCross`、`drawLinks`）删掉，提交信息里逐个列名；有调用者的 `drawQuadratic`、`drawStrokeCenterline` 搬进 tnzglview；`#ifdef` 里默认不编译的原样不动。
+
+另外：8a 的数字对照里，`QString::number(x, 'g', 17)` 对 inf、nan、负零的输出以 Qt 5.15 实测为准，样本写进测试；8c 的 viewer 人工验收清单到里程碑时与 6a 的清单合并成一份交给所有者。
 
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
