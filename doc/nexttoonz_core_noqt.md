@@ -980,7 +980,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 - **CI 没有跑过第 8 步。** workflow 只改了文件，分支没有推送。推送后第一件事是看 macOS-noqt 作业：
   - GitHub 的 macos-15-intel runner 上找不找得到 iPad 模拟器的运行时（本机只装了 iOS 15.5 的）；
   - iOS 模拟器的 Skia 包能不能下载，摘要对不对。
-- **Windows 是盲改的。** 第 8 步改了只在 Windows 上编的 toonzpreview（`TGLView::install()`）和 tnzglview 的 Windows 链接，导出宏在 tnzglview 里也没有按 Windows 的需要细分（8c）。没有 Windows 的表，矢量测试在那里跳过。
+- **Windows 是盲改的。** Windows 的 workflow 只在推送到 master 或 PR 时自动跑，所以加了手动触发（`workflow_dispatch`），推送后手动跑一次。第 8 步改了只在 Windows 上编的 toonzpreview（`TGLView::install()`）和 tnzglview 的 Windows 链接，导出宏在 tnzglview 里也没有按 Windows 的需要细分（8c）。没有 Windows 的表，矢量测试在那里跳过。
 - **桌面应用只能人工验收**：viewer 的绘制经接缝走，8.6 节的清单还没有人做过。
 
 ---
@@ -1157,6 +1157,11 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 - 第 1 处是真问题：已知问题文档里加一条，标"已修复（Phase 2 第 8d 步）"，发布说明也提一句，因为它可能解释过去多线程渲染里偶发的怪现象。
 - `getInstanceCounter` 用 `std::atomic`，可以用 acquire/release，但不为性能把双重检查写复杂，简单优先。
 - 8 线程读画 pli 的测试留在无 Qt 和 Qt 两种构建里常跑；TSan 构建的跑法写进测试 README 的 Sanitizers 一节。
+
+**第 1 到 8 步作为里程碑准备时的决定（2026-11-19，所有者委托主会话拍板）。** 整理后的分支 `tidy/phase2-steps1-8` 与 `wip/phase2-noqt` 末端内容相同；里程碑本身（推送、合并）等所有者定。准备中定了三件事：
+1. tcleanup 在 macOS 上单独运行时找不到 `SystemVar.ini` 而中止：记为已知问题第 34 条（原有问题，注明崩溃报告的来源），不修。人工验收第 11 条改在应用里做清理。
+2. Windows 的 workflow 加 `workflow_dispatch` 触发，只加这个，不加推送触发。推送后手动跑一次，验证 Windows 上的盲改，不必开 PR。
+3. arm64 的矢量校验和表要不要再拆一张：等 CI 的结果出来再定，先不动。
 
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
