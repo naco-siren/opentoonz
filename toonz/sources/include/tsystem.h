@@ -26,41 +26,73 @@
 // all info returned by stat and access
 // plus 'toonz-like' info: what is it: directory, level, image, text, etc.
 
-#ifndef TNZCORE_LIGHT
+#include <string>
+#include <vector>
 
-#include <QDateTime>
+// The functions and members that take or give these are for the code on the
+// Qt side and are defined in tsystem_qt.cpp, which the build without Qt
+// leaves out (doc/nexttoonz_core_noqt.md, section 6 and step 6a).
+class QDateTime;
+class QDir;
+class QString;
+class QStringList;
 
-DVAPI std::ostream &operator<<(std::ostream &out, const QDateTime &t);
+DVAPI std::ostream &operator<<(std::ostream &out,
+                               const QDateTime &t);  // tsystem_qt.cpp
 
-#include <QFileInfo>
+//! What stat and access say about a path, as QFileInfo said it. Until step
+//! 6a of doc/nexttoonz_core_noqt.md it held a QFileInfo, and reported every
+//! path as missing while there was no QCoreApplication; it now always
+//! reports the file system as it is.
 class DVAPI TFileStatus {
-  bool m_exist;
-  QFileInfo m_fileInfo;
+public:
+  //! The permission bits, with QFileDevice::Permission's values.
+  enum Permission {
+    ReadOwner  = 0x4000,
+    WriteOwner = 0x2000,
+    ExeOwner   = 0x1000,
+    ReadUser   = 0x0400,  //!< the current user may read (access(R_OK))
+    WriteUser  = 0x0200,
+    ExeUser    = 0x0100,
+    ReadGroup  = 0x0040,
+    WriteGroup = 0x0020,
+    ExeGroup   = 0x0010,
+    ReadOther  = 0x0004,
+    WriteOther = 0x0002,
+    ExeOther   = 0x0001
+  };
+  typedef int Permissions;
+
+private:
+  std::wstring m_path;
+  bool m_exist       = false;
+  bool m_isDirectory = false;
+  bool m_isLink      = false;
+  TINT64 m_size      = 0;
+  Permissions m_permissions = 0;
 
 public:
   TFileStatus(const TFilePath &path);
-  QString getGroup() const;
-  QString getUser() const;
+  QString getGroup() const;                  // tsystem_qt.cpp
+  QString getUser() const;                   // tsystem_qt.cpp
   TINT64 getSize() const;
-  QDateTime getLastAccessTime() const;
-  QDateTime getLastModificationTime() const;
-  QDateTime getCreationTime() const;
+  QDateTime getLastAccessTime() const;       // tsystem_qt.cpp
+  QDateTime getLastModificationTime() const;  // tsystem_qt.cpp
+  QDateTime getCreationTime() const;          // tsystem_qt.cpp
   bool isDirectory() const;
   bool isLink() const;
-  QFile::Permissions getPermissions() const;
+  Permissions getPermissions() const;
 
   bool doesExist() const { return m_exist; }
-  bool isWritable() const { return (getPermissions() & QFile::WriteUser) != 0; }
+  bool isWritable() const { return (getPermissions() & WriteUser) != 0; }
   bool isReadable() const {
-    return m_exist && (getPermissions() & QFile::ReadUser) != 0;
+    return m_exist && (getPermissions() & ReadUser) != 0;
   }
 
   bool isWritableDir() const {
     return doesExist() && isDirectory() && isWritable();
   };
 };
-
-#endif
 
 class DVAPI TSystemException final : public TException {
   TFilePath m_fname;
@@ -104,7 +136,7 @@ DVAPI void disableWindowStateRestoration();
 
 // add (at the end) to set
 DVAPI void readDirectory(TFilePathSet &fpset, const QDir &dir,
-                         bool groupFrames = true);
+                         bool groupFrames = true);  // tsystem_qt.cpp
 
 DVAPI void readDirectory(TFilePathSet &fpset, const TFilePath &path,
                          bool groupFrames = true, bool onlyFiles = false,
@@ -125,7 +157,10 @@ DVAPI void readDirectory(TFilePathSet &groupFpSet, TFilePathSet &allFpSet,
 DVAPI void readDirectory_Dir_ReadExe(TFilePathSet &dst, const TFilePath &path);
 
 // return the folder item list which is readable and executable (only names)
-DVAPI void readDirectory_DirItems(QStringList &dst, const TFilePath &path);
+DVAPI void readDirectory_DirItems(QStringList &dst,
+                                  const TFilePath &path);  // tsystem_qt.cpp
+DVAPI void readDirectory_DirItems(std::vector<std::wstring> &dst,
+                                  const TFilePath &path);
 
 // create a new set
 DVAPI TFilePathSet readDirectory(const TFilePath &path, bool groupFrames = true,
@@ -273,13 +308,14 @@ DVAPI TFilePath toLocalPath(const TFilePath &fp);
 
 DVAPI bool showDocument(const TFilePath &fp);
 
-#ifndef TNZCORE_LIGHT
+// In tsystem_qt.cpp for now; step 6c of doc/nexttoonz_core_noqt.md gives the
+// core its own versions of what it needs of these.
 DVAPI QDateTime getFileTime(const TFilePath &path);
 DVAPI QString getHostName();
 DVAPI QString getUserName();
 DVAPI QString getSystemValue(const TFilePath &name);
-DVAPI TFilePath getUniqueFile(QString field = "");
-#endif
+DVAPI TFilePath getUniqueFile(QString field);
+DVAPI TFilePath getUniqueFile();  // getUniqueFile(""), which the default was
 
 DVAPI bool isDLLBlackListed(QString dllFile);
 

@@ -1,5 +1,6 @@
 
 
+#include <cstring>
 #include <memory>
 
 #include "tmachine.h"

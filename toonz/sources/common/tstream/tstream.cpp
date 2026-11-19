@@ -13,6 +13,7 @@
 #include "lz4frame.h"
 #endif
 
+#include <cstring>
 #include <sstream>
 #include <memory>
 

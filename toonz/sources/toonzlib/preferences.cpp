@@ -15,6 +15,7 @@
 
 // TnzCore includes
 #include "tsystem.h"
+#include <QFile>
 #include "tconvert.h"
 #include "tundo.h"
 #include "tbigmemorymanager.h"

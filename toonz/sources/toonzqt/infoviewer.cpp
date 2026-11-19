@@ -3,6 +3,9 @@
 #include "toonzqt/infoviewer.h"
 #include "toonzqt/intfield.h"
 #include "tsystem.h"
+#include <QFileInfo>
+#include <QFontInfo>
+#include <QString>
 #include "tlevel.h"
 #include "tpalette.h"
 #include "tlevel_io.h"

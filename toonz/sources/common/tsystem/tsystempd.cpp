@@ -22,6 +22,11 @@
 #include "tconvert.h"
 #include "tenv.h"
 
+// tsystem.h no longer brings these (doc/nexttoonz_core_noqt.md, step 6a)
+#include <QDateTime>
+#include <QDebug>
+#include <QFileInfo>
+
 // Undefine PLATFORM to avoid conflicts
 #undef PLATFORM
 
@@ -513,6 +518,35 @@ TINT64 TSystem::getMemorySize(bool onlyPhysicalMemory) {
 
 //------------------------------------------------------------
 
+// From tsystem.cpp (doc/nexttoonz_core_noqt.md, step 6a): they need
+// moveFileToRecycleBin, which is still on Qt.
+void TSystem::moveFileOrLevelToRecycleBin_throw(const TFilePath &fp) {
+  if (fp.isLevelName()) {
+    TFilePathSet files;
+    files = TSystem::readDirectory(fp.getParentDir(), false, true, true);
+
+    for (const auto &file : files) {
+      if (file.getLevelNameW() == fp.getLevelNameW())
+        TSystem::moveFileToRecycleBin(file);
+    }
+  } else {
+    TSystem::moveFileToRecycleBin(fp);
+  }
+}
+
+//--------------------------------------------------------------
+
+bool TSystem::moveFileOrLevelToRecycleBin(const TFilePath &fp) {
+  try {
+    moveFileOrLevelToRecycleBin_throw(fp);
+  } catch (...) {
+    return false;
+  }
+  return true;
+}
+
+//--------------------------------------------------------------
+
 void TSystem::moveFileToRecycleBin(const TFilePath &fp) {
 #if defined(_WIN32)
   //
@@ -624,114 +658,8 @@ void TSystem::moveFileToRecycleBin(const TFilePath &fp) {
 
 //------------------------------------------------------------
 
-TString TSystemException::getMessage() const {
-  wstring msg;
-  switch (m_err) {
-  case -1:
-    msg = m_msg;
-    break;  // // nothing
-  case EEXIST:
-    msg =
-        L": Directory was not created because filename is the name of an "
-        L"existing file, directory, or device";
-    break;
-  case ENOENT:
-    msg =
-        L": Path was not found, or the named file does not exist or is a null "
-        L"pathname.";
-    break;
-  case ENOTEMPTY:
-    msg =
-        L": Given path is not a directory; directory is not empty; or "
-        L"directory is either current working directory or root directory";
-    break;
-  case EACCES:
-    msg =
-        L": Search permission is denied by a component of the path prefix, or "
-        L"write permission on the file named by path is denied, or times is "
-        L"NULL, and write access is denied";
-    break;
-  case EFAULT:
-    msg =
-        L": Times is not NULL and, or points outside the process's allocated "
-        L"address space.";
-    break;
-  case EINTR:
-    msg = L": A signal was caught during the utime system call.";
-    break;
-  case ENAMETOOLONG:
-    msg =
-        L": The length of the path argument exceeds {PATH_MAX}, or the length "
-        L"of a path component exceeds {NAME_MAX} while _POSIX_NO_TRUNC is in "
-        L"effect.";
-    break;
-  case ENOTDIR:
-    msg = L": A component of the path prefix is not a directory.";
-    break;
-  case EPERM:
-    msg =
-        L": The calling process does not have the super-user privilege, the "
-        L"effective user ID is not the owner of the file, and times is not "
-        L"NULL, or the file system containing the file is mounted read-only";
-    break;
-  case EROFS:
-    msg =
-        L": The current file system level range does not envelop the level of "
-        L"the file named by path, and the calling process does not have the "
-        L"super-user privilege.";
-    break;
-  case ENOSYS:
-    msg =
-        L": When the named file cannot have its time reset.  The file is on a "
-        L"file system that doesn't have this operation.";
-    break;
-  case EMFILE:
-    msg = L": The maximum number of file descriptors are currently open.";
-    break;
-  case ENFILE:
-    msg = L": The system file table is full.";
-    break;
-  case EBADF:
-    msg =
-        L": The file descriptor determined by the DIR stream is no longer "
-        L"valid.  This result occurs if the DIR stream has been closed.";
-    break;
-  case EINVAL:
-    msg = L": 64-bit and non-64-bit calls were mixed in a sequence of calls.";
-    break;
-  default:
-    msg = L": Unknown error";
-    break;
-#ifndef _WIN32
-  case ELOOP:
-    msg = L": Too many symbolic links were encountered in translating path.";
-    break;
-#ifndef MACOSX
-  case EMULTIHOP:
-    msg =
-        L": Components of path require hopping to multiple remote machines and "
-        L"the file system does not allow it.";
-    break;
-  case ENOLINK:
-    msg =
-        L": Path points to a remote machine and the link to that machine is no "
-        L"longer active.";
-    break;
-#endif
-#if defined(__sgi)
-  case EDIRCORRUPTED:
-    msg = L": The directory is corrupted on disk.";
-    break;
-#endif
-  case EOVERFLOW:
-    msg =
-        L": One of the inode number values or offset values did not fit in 32 "
-        L"bits, and the 64-bit interfaces were not used.";
-    break;
-#endif
-  }
-  return m_fname.getWideString() + L"\n" + msg;
-}
+// TSystemException::getMessage is in tsystem.cpp (doc/nexttoonz_core_noqt.md,
+// step 6a).
 
 //------------------------------------------------------------
 

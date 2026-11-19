@@ -193,3 +193,29 @@ TEST(TStringQtDifferential, ToStringOnRandomWideStrings) {
   }
   EXPECT_EQ(check.failures, 0);
 }
+
+// equalsIgnoringCaseAsQString (step 6a, QFile::rename's case check) against
+// QString::compare(..., Qt::CaseInsensitive) for every code point paired with
+// its folding, lowercase and uppercase, and inside a longer name.
+TEST(TStringQtDifferential, EqualsIgnoringCaseOnEveryCodePoint) {
+  int checked = 0;
+  for (uint c = 0; c <= 0x10ffff; ++c) {
+    if (c >= 0xd800 && c <= 0xdfff) continue;
+    QString a = QString::fromUcs4(&c, 1);
+    uint f = QChar::toCaseFolded(c), l = QChar::toLower(c), u = QChar::toUpper(c);
+    for (uint d : {f, l, u, c + 1}) {
+      if (d >= 0xd800 && d <= 0xdfff) continue;
+      if (d > 0x10ffff) continue;
+      QString b = QString::fromUcs4(&d, 1);
+      for (int wrap = 0; wrap < 2; ++wrap) {
+        QString x = wrap ? "Ab" + a + "z" : a, y = wrap ? "aB" + b + "Z" : b;
+        bool qt   = QString::compare(x, y, Qt::CaseInsensitive) == 0;
+        ASSERT_EQ(equalsIgnoringCaseAsQString(x.toStdWString(), y.toStdWString()),
+                  qt)
+            << std::hex << c << " " << d << " " << wrap;
+        ++checked;
+      }
+    }
+  }
+  EXPECT_GT(checked, 4000000);
+}

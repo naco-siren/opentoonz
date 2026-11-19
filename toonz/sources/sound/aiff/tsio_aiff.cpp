@@ -1,6 +1,8 @@
 
 
 #include "tsio_aiff.h"
+
+#include <cstring>
 #include "tmachine.h"
 #include "tsound_t.h"
 #include "tsystem.h"

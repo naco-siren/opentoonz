@@ -8,6 +8,8 @@
 #include "tsystem.h"
 #include "tstream.h"
 
+#include <QString>
+
 //=========================================================
 
 namespace {

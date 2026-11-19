@@ -5,6 +5,7 @@
 #include "timagecache.h"
 #include "tsystem.h"
 #include "tconvert.h"
+#include <cstring>
 #include <set>
 #include "tfilepath_io.h"
 

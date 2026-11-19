@@ -5,6 +5,7 @@
 
 #include "toonzqt/dvdialog.h"
 #include "tsystem.h"
+#include <QFile>
 #include <QAudioInput>
 #include <QObject>
 #include <QLabel>

@@ -26,6 +26,7 @@
 
 // TnzCore includes
 #include "tsystem.h"
+#include <QIODevice>
 #include "tpixelutils.h"
 #include "iocommand.h"
 

@@ -244,6 +244,18 @@ const LowercaseMapping kLowercaseTable[] = {
 #include "tlowercasetable.inc"
 };
 
+const LowercaseMapping kCaseFoldTable[] = {
+#include "tcasefoldtable.inc"
+};
+
+char32_t foldCase(char32_t c) {
+  const LowercaseMapping *end = std::end(kCaseFoldTable);
+  const LowercaseMapping *m   = std::lower_bound(
+      std::begin(kCaseFoldTable), end, c,
+      [](const LowercaseMapping &a, char32_t b) { return a.from < b; });
+  return m != end && m->from == c ? m->to : c;
+}
+
 }  // namespace
 
 std::wstring toLowerAsQString(const std::wstring &s) {
@@ -261,6 +273,17 @@ std::wstring toLowerAsQString(const std::wstring &s) {
     out.push_back(m != end && m->from == c ? m->to : c);
   }
   return codesToWide(out);
+}
+
+bool equalsIgnoringCaseAsQString(const std::wstring &a, const std::wstring &b) {
+  // QString::compare(a, b, Qt::CaseInsensitive) compares the folded code
+  // points of the two strings and then their lengths in UTF-16 units
+  std::u32string ca = wideToCodes(a), cb = wideToCodes(b);
+  if (wideToUtf16(a).size() != wideToUtf16(b).size()) return false;
+  if (ca.size() != cb.size()) return false;
+  for (size_t i = 0; i < ca.size(); ++i)
+    if (foldCase(ca[i]) != foldCase(cb[i])) return false;
+  return true;
 }
 
 std::wstring roundTripAsQString(const std::wstring &s) {

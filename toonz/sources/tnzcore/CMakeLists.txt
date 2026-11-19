@@ -164,6 +164,7 @@ set(SOURCES
     ../common/tsystem/tlogger.cpp
     ../common/tsystem/tpluginmanager.cpp
     ../common/tsystem/tsystem.cpp
+    ../common/tsystem/tsystem_qt.cpp
     ../common/tvectorimage/cornerdetector.cpp
     ../common/tvectorimage/drawutil.cpp
     ../common/tvectorimage/tcomputeregions.cpp
@@ -279,8 +280,9 @@ endif()
 # tsmartpointer.cpp on it; step 3 (the string conversions) freed tconvert.h
 # and with it the next eight; step 4 TFilePath and TFrameId, whose Qt members
 # are in tfilepath_qt.cpp; step 5 the sound track registry and tdata.cpp, as
-# the stream, image cache and image I/O headers lost Qt. The others never
-# needed Qt.
+# the stream, image cache and image I/O headers lost Qt; step 6a the file
+# system part of tsystem.cpp, whose Qt members are in tsystem_qt.cpp. The
+# others never needed Qt.
 set(TNZCORE_NOQT_SOURCES
     ../common/tcore/tdata.cpp
     ../common/tcore/tdebugmessage.cpp
@@ -304,6 +306,7 @@ set(TNZCORE_NOQT_SOURCES
     ../common/tsound/tsound_io.cpp
     ../common/tsystem/tfilepath.cpp
     ../common/tsystem/tfiletype.cpp
+    ../common/tsystem/tsystem.cpp
 )
 foreach(_source ${TNZCORE_NOQT_SOURCES})
     if(NOT _source IN_LIST SOURCES)

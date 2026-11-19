@@ -9,6 +9,7 @@
 #include <set>
 #include <vector>
 #include <QTimer>
+#include <QTime>
 
 class TLogger::Imp {
 public:

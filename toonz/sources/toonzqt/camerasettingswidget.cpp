@@ -27,6 +27,7 @@
 // TnzCore includes
 #include "tconvert.h"
 #include "tsystem.h"
+#include <QFile>
 #include "tfilepath_io.h"
 #include "tutil.h"
 
