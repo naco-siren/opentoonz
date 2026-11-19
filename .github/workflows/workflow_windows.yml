@@ -5,6 +5,8 @@ concurrency:
   cancel-in-progress: ${{ github.head_ref != '' }}
 
 on:
+  # Started by hand too, to build a branch other than master on Windows.
+  workflow_dispatch:
   push:
     branches:
       - master  # Specify branches where the workflow should run
