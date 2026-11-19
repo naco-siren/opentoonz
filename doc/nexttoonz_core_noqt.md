@@ -2,7 +2,7 @@
 
 版本 0.7，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
-迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）和第 6a 步（文件状态、文件操作与目录列表）已经实现（第 7 节，做成的样子在 8.1 到 8.6 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
+迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）和第 6b 步（`SystemVar.ini` 经键值存储）已经实现（第 7 节，做成的样子在 8.1 到 8.7 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`（Phase 1 合并之后）。所有路径相对于 `toonz/sources/`。标着"实测"的数字来自编译器和链接器，不是读代码：预处理器的包含树（`-E -H`，用构建目录里 `compile_commands.json` 的原样参数）、已构建的 dylib 的未定义符号（`nm -m`）和链接的框架（`otool -L`）。按类分的行数来自正则统计，有噪声，只当量级看。测量脚本不在版本库里，做法记在 2.1 节。
 
@@ -265,7 +265,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 3（已完成） | 字符串转换：`tstring.cpp` 不用 QString，`tconvert.h` 的 QString 重载改成第 6 节的适配 | tnzcore 8 个：`tstring`、`tmathutil`、`texception`、`tcurves`、`tcurveutil`、`tstrokeoutline`、`cornerdetector`、`tsound`（`tstroke` 要等第 8 步，见 8.3 节） | 8.3 节 |
 | 4（已完成） | `TFilePath`、`TFrameId` 不用 QString、QChar、QRegularExpression；带 Qt 类型的成员留给 Qt 一侧（8.4 节） | `tfilepath.cpp`、`tfiletype.cpp` | 8.4 节 |
 | 5（已完成） | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList（8.5 节） | `tsound_io.cpp`、`tdata.cpp`；栅格和 trop 要等第 6 步（`TBigMemoryManager`）和第 9 步（`TImageCache` 的 `QThreadStorage`） | 8.5 节 |
-| 6（拆成 6a、6b、6c，见第 10 节；6a 已完成，8.6 节） | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
+| 6（拆成 6a、6b、6c，见第 10 节；6a、6b 已完成，8.6、8.7 节） | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
 | 7 | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名改成源文本加上下文（Q2）；`tsimplecolorstyles`、`tpalette`、colorfx 的 `translate` 一并改 | 矢量图（`tvectorimage`、`tregion`、`tcomputeregions`…）、样式；colorfx 的非 GL 部分（GL 入口在第 8 步移出） | 每个注册样式的名字在界面里显示的译文与改动前相同（一个测试：遍历注册表，经 Qt 翻译后与旧实现逐字比较） |
 | 8 | tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzqt、tnztools、toonz 链接它，也由它链接 `tnzglcanvas`）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收 |
 | 9 | 线程：`TThread::Executor`/`Runnable` 换成线程池，`TThread::Message` 换成派发器，`QThreadStorage`、`QReadWriteLock`、`QWaitCondition` 换成 std；toonzqt 加 Runnable 的 Qt 适配和 Qt 派发器 | `tthread.cpp`、`threadmessage.cpp`、`timagecache.cpp`… | golden 用 `-nthreads 1` 和 `-nthreads 8` 各渲一遍，与改动前逐字节相同；线程池的单测在 ThreadSanitizer 下跑；应用里人工验收（预览、渲染进度、取消） |
@@ -483,6 +483,36 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 **tcomposer 初始化 stuff 目录的前后对照（Linux 虚拟机）。** 初始化只在 Linux 上做（`TEnv::initUserStuffDir`，Windows 和 macOS 上是空的），所以在虚拟机里比。改动前用第 5 步构建的程序（同步分支前先存了一份 `bin`、`lib`），改动后用 6a 的，各自摆成安装后的样子（`<前缀>/bin/tcomposer`、`<前缀>/share/opentoonz/stuff`），在一个空的家目录里各跑四种情况：首次运行（没有 `~/.config/OpenToonz`）、第二次运行、删掉 stuff 目录留下 ini 再运行、从放着 `portablestuff` 的文件夹启动（便携模式）。每次记下整个家目录（名字、类型、权限、大小、内容的散列）、`SystemVar.ini` 的字节和渲出的帧（脚本 `toonz/build-phase1/vm/stuff_seed_6a.sh`，不进版本库）。结果：四种情况下家目录的文件树、`SystemVar.ini`、帧都逐字节相同；不同的只有 `toonzfarm/tcomposer.log` 和标准输出，它们记着输出路径（`seed_before` 比 `seed_after` 多一个字符，每帧一行）和耗时。
 
+### 8.7 第 6b 步实际做成的样子（2026-11-18）
+
+**接口。** 新的 `include/tkeyvaluestore.h`：抽象类 `TKeyValueStore`，现在只有字符串的读写——`contains`、`stringValue(key, 默认值)`（与 `QSettings::value(key, 默认值).toString()` 同义）、`setStringValue`、`sync`（析构时也写出）。键是 UTF-8，写法与 QSettings 一一对应：`key` 是 `[General]` 节里的键；`group/key` 是 `[group]` 节的键，group 可以嵌套成 `a/b/key`；`beginWriteArray` 写的数组是 `name/size`（长度）和从 1 起的 `name/1/key`、`name/2/key`。按类型读写（bool、int、double、颜色、尺寸、map）留给第 15 步加在这几个方法旁边，头文件的注释写明了，没有存根。
+
+**注入。** 唯一的切换点是 `TKeyValueStore::setFactory(工厂)`：它设定 `open(路径)` 用的工厂，返回被替换的那个，传 `nullptr` 恢复内置的。内置的在 Qt 构建里是 QSettings 的实现（`tkeyvaluestore_qt.cpp`，只在 Qt 构建里编译），在无 Qt 构建里是什么都不存、什么都不写的空实现；用哪个由 `tkeyvaluestore.cpp` 编译时有没有 Qt Core（`QT_CORE_LIB`）决定，不靠静态初始化的顺序。各程序的 `main` 都没有改：`EnvGlobals` 在 `TEnv::setRootVarName` 里第一次用到时就要读 `SystemVar.ini`，比任何注入都早。
+
+**桌面实现。** 每次 `open` 新建一个 `QSettings(路径, IniFormat)`，与原来每次读都新建一个相同；读是 `value(键, 默认值).toString()`，写是 `setValue(键, QString)`，`sync` 就是 `QSettings::sync`。默认值是空串时，键不存在的结果与原来的 `value(键).toString()` 一样是空串。
+
+**`tenv` 的改动只有两处**：`EnvGlobals::getSystemVarPath` 读、`writeRootVar` 写（Linux 首次运行时记下 stuff 目录）。路径原来直接是 `getSystemVarFile()` 的 QString，现在先变成 `TFilePath` 再交给存储，存储里再变回 QString；下面的测试比较的正是这两种走法。`tenv.cpp` 不再包含 `<QSettings>`，其余的 Qt 照决定留给 6c。
+
+**一个保留下来的老行为。** 手写进 `SystemVar.ini` 的、没有加引号又带逗号的值，QSettings 读成字符串列表，`toString()` 给空串，所以那样的路径读出来是空的（QSettings 自己写带逗号的值时会加引号，读得回来）。新旧都是这样，测试里有。
+
+**进入无 Qt 构建的。** `tkeyvaluestore.cpp`，`TNZCORE_NOQT_SOURCES` 从 23 个变成 24 个。
+
+**新测试。**
+
+- `test_tkeyvaluestore.cpp`（两个构建都有，也在 iPad 模拟器里跑）：注入的工厂就是 `open` 用的；`setFactory` 返回被替换的；`nullptr` 恢复内置的；无 Qt 构建里内置的是空实现。
+- `test_tkeyvaluestore_qt.cpp`（Qt 构建）：读——4 份手写的 ini（逗号、带逗号的引号串、反斜杠、`\x` 转义、`%25`、非 ASCII、前后空格、`@String`、分节、嵌套 group、数组、BOM、CRLF、空文件）和 8 份 QSettings 自己写的，每份问 27 个键，旧代码（`value(key).toString()` 再进 `TFilePath`）和存储取到的值逐字相同；写——5 种起始文件（含不存在）乘 8 个值乘 4 个键，用旧代码和用存储各写一份，160 对文件逐字节相同；`tenv`——注入一个内存实现后，`TEnv::getSystemVarStringValue`、`getSystemVarPathValue` 从它读，打开的是 `SystemVar.ini`；在 Linux 上 `TEnv::initUserStuffDir` 把 stuff 目录的根写进它，磁盘上不出现 `SystemVar.ini`。
+
+**结果（x86_64 macOS）。**
+
+- 默认构建的编译命令：已有的编译单元一个都没变，多了两个存储文件和两个测试。
+- 全部测试：473 个通过。
+- golden、28 个场景单线程和 8 线程的帧、OpenGL 退路单线程的帧：golden 266 帧、554 帧、277 帧都与 Phase 2 之前的构建同一天渲的逐字节相同。
+- 无 Qt 构建：三道检查通过，144 个测试通过，iPad 模拟器里 56 个通过。
+
+**结果（Linux 虚拟机）。** 全部目标编译通过（这一步没有新的 `<cstring>` 问题）；447 个测试里 446 个通过，失败的仍是 `golden_fx_sweep_font_a`，新测试里注入内存实现的那个在 Linux 上把写的那条路也走到了；GL 画布 32 个、无 Qt 构建 144 个通过。
+
+**`SystemVar.ini` 的前后对照（Linux 虚拟机）。** 用 6a 的脚本（`toonz/build-phase1/vm/stuff_seed_6a.sh`），改动前仍是第 5 步的程序：首次运行、第二次运行、删掉 stuff 之后再运行这三种情况写出的 `SystemVar.ini` 与改动前逐字节相同；家目录的文件树、便携模式下的 `portablestuff`、渲出的帧也相同，不同的仍只有记着输出路径和耗时的日志与标准输出。
+
 ---
 
 ## 9. 引擎 API 的第一版
@@ -538,6 +568,14 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 2. **文件时间的 `QDateTime` 成员留在 Qt 一侧**，按 Q2 的做法；第一个不带 Qt 的调用者出现时再加 `std::chrono` 的版本。
 
 另外：tconverter 在 macOS（和 Windows）上从不能用到能用这一条，Phase 2 的发布说明要单列；已知问题第 29、30 条记下了。
+
+**6b 开工时的决定（2026-11-18，所有者委托主会话拍板）：键值存储的形状。** 6b 要引入的键值存储接口第 15 步直接复用，而 `Preferences` 存的值有 bool、int、double、字符串、颜色、尺寸、map，还有 group 和数组，QSettings 在 INI 里按类型写。主会话的决定：
+
+1. **形状取 (b)**：6b 只定骨架（抽象类、工厂与注入、桌面实现的位置）和字符串的读写；别的类型到第 15 步按 `Preferences` 的实际需要加。约束：键的表示和 group、数组的路径写法现在就定，并且与 QSettings 的约定一一对应（`group/key`；数组是 `name/size` 和从 1 起的 `name/1/key`），因为 `SystemVar.ini` 和 `preferences.ini` 都要逐字节不变；接口给"按类型读写"留出扩展的位置，但不实现，也不留存根。
+2. **注入**：核心声明工厂 `TKeyValueStore::open(路径)`；Qt 构建里 tnzcore 的 `*_qt.cpp` 提供 QSettings 的实现作为默认，各程序的 `main` 不改；无 Qt 构建的默认是不读也不写的空实现，iPad 壳以后自己注入。默认实现的切换点只有一处（一个可设置的工厂函数），并有一个单元测试证明注入内存实现之后 `tenv` 的读写走的是它。
+3. **范围**：6b 只换 `SystemVar.ini` 的两处；`tenv` 其余的 Qt（当前目录、家目录、标准目录、可执行文件的目录、环境变量、首次运行时复制 stuff）放到 6c，Windows 注册表的 `getSystemValue` 也在 6c；`tenv.cpp` 等 6c 之后再进无 Qt 构建。
+
+验证：Linux 首次运行写出的 `SystemVar.ini` 与改动前逐字节相同；读同一份含逗号、非 ASCII、引号的 ini，新旧取到的值逐字相同。
 
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
