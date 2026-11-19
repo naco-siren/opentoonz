@@ -354,6 +354,27 @@ Leak detection does not work with Apple's clang; on macOS, `leaks --atExit
 -- ./nexttoonz_core_tests` (with `MallocStackLogging=1` for stacks) gives a
 similar report.
 
+ThreadSanitizer runs on the core tests of the build without Qt (they include
+the vector images, styles and pli files since step 8d of
+doc/nexttoonz_core_noqt.md, and `VectorWithoutQt.PliFilesAreDrawnTheSameInEightThreads`
+reads and draws them in eight threads at once). On macOS:
+
+```
+cd toonz
+cmake -S sources -B build-noqt-tsan -G Ninja -DWITH_QT=OFF \
+    -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=thread -g" \
+    -DCMAKE_C_FLAGS=-fsanitize=thread \
+    -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread \
+    -DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=thread \
+    -DWITH_SKIA=ON -DNEXTTOONZ_SKIA_PACK_DIR=<skia-pack dir>
+ninja -C build-noqt-tsan nexttoonz_core_tests
+TSAN_OPTIONS=halt_on_error=1 ./build-noqt-tsan/tests/nexttoonz_core_tests
+```
+
+It reports nothing; any report is a new race (known issue 33 lists the ones
+it found and that were fixed). The checksums of the vector tests are the
+same in this Debug build.
+
 ## Regenerating the reference project
 
 ```

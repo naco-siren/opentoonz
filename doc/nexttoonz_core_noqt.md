@@ -2,7 +2,7 @@
 
 版本 0.7，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
-迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）、第 6b 步（`SystemVar.ini` 经键值存储）、第 6c 步（应用与进程信息，`tenv` 进无 Qt 构建）、第 7 步（样式的界面文字由界面翻译）、第 8a 步（矢量图和样式里不带 GL 的 Qt）、第 8b 步（核心对 GL 的每处使用改经三种接缝）、第 8c 步（桌面 GL 搬进 tnzglview）和第 8d-0 步（矢量图依赖里剩下的 Qt）已经实现（第 7 节，做成的样子在 8.1 到 8.13 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
+迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）、第 6b 步（`SystemVar.ini` 经键值存储）、第 6c 步（应用与进程信息，`tenv` 进无 Qt 构建）、第 7 步（样式的界面文字由界面翻译）、第 8a 步（矢量图和样式里不带 GL 的 Qt）、第 8b 步（核心对 GL 的每处使用改经三种接缝）、第 8c 步（桌面 GL 搬进 tnzglview）、第 8d-0 步（矢量图依赖里剩下的 Qt）和第 8d 步（矢量图、样式、colorfx 进无 Qt 构建和 iPad 模拟器）已经实现（第 7 节，做成的样子在 8.1 到 8.15 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`（Phase 1 合并之后）。所有路径相对于 `toonz/sources/`。标着"实测"的数字来自编译器和链接器，不是读代码：预处理器的包含树（`-E -H`，用构建目录里 `compile_commands.json` 的原样参数）、已构建的 dylib 的未定义符号（`nm -m`）和链接的框架（`otool -L`）。按类分的行数来自正则统计，有噪声，只当量级看。测量脚本不在版本库里，做法记在 2.1 节。
 
@@ -267,12 +267,12 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 5（已完成） | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList（8.5 节） | `tsound_io.cpp`、`tdata.cpp`；栅格和 trop 要等第 6 步（`TBigMemoryManager`）和第 9 步（`TImageCache` 的 `QThreadStorage`） | 8.5 节 |
 | 6（拆成 6a、6b、6c，见第 10 节；都已完成，8.6 到 8.8 节） | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
 | 7（已完成，8.9 节） | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名、枚举项改成核心产生 `TTranslatableText`、界面翻译（Q2）；`TPalette` 第一页名字经窄的数据翻译服务；`tvectorimage.h` 的 `QSet` | `ttranslatabletext.cpp`；矢量图和样式的 16 个源文件从此编译时碰不到 Qt 的头，但链接要等第 8 步 | 每个注册样式的描述、参数名、枚举项在 11 种语言下经 Qt 翻译后与改动前逐字相同（导出对照）；lupdate 前后产出的 .ts 相同 |
-| 8（8a、8b、8c、8d-0 已完成，8.10 到 8.13 节） | 开头先清矢量图和样式里不带 GL 的 Qt（第 7 步之后剩下的）：`tpalette.cpp` 的帧号区间解析与 `QString::number(…, 'g', 17)`、`toDouble`，`tsimplecolorstyles.cpp` 的 `QDir::match`、`sourceFilters`、`QMutexLocker`，`tl2lautocloser.cpp`、`tsegmentadjuster.cpp` 的 `qDebug`；然后 tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzlib、tnzext、tnzstdfx、toonzqt、tnztools、toonz 和要画 GL 的几个程序链接它，也由它链接 `tnzglcanvas`；8c 的做成的样子有列表）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`）；矢量图和样式（第 7 步留下的 16 个源文件和 `tpalette`、`tsimplecolorstyles`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收；`.tpl` 里的数字与 Qt 逐字节相同（大量随机 double 和边界值的差分测试），帧号区间解析与旧代码差分对照，`QDir::match` 的通配规则照 Qt 5.15 对照 |
+| 8（已完成，8.10 到 8.15 节） | 开头先清矢量图和样式里不带 GL 的 Qt（第 7 步之后剩下的）：`tpalette.cpp` 的帧号区间解析与 `QString::number(…, 'g', 17)`、`toDouble`，`tsimplecolorstyles.cpp` 的 `QDir::match`、`sourceFilters`、`QMutexLocker`，`tl2lautocloser.cpp`、`tsegmentadjuster.cpp` 的 `qDebug`；然后 tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzlib、tnzext、tnzstdfx、toonzqt、tnztools、toonz 和要画 GL 的几个程序链接它，也由它链接 `tnzglcanvas`；8c 的做成的样子有列表）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`）；矢量图和样式（第 7 步留下的 16 个源文件和 `tpalette`、`tsimplecolorstyles`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收；`.tpl` 里的数字与 Qt 逐字节相同（大量随机 double 和边界值的差分测试），帧号区间解析与旧代码差分对照，`QDir::match` 的通配规则照 Qt 5.15 对照 |
 | 9 | 线程：`TThread::Executor`/`Runnable` 换成线程池，`TThread::Message` 换成派发器，`QThreadStorage`、`QReadWriteLock`、`QWaitCondition` 换成 std（8d-0 已做一部分：`timagecache.cpp` 的 `QThreadStorage` 和互斥锁）；toonzqt 加 Runnable 的 Qt 适配和 Qt 派发器 | `tthread.cpp`、`threadmessage.cpp`、`timagecache.cpp`… | golden 用 `-nthreads 1` 和 `-nthreads 8` 各渲一遍，与改动前逐字节相同；线程池的单测在 ThreadSanitizer 下跑；应用里人工验收（预览、渲染进度、取消） |
 | 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`tundo.h` 的 `TUndoManager` 去 QObject；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
 | 11 | 引擎 API 第一版（第 9 节），tcomposer 改用它 | | tcomposer 的全部 golden 与改动前逐字节相同 |
 | 12 | tnzext：`plasticskeleton` 的骨骼名、`ttexturesstorage` 的 QCache 与 QString 键、`meshtexturizer` 的 QReadWriteLock；它们的 GL 部分移到 `tnzglview`（Q1） | tnzext 全部 | `plastic_basic` 的 golden；plastic 场景的读写 round-trip |
-| 13 | 外部进程：LZO 直接链接（8d-0 已做一部分：LZO 经注入的服务，桌面默认仍是外部进程，这一步接上链接库的实现）；ffmpeg 换成编解码服务接口（桌面实现仍是外部进程）；删除 `t32bitsrv`、mov/3gp 代理、QuickTime、`tipc`；`TMsgCore` 移到应用一侧；`tsound_qt` 换成声音输出服务 | sound 全部；image 的格式框架 | tlv、tzl 写出的字节与改动前相同（新写的 round-trip 测试）；含 tlv 的 golden；D10 第 2 条在核心里满足 |
+| 13 | 外部进程：LZO 直接链接（8d-0 已做一部分：LZO 经注入的服务，桌面默认仍是外部进程，这一步接上链接库的实现；image 库的 pli 读写器在 8d 本体里已进无 Qt 构建）；ffmpeg 换成编解码服务接口（桌面实现仍是外部进程）；删除 `t32bitsrv`、mov/3gp 代理、QuickTime、`tipc`；`TMsgCore` 移到应用一侧；`tsound_qt` 换成声音输出服务 | sound 全部；image 的格式框架 | tlv、tzl 写出的字节与改动前相同（新写的 round-trip 测试）；含 tlv 的 golden；D10 第 2 条在核心里满足 |
 | 14 | image 的其余：sprite 的 QImage、psd 的 QTextCodec、`Preferences` 的 3 处 | image 全部 | 各格式的读写测试（`test_level_formats.cpp` 加 psd、sprite） |
 | 15 | `Preferences` 换成注入的键值存储（Q4），桌面实现放进 toonzqt、文件格式不变 | `preferences.cpp` 移出或变薄 | 用改动前的构建写一份 preferences.ini，新构建读进再写出，逐字节相同 |
 | 16 | Handle 的信号换成观察者回调，toonzqt 配 Qt 适配器 | 9 个 Handle、`PaletteController` | toonzlib 的单测加 Handle 通知的测试；应用里人工验收（切换场景、帧、列、调色板） |
@@ -892,6 +892,97 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 - LeakSanitizer 报了 Qt 自己的一处一次性分配：`QString::localeAwareCompare` 留着的排序器。新的改号测试是第一个在 Linux 上比较帧字母的，把它带了出来，已加进 `tests/lsan.supp`。
 - 最后：全部目标编译通过；清洁剂构建 493 个测试里 492 个通过，失败的仍是 `golden_fx_sweep_font_a`；GL 画布 32 个通过；无 Qt 构建 155 个通过。
 
+### 8.14 第 8d 步实际做成的样子（2026-11-19）
+
+矢量图、样式和 colorfx 进了无 Qt 构建，也在 iPad 模拟器里跑。四条决定照办：pli 读取器、CI 的 iPad 那一步、toonzlib 的样式、三处数据竞争。
+
+**无 Qt 构建里现在有什么。**
+- **tnzcore**：77 个源文件，Qt 构建是 132 个。8d-0 清掉 Qt 的那批，加上矢量图、样式、区域计算、调色板，加上栅格、图像和它们的读写框架、图像缓存和编解码器、栅格运算。链接 tnzcanvas、tnzskia（栅格化矢量图，与 Qt 构建相同）、zlib、lz4，macOS 上还链接 CoreFoundation 和 CoreServices（回收站）。
+- **colorfx**：全部样式，只链接 tnzcore 和 tnzcanvas；它从来不用 tnzbase 的符号。
+- **image**：照决定先只有 pli 读写器（`IMAGE_NOQT_SOURCES`）。注册函数 `initPliIo()`，`initImageIo()` 在原来注册 pli 的位置调它，Qt 构建里的注册顺序不变。
+- **不在里面的**：tnzglcanvas、tnzglview 和别的图像格式；toonzlib 以上。
+
+**pli 代码去掉 Qt**，用的都是现成的先例：
+- 帧字母的字节用 `std::string`，经 `::to_wstring`、`::to_string` 转换。第 3 步的 UTF-8 编解码与 `QString::fromUtf8`、`toUtf8` 相同：跳过 BOM，孤立代理写成 `?`。
+- 拖尾参数用 8a 的 `toIntAsQString`、`toDoubleAsQString`、`toStringAsQString`。
+- 历史和创建者用 8d-0 的 `serializeW`、`getCreatorW`。
+- `ParsedPli::getCreator`、`setCreator` 照 Q2 做成 `pli_io_qt.cpp` 里的包装。
+
+**为了在 iPad 上编译而改的。** 这些对桌面行为没有影响：
+- 四个矢量源文件和 `tsimplecolorstyles.cpp` 去掉了已经用不着的 `tgl.h`、`tvectorgl.h`、`tthread.h`；`tiio.cpp` 去掉了用不着的 `tiio_jpg.h`（它带 `<QCoreApplication>` 和 libjpeg）。
+- `drawutil.h` 不再包含 `tgl.h`：`TextureInfoForGL` 的 GL 类型写成它们本来的类型（`int`、`unsigned int`、`const void *`），`drawutil_gl.cpp` 用 `static_assert` 钉住两者相同，类布局不变。原来经它拿到 `tgl.h` 的四个工具文件（tnztools 的弯曲、磁铁、栅格选择、矢量选择）自己包含。
+- `tsystempd.cpp`：iOS 上没有 Carbon，也没有回收站。
+- colorfx 里那几个用不着的 Qt 包含去掉了（8d-0 的决定）。
+- Linux 上 `pli_io.cpp`、`tiio_pli.cpp` 失去了 Qt 间接带来的 `<cstring>`，补上了（单独一个提交）。
+
+**新测试** `tests/core/test_vector_noqt.cpp`：
+- 同一个文件编进无 Qt 构建的核心测试（也在 iPad 模拟器里跑）和 Qt 构建的 toonzlib 测试（那里 main 初始化 image 和 colorfx，与程序一样），各自对同一张校验和表比较。两边都通过，就是逐字节相同。
+- 校验和表按平台分开：macOS 和 iPad 模拟器用 skia-pack，Linux 用 vcpkg 的 Skia，两边是不同的 Skia 构建，画面不同。118 项里画面的 68 项不同，矢量数据和写出的文件那 50 项两平台相同。没有表的平台跳过这组测试。
+- 内容：
+  - 交叉的闭合笔画算出区域，用纯色和 colorfx 的区域样式填充；纯色、点划线中心线和 colorfx 的描边样式；Skia 画出来，两种缩放。
+  - 读参考工程全部 pli：调色板、帧列表、每帧的笔画和区域，每一帧按包围盒画出来。Qt 构建读 15 个，无 Qt 构建读 14 个。
+  - 带创建者把 pli 写回，写出的字节，再读回创建者。
+  - 两种图案笔刷，源文件是 pli，栅格图案的帧也由 Skia 栅格化。画在笔画上，也画图标。
+  - 8 个线程同时读、画全部 pli，结果与单线程逐项相同。
+  - 只在无 Qt 构建里：读 `vec_styles.pli` 抛出 "Unknown color style id"，既不崩溃，也不交回半成品。toonzlib 的样式进来以后，这条要改成"能读出"。
+  - 表里的每一项都检查到了。
+- 同一个测试换上 8d-0 的库（`ab/phase2/d8/`）：118 项全部与 8d 相同，所以 Qt 构建本身没有变。
+
+**ThreadSanitizer。**
+- 无 Qt 核心测试的 TSan 构建（Debug），配上了 Skia。跑法写进了 `tests/README.md` 的 Sanitizers 一节。
+- 8 线程那个测试报出 17 处、三个地方的数据竞争，都是老代码，修法和摘要在单独的提交里（照决定，这是第 9 步提前的一小块）：
+  - 笔画 id 的全局计数器：真问题，已知问题第 33 条，已修复，发布说明草稿里提了；
+  - `TBigMemoryManager::instance()` 和它的分配统计；
+  - `getInstanceCounter` 的双重检查。
+- 修完以后，79 个测试在 TSan 下没有报告，多线程的那两个重复跑五遍也没有。
+- Debug 构建里矢量测试的校验和也与表相同。
+
+**LeakSanitizer 的抑制规则**：8d-0 新加的那一条（`QString::localeAwareCompare_helper`）像别的条目一样带注释：不是我们的代码，是 Qt 留着排序器的一次性分配。
+
+**CI**（只改了文件，见 8.15 的未验证事项）：
+- `skia_pack.sh` 多认 `iosSim-x64`。它的摘要取自 2026-11-08 与 x64 包一起下载的那个文件；x64 包的摘要与 GitHub 记录的相同，这个包没有与 GitHub 的记录核对过。
+- macOS-noqt 作业缓存并下载 iOS 模拟器的包。
+- `noqt_test.sh` 多一个 iOS Skia 目录的参数，Qt 检查也查 colorfx 和 image。
+- `run_ios_noqt.sh` 读三张清单，加上 tnzcanvas、tnzskia、colorfx、从源码编的 LZ4，宏照桌面的苹果构建（`MACOSX`、`i386`、`__MACOS__`）。原来没有 `i386`，像素通道的顺序就不对；那时的测试不画画，所以没有暴露。boost 的头最后才搜索。
+
+**结果（x86_64 macOS）。**
+- Qt 构建：526 个测试通过，golden 在内。
+- 与 8d-0 的应用包对照：单线程和 8 线程的 554 帧、OpenGL 退路单线程的 277 帧逐字节相同。这是改竞争之后的最终状态。
+- 无 Qt 构建：三道检查通过（13 个库文件都不链接 Qt），166 个测试通过。
+- iPad 模拟器：78 个测试通过。
+- ThreadSanitizer：79 个通过，没有报告。
+
+**结果（Linux 虚拟机）。**
+- 全部目标编译通过（补了上面那两个 `<cstring>`）。
+- 清洁剂构建 499 个测试里 498 个通过，失败的仍是 `golden_fx_sweep_font_a`；新的矢量测试和 8 线程测试在 ASan、UBSan、LSan 下都通过。
+- GL 画布 32 个通过；无 Qt 构建 166 个通过，用的是 Linux 的表。
+- 8 线程渲 28 个场景：与 8d-0 的清洁剂构建对照，ASan、UBSan 设成遇到报告就停，没有报告，277 帧逐字节相同。
+
+### 8.15 第 8 步整体（2026-11-19）
+
+第 8 步拆成 8a、8b、8c、8d-0、8d，见 8.10 到 8.14 节。合起来：
+- 核心对 Qt 的依赖只剩下 `*_qt.cpp` 里的包装。
+- 桌面 GL 在 tnzglview 里，tnzcore 和 colorfx 不链接 GL。
+- 矢量图、样式、colorfx 和 pli 读写器不带 Qt，也不带 GL，在 macOS、Linux 和 iPad 模拟器上由 Skia 画出来，与桌面的 Qt 构建逐字节相同。
+- 每一子步都验证过默认路径不变：golden、1 和 8 线程渲染、GL 退路单线程、存进文件的字节和界面文字的对照、Linux 虚拟机全量构建加清洁剂。
+
+**人工验收清单**在 8.6 节，一份：6a 的第 1 到 6 条，加 8c 并进去的第 7 到 11 条（viewer、图标、工具的中心线、tnzext 的 GL、tcleanup 和 tconverter）。到里程碑时交给所有者。第 8 步其余的子步没有新的人工项：8d 的变化都在测试和对照里。
+
+**iPad 待办**（核心在 iPad 上跑到时要处理的，第 8 步记下的）：
+- 没有装 `TGLView` 的程序，GL 入口什么都不画（Q8-C）。iPad 上图标和图案笔刷都由 Skia 画，与桌面的 GL 路径不同；8d 的测试证明它与桌面的 Skia 路径相同。
+- toonzlib 的样式（纹理、MyPaint、两种图像样式）随 toonzlib 的迁移进来。在那之前，读不了用这些样式的关卡：读的时候抛出 "Unknown color style id"，有测试钉住。
+- 内容历史里的日期只有英文月份名（8d-0）。桌面按系统语言环境写；iPad 壳要不要按语言环境写，那时再定。
+- 新建调色板的页名是英文的 "colors"，要由壳注入数据翻译服务（第 7 步）。
+- 没有回收站，没有 LZO（tlv 的帧读不了，LZO 服务要由第 13 步接上链接库的实现）。
+- 只测过模拟器（x86_64）；真机（arm64）只编译链接过。
+
+**未验证事项。**
+- **CI 没有跑过第 8 步。** workflow 只改了文件，分支没有推送。推送后第一件事是看 macOS-noqt 作业：
+  - GitHub 的 macos-15-intel runner 上找不找得到 iPad 模拟器的运行时（本机只装了 iOS 15.5 的）；
+  - iOS 模拟器的 Skia 包能不能下载，摘要对不对。
+- **Windows 是盲改的。** 第 8 步改了只在 Windows 上编的 toonzpreview（`TGLView::install()`）和 tnzglview 的 Windows 链接，导出宏在 tnzglview 里也没有按 Windows 的需要细分（8c）。没有 Windows 的表，矢量测试在那里跳过。
+- **桌面应用只能人工验收**：viewer 的绘制经接缝走，8.6 节的清单还没有人做过。
+
 ---
 
 ## 9. 引擎 API 的第一版
@@ -1034,6 +1125,38 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 - colorfx 里已经用不着的 Qt 包含，在 8d 本体里去掉。
 
 8d-0 的清单到此为止：6 个源文件，加上 `tproperty.h`、`tcontenthistory.h`、`tlevel_io.h` 三个头。再有新发现先问。
+
+**8d 本体开工时的决定（2026-11-18，所有者委托主会话拍板）。**
+
+1. **pli 读取器取 (a)。**
+   - image 库照 tnzcore 的做法加一个 `IMAGE_NOQT_SOURCES` 清单，先只放 pli 的三个文件（`pli_io.cpp`、`tags.cpp`、`tiio_pli.cpp`）。
+   - 新的注册函数 `initPliIo()` 由 `initImageIo()` 调用。Qt 构建里的注册顺序不变，格式表的顺序用测试钉住。
+   - 三个文件照现成的先例清掉 Qt；`ParsedPli` 的 `getCreator`、`setCreator` 照 Q2 做成包装。
+   - 验证：参考工程全部 pli 读出的矢量图（笔触、区域、调色板、帧列表）与 Qt 构建逐项相同，写回的字节逐字节相同，含带 creator 字段的文件。
+   - 这是把迁移表第 13 步（image 库）提前做了一小块，表里已注明。
+2. **CI 的 iPad 那一步取 (i)。**
+   - `skia_pack.sh` 多认一个 `iosSim-x64`，同样缓存；`noqt_test.sh` 多一个参数，传 iOS 的 Skia 目录。CI 和本机跑同一套脚本。
+   - workflow 只改文件，推送时才在 GitHub 上跑到。做成的样子的"未验证"里写明这一点，并列出"macOS-noqt 作业在 GitHub 的 runner 上找不找得到 iPad 模拟器的运行时"，推送后第一件事就是看它。
+
+**8d 本体开工后的决定（2026-11-18，所有者委托主会话拍板）：toonzlib 的样式。** 参考工程的 `vec_styles.pli` 是"每种样式都放一个"的调色板，里面有 toonzlib 自己的样式：纹理（tag 4），还有 MyPaint 和两个图像样式。它们的类在 toonzlib，无 Qt 构建里没有注册，读这个文件会抛出 "Unknown color style id"。
+
+主会话取 (a)：
+- 无 Qt 构建测其余 12 个 pli，`vec_styles.pli` 只在 Qt 构建里测，做成的样子写明原因。
+- 这几个样式随 toonzlib 的迁移进来，并进 iPad 待办：在那之前读不了用这些样式的关卡。
+- 读到不认识的样式 id 时抛异常，这个行为不改；这也是否决 (c)（放占位样式继续读）的理由。
+- 加一个测试把它钉住：无 Qt 构建里读 `vec_styles.pli`，应当抛出 "Unknown color style id"，不能崩溃，也不能交回半成品。toonzlib 的样式进来以后，这个测试会从"应当抛出"变成"应当读出"，提醒更新。
+
+**8d 本体的决定（2026-11-19，所有者委托主会话拍板）：三处老的数据竞争。** 8 线程同时读并画 pli 的新测试在 ThreadSanitizer 下找出三处数据竞争，都是老代码，Qt 构建同样有：
+1. 笔画 id（`tstroke.cpp` 的 `++maxStrokeId`，一个普通的全局 int）：并发建笔画会拿到重复的 id。
+2. `TBigMemoryManager::instance()` 是不加锁的延迟构造；`putRaster` 里的统计计数器没有同步。
+3. `tsmartpointer.cpp` 的 `getInstanceCounter` 在普通指针上做双重检查加锁。
+
+主会话取 (a)，现在就修，TSan 跑干净。要求：
+- 修复单独一个提交，提交信息逐条写明三处竞争、TSan 报告的摘要和修法；做成的样子写明这是第 9 步（线程）提前做的一小块。
+- 单线程的行为逐字节不变：golden、554 帧、GL 退路照旧与 8d-0 对照；8 线程那组逐字节相同。
+- 第 1 处是真问题：已知问题文档里加一条，标"已修复（Phase 2 第 8d 步）"，发布说明也提一句，因为它可能解释过去多线程渲染里偶发的怪现象。
+- `getInstanceCounter` 用 `std::atomic`，可以用 acquire/release，但不为性能把双重检查写复杂，简单优先。
+- 8 线程读画 pli 的测试留在无 Qt 和 Qt 两种构建里常跑；TSan 构建的跑法写进测试 README 的 Sanitizers 一节。
 
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
