@@ -18,11 +18,17 @@
 #include "tfilepath.h"
 #include "tfiletype.h"
 #include "tsystem.h"
+#include "../../common/tsystem/tsystem_qtsemantics.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QString>
 #include <QStringList>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QHostInfo>
+#include <QThread>
 
 #include <algorithm>
 #include <cerrno>
@@ -793,6 +799,373 @@ TEST(TSystemNoQCoreApplication, StatusIsTheRealOne) {
   EXPECT_FALSE(TFileStatus(tp(root + "/missing")).doesExist());
   ::unlink((root + "/file.txt").c_str());
   ::rmdir(root.c_str());
+}
+
+//==============================================================
+//  Step 6c: the process's paths and information, and tenv's first-run copy
+//==============================================================
+
+namespace {
+
+// Sets an environment variable (nullptr unsets it) until destroyed.
+class ScopedEnv {
+  std::string m_name, m_old;
+  bool m_had;
+
+public:
+  ScopedEnv(const char *name, const char *value) : m_name(name) {
+    const char *old = getenv(name);
+    m_had           = old != nullptr;
+    if (old) m_old = old;
+    if (value)
+      setenv(name, value, 1);
+    else
+      unsetenv(name);
+  }
+  ~ScopedEnv() {
+    if (m_had)
+      setenv(m_name.c_str(), m_old.c_str(), 1);
+    else
+      unsetenv(m_name.c_str());
+  }
+};
+
+std::wstring w(const QString &s) { return s.toStdWString(); }
+QString q(const std::wstring &s) { return QString::fromStdWString(s); }
+
+}  // namespace
+
+TEST_F(TSystemQt, ProcessInformationIsQts) {
+  using namespace TSystemQtSemantics;
+  EXPECT_EQ(applicationFilePath(), w(QCoreApplication::applicationFilePath()));
+  EXPECT_EQ(applicationDirPath(), w(QCoreApplication::applicationDirPath()));
+  EXPECT_FALSE(applicationDirPath().empty());
+  EXPECT_EQ(TSystem::getBinDir(), LegacyTSystem::getBinDir());
+  EXPECT_EQ(TSystem::getDllDir(), LegacyTSystem::getDllDir());
+  EXPECT_EQ(TSystem::getHostNameW(), w(QHostInfo::localHostName()));
+  EXPECT_EQ(TSystem::getHostName(), LegacyTSystem::getHostName());
+  EXPECT_EQ(TSystem::getProcessorCount(), QThread::idealThreadCount());
+
+  for (const char *user : {"me", "", "\xC3\xBCn\xC3\xAF", "a=b", (const char *)nullptr}) {
+    ScopedEnv env("USER", user);
+    EXPECT_EQ(TSystem::getUserNameW(), w(LegacyTSystem::getUserName()))
+        << (user ? user : "(unset)");
+    EXPECT_EQ(TSystem::getUserName(), LegacyTSystem::getUserName());
+  }
+
+  for (const char *tmp : {"/tmp/", "//private//tmp//x/../", "relative/dir/",
+                          "/", "cafe\xCC\x81/", "", "/a/./b/.", (const char *)nullptr}) {
+    ScopedEnv env("TMPDIR", tmp);
+    EXPECT_EQ(tempPath(), w(QDir::tempPath())) << (tmp ? tmp : "(unset)");
+    EXPECT_EQ(TSystem::getTempDir(), LegacyTSystem::getTempDir());
+    // a random name, so the format only: the same folder, a backslash, the
+    // field, 32 lowercase hexadecimal digits of a version 4 UUID
+    for (const wchar_t *field : {L"", L"externfx", L"café"}) {
+      std::wstring a = LegacyTSystem::getUniqueFile(q(field)).getWideString();
+      std::wstring b = TSystem::getUniqueFileW(field).getWideString();
+      ASSERT_EQ(a.size(), b.size()) << ::to_string(a) << " " << ::to_string(b);
+      ASSERT_GE(b.size(), 32u);
+      EXPECT_EQ(a.substr(0, a.size() - 32), b.substr(0, b.size() - 32));
+      std::wstring uuid = b.substr(b.size() - 32);
+      for (wchar_t c : uuid)
+        EXPECT_TRUE((c >= L'0' && c <= L'9') || (c >= L'a' && c <= L'f'));
+      EXPECT_EQ(uuid[12], L'4');
+      EXPECT_NE(std::wstring(L"89ab").find(uuid[16]), std::wstring::npos);
+      std::wstring other = LegacyTSystem::getUniqueFile(q(field)).getWideString();
+      EXPECT_EQ(other[other.size() - 32 + 12], L'4');
+    }
+  }
+
+  for (const char *home : {"/Users/me", "/a//b/../c/", "", "cafe\xCC\x81", "/",
+                           (const char *)nullptr}) {
+    ScopedEnv env("HOME", home);
+    EXPECT_EQ(homePath(), w(QDir::homePath())) << (home ? home : "(unset)");
+  }
+
+  for (const char *name : {"HOME", "PATH", "NEXTTOONZ_SURELY_UNSET"}) {
+    EXPECT_EQ(environmentVariable(name),
+              w(QString::fromLocal8Bit(qgetenv(name))));
+  }
+  {
+    ScopedEnv env("NEXTTOONZ_TEST_VALUE", "caf\xC3\xA9 \xF0\x9F\x98\x80");
+    EXPECT_EQ(environmentVariable("NEXTTOONZ_TEST_VALUE"),
+              w(QString::fromLocal8Bit(qgetenv("NEXTTOONZ_TEST_VALUE"))));
+  }
+
+  // the current folder, also under decomposed and non-Latin-1 names and
+  // through a link
+  char *here = ::getcwd(nullptr, 0);
+  std::string cur = root + "/cwd_cafe\xCC\x81_\xE6\x97\xA5";
+  ::mkdir(cur.c_str(), 0755);
+  for (const std::string &dir : {root, cur, root + "/link_to_dir", root + "/dir1/sub"}) {
+    ASSERT_EQ(::chdir(dir.c_str()), 0) << dir;
+    EXPECT_EQ(currentPath(), w(QDir::currentPath())) << dir;
+    QByteArray latin1 = QDir::currentPath().toLatin1();
+    EXPECT_EQ(toLatin1(currentPath()),
+              std::string(latin1.constData(), size_t(latin1.size())));
+  }
+  ::chdir(here);
+  free(here);
+  ::rmdir(cur.c_str());
+
+  for (const std::wstring &s :
+       {std::wstring(L"café"), std::wstring(L"日\U0001F600x"),
+        std::wstring(L"ÿĀ")}) {
+    QByteArray latin1 = q(s).toLatin1();
+    EXPECT_EQ(toLatin1(s), std::string(latin1.constData(), size_t(latin1.size())));
+  }
+}
+
+TEST_F(TSystemQt, CleanPathIsQts) {
+  using TSystemQtSemantics::cleanPath;
+  // every string of up to 7 characters made of 'a', '/' and '.'
+  std::vector<std::wstring> all = {L""};
+  int checked = 0;
+  for (int len = 1; len <= 7; ++len) {
+    std::vector<std::wstring> next;
+    for (const std::wstring &p : all)
+      if (p.size() == size_t(len - 1))
+        for (wchar_t c : {L'a', L'/', L'.'}) next.push_back(p + c);
+    for (const std::wstring &p : next) {
+      ASSERT_EQ(cleanPath(p), w(QDir::cleanPath(q(p)))) << ::to_string(p);
+      ++checked;
+    }
+    all.insert(all.end(), next.begin(), next.end());
+  }
+  for (const wchar_t *p : {L"/Users/me/../../../x", L"a/b/c/../../../../d",
+                           L"~/x/./y//", L"..../.../x", L"é/../é"})
+    EXPECT_EQ(cleanPath(p), w(QDir::cleanPath(q(p)))) << ::to_string(std::wstring(p));
+  EXPECT_GT(checked, 3000);
+}
+
+TEST_F(TSystemQt, PathsOfTheTreeAreQts) {
+  using namespace TSystemQtSemantics;
+  char *here = ::getcwd(nullptr, 0);
+  ::chdir(root.c_str());
+  for (const std::string &p : pathsToAsk(root)) {
+    std::wstring wp = ::to_wstring(p);
+    QFileInfo fi(q(wp));
+    EXPECT_EQ(absoluteFilePath(wp), w(fi.absoluteFilePath())) << p;
+    EXPECT_EQ(absolutePath(wp), w(fi.absolutePath())) << p;
+    EXPECT_EQ(canonicalFilePath(wp), w(fi.canonicalFilePath())) << p;
+  }
+  ::chdir(here);
+  free(here);
+}
+
+namespace {
+
+std::map<std::string, std::string> probeRun(const std::string &command) {
+  std::map<std::string, std::string> out;
+  FILE *f = popen(command.c_str(), "r");
+  if (!f) return out;
+  char line[4096];
+  while (fgets(line, sizeof line, f)) {
+    std::string l(line);
+    while (!l.empty() && (l.back() == '\n' || l.back() == '\r')) l.pop_back();
+    size_t eq = l.find('=');
+    if (eq != std::string::npos) out[l.substr(0, eq)] = l.substr(eq + 1);
+  }
+  out["status"] = std::to_string(pclose(f));
+  return out;
+}
+
+std::string quote(const std::string &s) {
+  std::string out = "'";
+  for (char c : s) {
+    if (c == '\'')
+      out += "'\\''";
+    else
+      out += c;
+  }
+  return out + "'";
+}
+
+}  // namespace
+
+TEST_F(TSystemQt, ExecutablePathIsQtsHoweverLaunched) {
+  const std::string probe = NEXTTOONZ_APPINFO_PROBE;
+  const std::string probeDir = probe.substr(0, probe.find_last_of('/'));
+  const std::string probeName = probe.substr(probe.find_last_of('/') + 1);
+#ifdef __APPLE__
+  const std::string libs = "DYLD_LIBRARY_PATH=" + quote(probeDir) + " ";
+#else
+  const std::string libs = "LD_LIBRARY_PATH=" + quote(probeDir) + " ";
+#endif
+  std::string base = makeRoot("probe");
+  ASSERT_FALSE(base.empty());
+  std::string link = base + "/probe link";
+  ASSERT_EQ(::symlink(probe.c_str(), link.c_str()), 0);
+  std::vector<std::pair<std::string, std::string>> forms = {
+      {"absolute", libs + quote(probe)},
+      {"relative", "cd " + quote(probeDir) + " && " + libs + "./" + quote(probeName)},
+      {"PATH", "cd / && PATH=" + quote(probeDir) + " " + libs + quote(probeName)},
+      {"symlink", libs + quote(link)},
+      {"symlink, relative", "cd " + quote(base) + " && " + libs + "'./probe link'"}};
+#ifdef __APPLE__
+  // in an application bundle, as OpenToonz.app's programs are; also
+  // through a link to it
+  std::string app = base + "/Probe d\xC3\xA9j\xC3\xA0.app/Contents";
+  std::string macos = app + "/MacOS";
+  ASSERT_EQ(system(("mkdir -p " + quote(macos) + " && cp " + quote(probe) + " " +
+                    quote(macos + "/Probe")).c_str()),
+            0);
+  writeFile(app + "/Info.plist",
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            "<plist version=\"1.0\"><dict>"
+            "<key>CFBundleExecutable</key><string>Probe</string>"
+            "<key>CFBundleIdentifier</key><string>io.nexttoonz.probe</string>"
+            "<key>CFBundlePackageType</key><string>APPL</string>"
+            "</dict></plist>\n");
+  std::string appLink = base + "/applink";
+  ASSERT_EQ(::symlink((macos + "/Probe").c_str(), appLink.c_str()), 0);
+  forms.push_back({"bundle", libs + quote(macos + "/Probe")});
+  forms.push_back({"bundle, relative", "cd " + quote(macos) + " && " + libs + "./Probe"});
+  forms.push_back({"link into the bundle", libs + quote(appLink)});
+#endif
+  for (const auto &form : forms) {
+    auto r = probeRun(form.second);
+    SCOPED_TRACE(form.first);
+    ASSERT_EQ(r["status"], "0");
+    EXPECT_FALSE(r["qt.file"].empty());
+    EXPECT_EQ(r["core.after.file"], r["qt.file"]);
+    EXPECT_EQ(r["core.after.dir"], r["qt.dir"]);
+    EXPECT_EQ(r["core.after.bin"], r["qt.bin"]);
+    // and the same before the QCoreApplication (step 6c's decision)
+    EXPECT_EQ(r["core.before.file"], r["qt.file"]);
+    EXPECT_EQ(r["core.before.dir"], r["qt.dir"]);
+    EXPECT_EQ(r["core.before.bin"], r["qt.bin"]);
+  }
+  removeTree(base);
+}
+
+namespace {
+
+// A tree for the removal and the copy: nested folders, hidden entries,
+// read-only files and folders, links to a folder and a file outside it, a
+// broken link, decomposed names. withSpecial adds what makes a copy fail
+// or block (a fifo, a broken link, an unreadable folder).
+void makeStuffTree(const std::string &base, bool withSpecial) {
+  ::mkdir(base.c_str(), 0755);
+  std::string t = base + "/tree";
+  auto md = [&](const std::string &p, mode_t m = 0755) {
+    ::mkdir((t + "/" + p).c_str(), m);
+  };
+  auto wf = [&](const std::string &p, const std::string &c, mode_t m = 0644) {
+    writeFile(t + "/" + p, c, m);
+  };
+  ::mkdir((base + "/outside").c_str(), 0755);
+  writeFile(base + "/outside/keep", "keep");
+  writeFile(base + "/outsidefile", "outside file");
+  ::mkdir(t.c_str(), 0755);
+  md("a");
+  md("a/b");
+  md("a/b/c");
+  wf("a/b/c/deep.txt", "deep");
+  wf("a/.hidden", "hidden");
+  md(".hiddendir");
+  wf(".hiddendir/x", "x");
+  wf("readonly.txt", "ro", 0444);
+  md("readonlydir");
+  wf("readonlydir/inside", "inside");
+  ::chmod((t + "/readonlydir").c_str(), 0555);
+  md("caf\xC3\xA9");
+  wf("cafe\xCC\x81" ".txt", "nfd");
+  md("empty");
+  ::symlink("../outside", (t + "/link_to_dir").c_str());
+  ::symlink("../outsidefile", (t + "/link_to_file").c_str());
+  wf("Zeta", "z");
+  wf("alpha", "a");
+  if (withSpecial) {
+    ::symlink("nowhere", (t + "/broken_link").c_str());
+    md("unreadable");
+    wf("unreadable/secret", "s");
+    ::chmod((t + "/unreadable").c_str(), 0000);
+    ::mkfifo((t + "/fifo").c_str(), 0644);
+  }
+  forEachEntry(base, setOldTimes);
+}
+
+// tenv's copyDirOrFail before step 6c
+bool legacyCopyDirOrFail(const QString &dst, const QString &src) {
+  if (!QDir().mkpath(dst)) return false;
+
+  const QFileInfoList entries = QDir(src).entryInfoList(
+      QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
+  for (const QFileInfo &fi : entries) {
+    const QString target = dst + "/" + fi.fileName();
+    // copy symlinks as files: following them could recurse forever
+    if (fi.isDir() && !fi.isSymLink()) {
+      if (!legacyCopyDirOrFail(target, fi.filePath())) return false;
+    } else if (!QFile::copy(fi.filePath(), target)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
+TEST_F(TSystemQt, RemovesRecursivelyAsQtDid) {
+  for (bool special : {false, true}) {
+    std::string a = makeRoot("rm"), b = makeRoot("rm");
+    makeStuffTree(a, special);
+    makeStuffTree(b, special);
+    ASSERT_EQ(snapshot(a), snapshot(b));
+    std::ostringstream ra, rb;
+    for (const char *p : {"/tree/a/b", "/tree", "/missing", "/outsidefile"}) {
+      ra << QDir(QString::fromStdString(a + p)).removeRecursively();
+      rb << TSystemQtSemantics::removeRecursively(::to_wstring(b + p));
+    }
+    EXPECT_EQ(ra.str(), rb.str()) << special;
+    expectSameText(snapshot(a), snapshot(b), "", "remove");
+    // the folder a link pointed to is still there
+    EXPECT_NE(snapshot(b).find("outside/keep"), std::string::npos);
+    removeTree(a);
+    removeTree(b);
+  }
+}
+
+TEST_F(TSystemQt, CopiesTheStuffTreeAsTenvDid) {
+  // no fifo here: QFile::copy would wait on it forever, before and after
+  std::string a = makeRoot("cp"), b = makeRoot("cp");
+  makeStuffTree(a, false);
+  makeStuffTree(b, false);
+  ::symlink("nowhere", (a + "/tree/zz_broken").c_str());
+  ::symlink("nowhere", (b + "/tree/zz_broken").c_str());
+  std::ostringstream ra, rb;
+  // a fresh copy (the broken link, last by name, fails it), a copy into
+  // a folder that exists, and one of a folder without the broken link
+  ra << legacyCopyDirOrFail(QString::fromStdString(a + "/copy.incomplete"),
+                            QString::fromStdString(a + "/tree"));
+  rb << TSystemQtSemantics::copyDirTree(::to_wstring(b + "/copy.incomplete"),
+                                        ::to_wstring(b + "/tree"));
+  ra << legacyCopyDirOrFail(QString::fromStdString(a + "/copy.incomplete"),
+                            QString::fromStdString(a + "/tree/a"));
+  rb << TSystemQtSemantics::copyDirTree(::to_wstring(b + "/copy.incomplete"),
+                                        ::to_wstring(b + "/tree/a"));
+  ra << legacyCopyDirOrFail(QString::fromStdString(a + "/copy2/new/deep"),
+                            QString::fromStdString(a + "/tree/a"));
+  rb << TSystemQtSemantics::copyDirTree(::to_wstring(b + "/copy2/new/deep"),
+                                        ::to_wstring(b + "/tree/a"));
+  // and the rest of the first run: rename into place, mkpath
+  ra << QDir().rename(QString::fromStdString(a + "/copy2"), QString::fromStdString(a + "/stuff"))
+     << QDir().rename(QString::fromStdString(a + "/missing"), QString::fromStdString(a + "/x"))
+     << QDir().rename(QString::fromStdString(a + "/tree/a"), QString::fromStdString(a + "/stuff"))
+     << QDir().mkpath(QString::fromStdString(a + "/stuff/projects/library"))
+     << QDir().mkpath(QString::fromStdString(a + "/tree/Zeta/x"))
+     << QDir().mkpath(QString::fromStdString(a + "/stuff"));
+  using namespace TSystemQtSemantics;
+  rb << TSystemQtSemantics::rename(::to_wstring(b + "/copy2"), ::to_wstring(b + "/stuff"))
+     << TSystemQtSemantics::rename(::to_wstring(b + "/missing"), ::to_wstring(b + "/x"))
+     << TSystemQtSemantics::rename(::to_wstring(b + "/tree/a"), ::to_wstring(b + "/stuff"))
+     << mkpath(::to_wstring(b + "/stuff/projects/library"))
+     << mkpath(::to_wstring(b + "/tree/Zeta/x"))
+     << mkpath(::to_wstring(b + "/stuff"));
+  EXPECT_EQ(ra.str(), rb.str());
+  expectSameText(snapshot(a), snapshot(b), "", "copy");
+  removeTree(a);
+  removeTree(b);
 }
 
 #endif  // !_WIN32

@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include "tenv.h"
 #include "tkeyvaluestore.h"
 
 #include <map>
@@ -74,3 +75,17 @@ TEST(TKeyValueStore, BuiltInStoreWithoutQtHoldsNothing) {
   EXPECT_EQ(store->stringValue("key"), L"");
 }
 #endif
+
+// tenv reads the system variables through the store, with Qt or without
+// (step 6c moved tenv.cpp into the build without Qt).
+TEST(TKeyValueStore, TEnvReadsThroughTheInjectedStore) {
+  memory.clear();
+  opened.clear();
+  TKeyValueStore::Factory previous = TKeyValueStore::setFactory(&openMemory);
+  const std::string var = TEnv::getSystemVarPrefix() + "CONFIG";
+  memory[var]           = L"/injected/config";
+  EXPECT_EQ(TEnv::getSystemVarStringValue(var), "/injected/config");
+  ASSERT_FALSE(opened.empty());
+  EXPECT_NE(opened.back().find(L"SystemVar.ini"), std::wstring::npos);
+  TKeyValueStore::setFactory(previous);
+}

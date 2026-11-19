@@ -87,6 +87,16 @@ if(WITH_QT)
             GTest::gtest_main
     )
     nexttoonz_stage_runtime(nexttoonz_core_tests tnzcore tnzbase)
+
+    # Prints the executable's path as the core and Qt see it; the core tests
+    # launch it in several ways (step 6c of doc/nexttoonz_core_noqt.md).
+    add_executable(nexttoonz_appinfo_probe
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/appinfo_probe.cpp)
+    target_link_libraries(nexttoonz_appinfo_probe PRIVATE tnzcore Qt5::Core)
+    nexttoonz_stage_runtime(nexttoonz_appinfo_probe tnzcore)
+    add_dependencies(nexttoonz_core_tests nexttoonz_appinfo_probe)
+    target_compile_definitions(nexttoonz_core_tests PRIVATE
+        NEXTTOONZ_APPINFO_PROBE="$<TARGET_FILE:nexttoonz_appinfo_probe>")
 else()
     add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_NOQT_TEST_SOURCES})
     target_link_libraries(nexttoonz_core_tests

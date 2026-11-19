@@ -285,7 +285,8 @@ endif()
 # are in tfilepath_qt.cpp; step 5 the sound track registry and tdata.cpp, as
 # the stream, image cache and image I/O headers lost Qt; step 6a the file
 # system part of tsystem.cpp, whose Qt members are in tsystem_qt.cpp; step 6b
-# the key-value store, whose QSettings store is in tkeyvaluestore_qt.cpp. The
+# the key-value store, whose QSettings store is in tkeyvaluestore_qt.cpp; step
+# 6c tenv.cpp and tfilepath_io.cpp, as the process information left Qt. The
 # others never needed Qt.
 set(TNZCORE_NOQT_SOURCES
     ../common/tcore/tdata.cpp
@@ -312,6 +313,8 @@ set(TNZCORE_NOQT_SOURCES
     ../common/tsystem/tfiletype.cpp
     ../common/tsystem/tsystem.cpp
     ../common/tapptools/tkeyvaluestore.cpp
+    ../common/tapptools/tenv.cpp
+    ../common/tsystem/tfilepath_io.cpp
 )
 foreach(_source ${TNZCORE_NOQT_SOURCES})
     if(NOT _source IN_LIST SOURCES)

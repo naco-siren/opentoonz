@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include "tfilepath_io.h"
 #include "tconvert.h"
+#include "tsystem_qtsemantics.h"
 
 #include <cwctype>  // Include the header for towlower
 
@@ -26,7 +27,18 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <unistd.h>
+#include <chrono>
+#include <random>
+#include <thread>
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+#ifdef __linux__
+#include <sched.h>
+#endif
+extern char **environ;
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #include <sys/clonefile.h>
@@ -122,7 +134,9 @@ public:
 
 #ifndef _WIN32
 
-namespace {
+// The helpers below do what Qt 5.15 did; tsystem_qtsemantics.h declares the
+// ones the rest of the core (tenv.cpp) uses too.
+namespace TSystemQtSemantics {
 
 //------------------------------------------------------------
 //  Names: what QFile::encodeName and QFile::decodeName did
@@ -239,40 +253,138 @@ std::wstring qdirFilePath(const std::wstring &dir, const std::wstring &name) {
   return d.back() == L'/' ? d + name : d + L"/" + name;
 }
 
-// QDir::cleanPath of an absolute path
-std::wstring cleanAbsolutePath(const std::wstring &path) {
-  std::vector<std::wstring> parts;
-  size_t i = 0;
-  while (i <= path.size()) {
-    size_t j = path.find(L'/', i);
-    if (j == std::wstring::npos) j = path.size();
-    std::wstring part = path.substr(i, j - i);
-    if (part == L"..") {
-      if (!parts.empty()) parts.pop_back();
-    } else if (!part.empty() && part != L".")
-      parts.push_back(part);
-    i = j + 1;
+// QDir::cleanPath, as qt_normalizePathSegments did it (rootLength 1 for an
+// absolute path, no UNC paths): "." and empty segments go, ".." takes the
+// segment before it, a ".." that cannot is kept, the last slash goes.
+std::wstring cleanPath(const std::wstring &path) {
+  if (path.empty()) return path;
+  const std::u16string name = toUtf16(roundTripAsQString(path));
+  const int len             = int(name.size());
+  std::u16string outVector(name.size(), u'\0');
+  char16_t *out          = &outVector[0];
+  int used               = len;
+  const char16_t *p      = name.data();
+  const char16_t *prefix = p;
+  int up                 = 0;
+  const int prefixLength = name[0] == u'/' ? 1 : 0;
+  int i                  = len - 1;
+  p += prefixLength;
+  i -= prefixLength;
+
+  if (i > 0 && p[i] == u'/') {
+    out[--used] = u'/';
+    --i;
   }
-  std::wstring out;
-  for (const std::wstring &p : parts) out += L"/" + p;
-  return out.empty() ? L"/" : out;
+  while (i >= 0) {
+    if (p[i] == u'/') {
+      --i;
+      continue;
+    }
+    if (p[i] == u'.' && (i == 0 || p[i - 1] == u'/')) {
+      --i;
+      continue;
+    }
+    if (i >= 1 && p[i] == u'.' && p[i - 1] == u'.' &&
+        (i < 2 || p[i - 2] == u'/')) {
+      ++up;
+      i -= i >= 2 ? 3 : 2;
+      continue;
+    }
+    if (!up && used != len && out[used] != u'/') out[--used] = u'/';
+    while (i >= 0) {
+      if (p[i] == u'/') {
+        --i;
+        break;
+      }
+      if (!up) out[--used] = p[i];
+      --i;
+    }
+    if (up) --up;
+  }
+  while (up) {
+    if (used != len && out[used] != u'/') out[--used] = u'/';
+    out[--used] = u'.';
+    out[--used] = u'.';
+    --up;
+  }
+  const bool isEmpty = used == len;
+  if (prefixLength) {
+    if (!isEmpty && out[used] == u'/') ++used;
+    for (int k = prefixLength - 1; k >= 0; --k) out[--used] = prefix[k];
+  } else {
+    if (isEmpty)
+      out[--used] = u'.';
+    else if (out[used] == u'/')
+      out[--used] = u'.';
+  }
+  std::u16string ret =
+      used == 0 ? name : std::u16string(out + used, size_t(len - used));
+  if (ret.size() > 1 && ret.back() == u'/') ret.pop_back();
+  std::wstring result;
+  for (size_t k = 0; k < ret.size(); ++k) {
+    char16_t u = ret[k];
+    if (sizeof(wchar_t) == 4 && u >= 0xd800 && u < 0xdc00 && k + 1 < ret.size() &&
+        ret[k + 1] >= 0xdc00 && ret[k + 1] < 0xe000) {
+      result.push_back(wchar_t(0x10000 + ((char32_t(u) - 0xd800) << 10) +
+                               (char32_t(ret[k + 1]) - 0xdc00)));
+      ++k;
+    } else
+      result.push_back(wchar_t(u));
+  }
+  return result;
 }
 
-// QFileInfo::absoluteFilePath
-std::wstring absoluteFilePath(const std::wstring &path) {
-  std::wstring p = path;
-  if (p.empty() || p[0] != L'/') {
-    std::wstring cwd;
-    if (char *buf = ::getcwd(nullptr, 0)) {
-      cwd = decodeName(buf);
-      ::free(buf);
+// QFileSystemEntry::isClean: no "//", no "." or ".." segment
+bool isClean(const std::wstring &path) {
+  int dots     = 0;
+  bool dotok   = true;
+  bool slashok = true;
+  for (wchar_t c : path) {
+    if (c == L'/') {
+      if (dots == 1 || dots == 2) return false;
+      if (!slashok) return false;
+      slashok = false;
+      dotok   = true;
+    } else if (dotok) {
+      slashok = true;
+      if (c == L'.') {
+        dots++;
+        if (dots > 2) dotok = false;
+      } else {
+        dots  = 0;
+        dotok = false;
+      }
     }
-    if (p.empty() || p == L".")
-      p = cwd;
-    else
-      p = cwd + L"/" + p;
   }
-  return cleanAbsolutePath(p);
+  return dots != 1 && dots != 2;
+}
+
+// QDir::currentPath
+std::wstring currentPath() {
+  char name[PATH_MAX + 1];
+  if (!::getcwd(name, PATH_MAX)) return std::wstring();
+  return decodeName(name);
+}
+
+// QFileInfo::absoluteFilePath (QFileSystemEngine::absoluteName): a clean
+// absolute path as it is; otherwise the current folder and the path joined
+// as bytes, decoded and cleaned, keeping a trailing slash
+std::wstring absoluteFilePath(const std::wstring &path) {
+  std::wstring qPath = roundTripAsQString(path);
+  if (qPath.empty()) return std::wstring();
+  if (qPath[0] == L'/' && isClean(qPath)) return qPath;
+  std::string orig = encodeName(qPath);
+  std::string result;
+  if (orig.empty() || orig[0] != '/') result = encodeName(currentPath());
+  if (!orig.empty() && orig != ".") {
+    if (!result.empty() && result.back() != '/') result.push_back('/');
+    result += orig;
+  }
+  if (result == "/") return L"/";
+  const bool isDir = !result.empty() && result.back() == '/';
+  std::wstring str = cleanPath(decodeName(result));
+  if (isDir) str += L"/";
+  return str;
 }
 
 //------------------------------------------------------------
@@ -420,6 +532,7 @@ enum Filter {
   Files          = 0x002,
   Readable       = 0x010,
   Hidden         = 0x100,
+  System         = 0x200,
   AllDirs        = 0x400,
   NoDotAndDotDot = 0x6000
 };
@@ -430,6 +543,7 @@ struct Entry {
   std::wstring path;  // QFileInfo::filePath
   std::string native; // the bytes the entry was read and checked through
   bool isDir;         // QFileInfo::isDir
+  bool isSymLink;     // QFileInfo::isSymLink, but for Finder aliases
 };
 
 // The entries of the directory at the given path (as QDir(path) has it) that
@@ -469,12 +583,15 @@ std::vector<Entry> listDirectory(const std::wstring &dir, int filters) {
       if (fi.isHidden(name)) continue;
     }
     // system files: neither file nor directory nor link, or a broken link
-    if (!(fi.isFile || fi.isDir || fi.symLink) && !fi.isSymLink()) continue;
-    if (!fi.exists && fi.symLink) continue;
+    if (!(filters & System)) {
+      if (!(fi.isFile || fi.isDir || fi.symLink) && !fi.isSymLink()) continue;
+      if (!fi.exists && fi.symLink) continue;
+    }
     if (!(filters & (Dirs | AllDirs)) && fi.isDir) continue;
     if (!(filters & Files) && fi.isFile) continue;
     if ((filters & Readable) && !fi.readable) continue;
-    entry.isDir = fi.isDir;
+    entry.isDir     = fi.isDir;
+    entry.isSymLink = fi.symLink;
     out.push_back(entry);
   }
   ::closedir(d);
@@ -730,7 +847,188 @@ bool removeDir(const std::wstring &path) {
   return !native.empty() && ::rmdir(native.c_str()) == 0;
 }
 
-}  // namespace
+//------------------------------------------------------------
+//  Paths of the process (step 6c)
+//------------------------------------------------------------
+
+// QFileInfo(path).absolutePath(): the folder of the absolute, clean path
+std::wstring absolutePath(const std::wstring &path) {
+  if (path.empty()) return std::wstring();
+  std::wstring abs = absoluteFilePath(path);
+  size_t slash     = abs.find_last_of(L'/');
+  return slash == 0 ? L"/" : abs.substr(0, slash);
+}
+
+// QFileInfo(path).canonicalFilePath() (QFileSystemEngine::canonicalName):
+// the root as it is; realpath(3) of an existing path, decoded and cleaned;
+// empty for a missing one; the path itself when realpath fails otherwise
+std::wstring canonicalFilePath(const std::wstring &path) {
+  std::wstring qPath = roundTripAsQString(path);
+  if (qPath.empty() || qPath == L"/") return qPath;
+  std::string native = encodeName(qPath);
+#ifdef __APPLE__
+  // Qt checked existence first there: realpath may answer for missing paths
+  if (!exists(native)) return std::wstring();
+#endif
+  char resolved[PATH_MAX + 1];
+  if (!native.empty() && ::realpath(native.c_str(), resolved))
+    return cleanPath(decodeName(resolved));
+  if (errno == ENOENT || errno == ENOTDIR) return std::wstring();
+  return qPath;
+}
+
+// QDir::homePath: $HOME, or the root
+std::wstring homePath() {
+  const char *home = ::getenv("HOME");
+  std::wstring h   = decodeName(home ? home : "");
+  if (h.empty()) h = L"/";
+  return cleanPath(h);
+}
+
+// QDir::tempPath: $TMPDIR, else (Apple) the user's temporary folder that
+// NSTemporaryDirectory gives, else /tmp/; cleaned
+std::wstring tempPath() {
+  const char *env = ::getenv("TMPDIR");
+  std::wstring t  = decodeName(env ? env : "");
+  if (t.empty()) {
+#ifdef __APPLE__
+    char buf[PATH_MAX];
+    size_t n = ::confstr(_CS_DARWIN_USER_TEMP_DIR, buf, sizeof buf);
+    if (n > 0 && n <= sizeof buf) t = ::to_wstring(std::string(buf));
+#endif
+    if (t.empty()) t = L"/tmp/";
+  }
+  // QDir(QDir::cleanPath(temp)).canonicalPath()
+  return canonicalFilePath(qdirPath(cleanPath(t)));
+}
+
+// QCoreApplication::applicationFilePath, without the need of a
+// QCoreApplication: on Apple the main bundle's executable, on Linux
+// /proc/self/exe, made canonical
+std::wstring applicationFilePath() {
+#if defined(__APPLE__)
+  std::wstring path;
+  if (CFURLRef url = CFBundleCopyExecutableURL(CFBundleGetMainBundle())) {
+    if (CFStringRef cf = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle)) {
+      CFIndex n = CFStringGetLength(cf);
+      std::u16string units(size_t(n), u'\0');
+      if (n) CFStringGetCharacters(cf, CFRangeMake(0, n), (UniChar *)&units[0]);
+      for (size_t i = 0; i < units.size(); ++i) {
+        char16_t u = units[i];
+        if (sizeof(wchar_t) == 4 && u >= 0xd800 && u < 0xdc00 &&
+            i + 1 < units.size() && units[i + 1] >= 0xdc00 &&
+            units[i + 1] < 0xe000) {
+          path.push_back(wchar_t(0x10000 + ((char32_t(u) - 0xd800) << 10) +
+                                 (char32_t(units[i + 1]) - 0xdc00)));
+          ++i;
+        } else
+          path.push_back(wchar_t(u));
+      }
+      CFRelease(cf);
+    }
+    CFRelease(url);
+  }
+  if (!path.empty() && exists(encodeName(path))) return canonicalFilePath(path);
+  return std::wstring();
+#elif defined(__linux__)
+  std::wstring proc = L"/proc/" + std::to_wstring(::getpid()) + L"/exe";
+  FileInfo fi(encodeName(proc));
+  if (fi.exists && fi.symLink) return canonicalFilePath(proc);
+  return std::wstring();
+#else
+  return std::wstring();
+#endif
+}
+
+// QCoreApplication::applicationDirPath
+std::wstring applicationDirPath() {
+  std::wstring file = applicationFilePath();
+  if (file.empty()) return file;
+  size_t slash = file.find_last_of(L'/');
+  if (slash == std::wstring::npos) return L".";
+  return slash == 0 ? L"/" : file.substr(0, slash);
+}
+
+// QString::fromLocal8Bit(qgetenv(name))
+std::wstring environmentVariable(const char *name) {
+  const char *value = ::getenv(name);
+  return value ? ::to_wstring(std::string(value)) : std::wstring();
+}
+
+// QString::toLatin1: one byte per UTF-16 unit, '?' for those above 0xff
+std::string toLatin1(const std::wstring &s) {
+  std::string out;
+  for (char16_t u : toUtf16(s)) out.push_back(u > 0xff ? '?' : char(u));
+  return out;
+}
+
+//------------------------------------------------------------
+//  What tenv's first run did with QDir and QFile (step 6c)
+//------------------------------------------------------------
+
+// QDir().mkpath(path)
+bool mkpath(const std::wstring &path) {
+  if (roundTripAsQString(path).empty()) return false;
+  return makePath(qdirFilePath(L".", path));
+}
+
+// QDir().rename(oldName, newName): QFile::rename of the two
+bool rename(const std::wstring &oldName, const std::wstring &newName) {
+  if (roundTripAsQString(oldName).empty() || roundTripAsQString(newName).empty())
+    return false;
+  return renameFileAsQt(qdirFilePath(L".", oldName), qdirFilePath(L".", newName));
+}
+
+// QDir(path).removeRecursively()
+bool removeRecursively(const std::wstring &path) {
+  const std::wstring dirPath = qdirPath(path);
+  FileInfo dirInfo(encodeName(dirPath));
+  if (!(dirInfo.exists && dirInfo.isDir)) return true;
+  bool success = true;
+  for (const Entry &e :
+       listDirectory(dirPath, Dirs | Files | Hidden | System | NoDotAndDotDot)) {
+    bool ok;
+    if (e.isDir && !e.isSymLink)
+      ok = removeRecursively(e.path);
+    else {
+      std::string native = encodeName(e.path);
+      ok                 = removeFile(native);
+      if (!ok) {
+        // as Qt does for Windows' read-only files
+        TFileStatus::Permissions p = FileInfo(native).permissions();
+        if (!(p & TFileStatus::WriteUser))
+          ok = setPermissions(native, p | TFileStatus::WriteUser) &&
+               removeFile(native);
+      }
+    }
+    if (!ok) success = false;
+  }
+  if (success) success = removeDir(absoluteFilePath(dirPath));
+  return success;
+}
+
+// tenv's copyDirOrFail: QDir().mkpath(dst), then every entry of src
+// (QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System,
+// by name ignoring case): folders that are not links copied the same way,
+// the rest with QFile::copy; false at the first that fails.
+bool copyDirTree(const std::wstring &dst, const std::wstring &src) {
+  if (!mkpath(dst)) return false;
+  std::vector<Entry> entries =
+      listDirectory(src, Dirs | Files | NoDotAndDotDot | Hidden | System);
+  sortIgnoringCase(entries);
+  for (const Entry &e : entries) {
+    const std::wstring target = roundTripAsQString(dst) + L"/" + e.name;
+    if (e.isDir && !e.isSymLink) {
+      if (!copyDirTree(target, e.path)) return false;
+    } else if (!copyFileAsQt(e.path, target))
+      return false;
+  }
+  return true;
+}
+
+}  // namespace TSystemQtSemantics
+
+using namespace TSystemQtSemantics;
 
 //-----------------------------------------------------------------------------------
 
@@ -1034,7 +1332,128 @@ TFilePathSet TSystem::getDisks() {
   return filePathSet;
 }
 
+//------------------------------------------------------------
+//  The process and its machine (step 6c), as Qt gave them
+//------------------------------------------------------------
+
+std::wstring TSystem::getHostNameW() {
+  // QHostInfo::localHostName, which is QSysInfo::machineHostName
+#ifdef __linux__
+  struct utsname u;
+  if (::uname(&u) == 0) return ::to_wstring(std::string(u.nodename));
+  return std::wstring();
+#else
+  char hostName[512];
+  if (::gethostname(hostName, sizeof(hostName)) == -1) return std::wstring();
+  hostName[sizeof(hostName) - 1] = '\0';
+  return ::to_wstring(std::string(hostName));
+#endif
+}
+
+std::wstring TSystem::getUserNameW() {
+  // the first non-empty USER= of QProcess::systemEnvironment(), in order
+  for (char **e = environ; e && *e; ++e) {
+    std::wstring value = ::to_wstring(std::string(*e));
+    if (value.compare(0, 5, L"USER=") == 0 && value.size() > 5)
+      return value.substr(5);
+  }
+  return L"none";
+}
+
+TFilePath TSystem::getTempDir() {
+  return TFilePath(toUtf8AsQString(tempPath()));
+}
+
+TFilePath TSystem::getBinDir() {
+  TFilePath fp = TFilePath(toUtf8AsQString(applicationFilePath()));
+  return fp.getParentDir();
+}
+
+TFilePath TSystem::getUniqueFileW(const std::wstring &field) {
+  // QUuid::createUuid().toString(QUuid::Id128): a random (version 4) UUID
+  // as 32 lowercase hexadecimal digits
+  std::random_device rd;
+  unsigned char b[16];
+  for (int i = 0; i < 16; i += 4) {
+    unsigned int r = rd();
+    for (int k = 0; k < 4; ++k) b[i + k] = (unsigned char)(r >> (8 * k));
+  }
+  b[6] = (unsigned char)((b[6] & 0x0f) | 0x40);
+  b[8] = (unsigned char)((b[8] & 0x3f) | 0x80);
+  static const wchar_t hex[] = L"0123456789abcdef";
+  std::wstring uuid;
+  for (unsigned char c : b) {
+    uuid.push_back(hex[c >> 4]);
+    uuid.push_back(hex[c & 15]);
+  }
+  std::wstring path = tempPath() + L"\\" + roundTripAsQString(field) + uuid;
+  return TFilePath(toUtf8AsQString(path));
+}
+
+void TSystem::sleep(TINT64 delay) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+}
+
+int TSystem::getProcessorCount() {
+  // QThread::idealThreadCount
+  int cores = 1;
+#if defined(__APPLE__)
+  size_t len = sizeof(cores);
+  int mib[2] = {CTL_HW, HW_NCPU};
+  if (::sysctl(mib, 2, &cores, &len, nullptr, 0) != 0) cores = 1;
+#elif defined(__linux__)
+  cpu_set_t set;
+  if (::sched_getaffinity(0, sizeof(set), &set) == 0)
+    cores = CPU_COUNT(&set);
+  else
+    cores = (int)::sysconf(_SC_NPROCESSORS_ONLN);
+#else
+  cores = (int)::sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+  return cores < 1 ? 1 : cores;
+}
+
 #endif  // !_WIN32
+
+//------------------------------------------------------------
+
+TFilePath TSystem::getDllDir() { return getBinDir(); }
+
+//------------------------------------------------------------
+//  showDocument: an injected service (step 6c)
+//------------------------------------------------------------
+
+#ifdef QT_CORE_LIB
+// tsystem_qt.cpp: QDesktopServices (ShellExecute on Windows)
+bool showDocumentWithQt(const TFilePath &path);
+#endif
+
+namespace {
+
+bool showNothing(const TFilePath &) { return false; }
+
+TSystem::ShowDocumentService builtInShowDocument() {
+#ifdef QT_CORE_LIB
+  return &showDocumentWithQt;
+#else
+  return &showNothing;
+#endif
+}
+
+std::atomic<TSystem::ShowDocumentService> currentShowDocument{nullptr};
+
+}  // namespace
+
+TSystem::ShowDocumentService TSystem::setShowDocumentService(
+    ShowDocumentService service) {
+  ShowDocumentService previous = currentShowDocument.exchange(service);
+  return previous ? previous : builtInShowDocument();
+}
+
+bool TSystem::showDocument(const TFilePath &path) {
+  ShowDocumentService service = currentShowDocument.load();
+  return (service ? service : builtInShowDocument())(path);
+}
 
 //------------------------------------------------------------
 
@@ -1370,9 +1789,9 @@ bool TSystem::touchParentDir(const TFilePath &fp) {
 
 //--------------------------------------------------------------
 
-// showDocument, sleep, getProcessorCount, isDLLBlackListed, getHostName,
-// getUserName, getTempDir, getSystemValue, getBinDir and getUniqueFile are in
-// tsystem_qt.cpp until step 6c.
+// isDLLBlackListed, getSystemValue and the QString versions of getHostName,
+// getUserName and getUniqueFile are in tsystem_qt.cpp; on Windows so are
+// getTempDir, getBinDir, sleep and getProcessorCount.
 
 //--------------------------------------------------------------
 

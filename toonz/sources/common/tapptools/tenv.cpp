@@ -5,12 +5,14 @@
 #include "tversion.h"
 #include "tkeyvaluestore.h"
 
-#include <QCoreApplication>
-#include <QDir>
-#include <QFile>
-#include <QFileInfo>
+// What this did with QDir, QFile, QFileInfo and QCoreApplication, done the
+// same way without them (doc/nexttoonz_core_noqt.md, step 6c)
+#include "../tsystem/tsystem_qtsemantics.h"
+
+#ifdef HAIKU
+// The build without Qt does not support Haiku.
 #include <QStandardPaths>
-#include <QStringList>
+#endif
 
 #include <iostream>
 
@@ -39,6 +41,13 @@ using namespace TVER;
 //=========================================================
 
 namespace {
+
+// QString::toStdString of a path, as this used to make them
+std::string utf8(const std::wstring &s) {
+  return toUtf8AsQString(roundTripAsQString(s));
+}
+std::string utf8(const TFilePath &fp) { return utf8(fp.getWideString()); }
+
 const std::map<std::string, std::string> systemPathMap{
     {"LIBRARY", "library"}, {"STUDIOPALETTE", "studiopalette"},
     {"FXPRESETS", "fxs"},   {"PROFILES", "profiles"},
@@ -80,19 +89,19 @@ public:
   // Location of the ini file holding the system variables. Split out of
   // getSystemVarPath() so that first-run seeding writes the file where this
   // reads it, instead of duplicating the per-platform layout.
-  QString getSystemVarFile() {
+  std::wstring getSystemVarFile() {
 #ifdef MACOSX
-    return QString::fromStdString(getApplicationFileName()) + QString(".app") +
-           QString("/Contents/Resources/SystemVar.ini");
+    return ::to_wstring(getApplicationFileName()) +
+           L".app/Contents/Resources/SystemVar.ini";
 #elif defined(HAIKU)
-    return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) +
-           "/SystemVar.ini";
+    return (QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) +
+            "/SystemVar.ini")
+        .toStdWString();
 #else /* Generic Unix */
-    // TODO: use QStandardPaths::ConfigLocation when we drop Qt4
-    QString settingsPath = QDir::homePath();
-    settingsPath.append("/.config/");
-    settingsPath.append(getApplicationName().c_str());
-    settingsPath.append("/SystemVar.ini");
+    std::wstring settingsPath = TSystemQtSemantics::homePath();
+    settingsPath.append(L"/.config/");
+    settingsPath.append(::to_wstring(getApplicationName()));
+    settingsPath.append(L"/SystemVar.ini");
     return settingsPath;
 #endif
   }
@@ -104,7 +113,7 @@ public:
 #else
     // the ini file, through the store (QSettings on the desktop)
     std::unique_ptr<TKeyValueStore> settings =
-        TKeyValueStore::open(TFilePath(getSystemVarFile().toStdWString()));
+        TKeyValueStore::open(TFilePath(getSystemVarFile()));
     return TFilePath(settings->stringValue(varName));
 #endif
   }
@@ -114,7 +123,7 @@ public:
   std::string getSystemVarValue(std::string varName) {
     if (getIsPortable()) return "";
 #ifdef _WIN32
-    return TSystem::getSystemValue(getSystemVarPath(varName)).toStdString();
+    return TSystem::getSystemValueUtf8(getSystemVarPath(varName));
 #else
     TFilePath systemVarPath = getSystemVarPath(varName);
     if (systemVarPath.isEmpty()) {
@@ -170,7 +179,7 @@ public:
     if (profilesDir == TFilePath())
       profilesDir = getStuffDir() + systemPathMap.at("PROFILES");
     m_envFile =
-        profilesDir + "env" + (TSystem::getUserName().toStdString() + ".env");
+        profilesDir + "env" + (toUtf8AsQString(TSystem::getUserNameW()) + ".env");
   }
 
   void init() {
@@ -235,10 +244,11 @@ public:
   std::string getSystemVarPrefix() { return m_systemVarPrefix; }
 
   void setWorkingDirectory() {
-    QString workingDirectoryTmp  = QDir::currentPath();
-    QByteArray ba                = workingDirectoryTmp.toLatin1();
-    const char *workingDirectory = ba.data();
-    m_workingDirectory           = workingDirectory;
+    // as QDir::currentPath().toLatin1(): a folder with characters outside
+    // Latin-1 has '?' in their place (known issue 31)
+    std::string workingDirectory =
+        TSystemQtSemantics::toLatin1(TSystemQtSemantics::currentPath());
+    m_workingDirectory = workingDirectory.c_str();
 
     // check if portable. Startup requires the selected stuff path to be a
     // directory and aborts otherwise, so a regular file named portablestuff
@@ -262,7 +272,7 @@ public:
       m_isPortable   = portableStatus.isDirectory();
       if (m_isPortable)
         m_workingDirectory =
-            portableCheck.getParentDir().getQString().toStdString();
+            utf8(portableCheck.getParentDir());
     }
 #endif
 
@@ -273,44 +283,45 @@ public:
       // An AppImage executes from a temporary mount point, so its own
       // directory is not where the user keeps portablestuff. APPIMAGE, set by
       // the AppImage runtime, is the path of the bundle itself.
-      QString appImage = QString::fromLocal8Bit(qgetenv("APPIMAGE"));
-      QString exeDir   = QCoreApplication::instance()
-                             ? QCoreApplication::applicationDirPath()
-                             : QString();
+      // (exeDir was empty while there was no QCoreApplication: step 6c)
+      using namespace TSystemQtSemantics;
+      std::wstring appImage = environmentVariable("APPIMAGE");
+      std::wstring exeDir   = applicationDirPath();
 
       // A native build can inherit APPIMAGE from an unrelated AppImage parent,
       // or pick up a stale export. APPDIR is that bundle's mount point, so
       // containment tells us whether APPIMAGE describes this process.
       // Companion executables such as tcomposer share the mount and still
       // qualify.
-      QString appDirEnv = QString::fromLocal8Bit(qgetenv("APPDIR"));
-      bool inBundle     = false;
-      if (!appDirEnv.isEmpty() && !exeDir.isEmpty()) {
-        QString mount = QFileInfo(appDirEnv).canonicalFilePath();
-        QString exe   = QFileInfo(exeDir).canonicalFilePath();
-        inBundle      = !mount.isEmpty() && !exe.isEmpty() &&
-                   (exe == mount || exe.startsWith(mount + "/"));
+      std::wstring appDirEnv = environmentVariable("APPDIR");
+      bool inBundle          = false;
+      if (!appDirEnv.empty() && !exeDir.empty()) {
+        std::wstring mount = canonicalFilePath(appDirEnv);
+        std::wstring exe   = canonicalFilePath(exeDir);
+        inBundle           = !mount.empty() && !exe.empty() &&
+                   (exe == mount || exe.compare(0, mount.size() + 1,
+                                                mount + L"/") == 0);
       }
 
       // Try every candidate rather than committing to one, so a bundle without
       // portablestuff cannot hide a valid tree beside the executable. An
       // unverified APPIMAGE goes last: worth a look, but not ahead of our own
       // directory.
-      QStringList candidates;
-      if (!appImage.isEmpty() && inBundle)
-        candidates << QFileInfo(appImage).absolutePath();
-      if (!exeDir.isEmpty()) candidates << exeDir;
-      if (!appImage.isEmpty() && !inBundle)
-        candidates << QFileInfo(appImage).absolutePath();
+      std::vector<std::wstring> candidates;
+      if (!appImage.empty() && inBundle)
+        candidates.push_back(absolutePath(appImage));
+      if (!exeDir.empty()) candidates.push_back(exeDir);
+      if (!appImage.empty() && !inBundle)
+        candidates.push_back(absolutePath(appImage));
 
-      for (const QString &candidate : candidates) {
+      for (const std::wstring &candidate : candidates) {
         portableCheck =
-            TFilePath(candidate.toStdString() + "\\portablestuff\\");
+            TFilePath(utf8(candidate) + "\\portablestuff\\");
         portableStatus = TFileStatus(portableCheck);
         m_isPortable   = portableStatus.isDirectory();
         if (m_isPortable) {
           m_workingDirectory =
-              portableCheck.getParentDir().getQString().toStdString();
+              utf8(portableCheck.getParentDir());
           break;
         }
       }
@@ -676,33 +687,18 @@ TFilePath TEnv::getConfigDir() {
 #if !defined(_WIN32) && !defined(MACOSX)
 namespace {
 
-// TSystem::copyDir() ignores mkdir/copy failures, so recurse and report here.
-bool copyDirOrFail(const QString &dst, const QString &src) {
-  if (!QDir().mkpath(dst)) return false;
-
-  const QFileInfoList entries = QDir(src).entryInfoList(
-      QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
-  for (const QFileInfo &fi : entries) {
-    const QString target = dst + "/" + fi.fileName();
-    // copy symlinks as files: following them could recurse forever
-    if (fi.isDir() && !fi.isSymLink()) {
-      if (!copyDirOrFail(target, fi.filePath())) return false;
-    } else if (!QFile::copy(fi.filePath(), target)) {
-      return false;
-    }
-  }
-  return true;
-}
-
+// TSystem::copyDir() ignores mkdir/copy failures, so recurse and report here
+// (TSystemQtSemantics::copyDirTree, which copies symbolic links as files:
+// following them could recurse forever).
 // installed layout: <prefix>/bin/<exe>, <prefix>/share/opentoonz/stuff
 TFilePath getInstalledStuffDir() {
-  TFilePath exeDir(QCoreApplication::applicationDirPath().toStdWString());
+  TFilePath exeDir(TSystemQtSemantics::applicationDirPath());
   return exeDir.getParentDir() + "share" + "opentoonz" + "stuff";
 }
 
 // Derived from the ini TEnv reads; not every platform uses ~/.config.
 TFilePath getUserStuffDir(EnvGlobals *eg) {
-  TFilePath systemVarFile(eg->getSystemVarFile().toStdWString());
+  TFilePath systemVarFile(eg->getSystemVarFile());
   return systemVarFile.getParentDir() + "stuff";
 }
 
@@ -713,24 +709,24 @@ bool seedStuffTreeIfMissing(const TFilePath &userStuffDir) {
   if (!TFileStatus(installedStuffDir).isDirectory())
     return false;  // build tree: nothing to copy from
 
-  const QString userStuffDirStr = userStuffDir.getQString();
-  const QString stagingDirStr   = userStuffDirStr + ".incomplete";
+  using namespace TSystemQtSemantics;
+  const std::wstring userStuffDirStr = userStuffDir.getWideString();
+  const std::wstring stagingDirStr   = userStuffDirStr + L".incomplete";
 
   // Rename into place only after a complete copy, so a failed one leaves
   // nothing a later run would mistake for finished stuff.
-  QDir(stagingDirStr).removeRecursively();  // leftovers from a failed attempt
-  if (!copyDirOrFail(stagingDirStr, installedStuffDir.getQString()) ||
-      !QDir().rename(stagingDirStr, userStuffDirStr)) {
-    QDir(stagingDirStr).removeRecursively();
-    std::cerr << "Failed to initialize " << userStuffDirStr.toStdString()
-              << " from " << installedStuffDir.getQString().toStdString()
-              << std::endl;
+  removeRecursively(stagingDirStr);  // leftovers from a failed attempt
+  if (!copyDirTree(stagingDirStr, installedStuffDir.getWideString()) ||
+      !TSystemQtSemantics::rename(stagingDirStr, userStuffDirStr)) {
+    removeRecursively(stagingDirStr);
+    std::cerr << "Failed to initialize " << utf8(userStuffDirStr) << " from "
+              << utf8(installedStuffDir) << std::endl;
     return false;
   }
 
   // writable dirs the app expects, possibly absent from the packaged tree
-  QDir().mkpath((userStuffDir + "projects" + "library").getQString());
-  QDir().mkpath((userStuffDir + "projects" + "fxs").getQString());
+  mkpath((userStuffDir + "projects" + "library").getWideString());
+  mkpath((userStuffDir + "projects" + "fxs").getWideString());
   return true;
 }
 
@@ -738,7 +734,7 @@ bool seedStuffTreeIfMissing(const TFilePath &userStuffDir) {
 // setValue() merges, so an ini missing just the root keeps its other keys.
 void writeRootVar(EnvGlobals *eg, const TFilePath &userStuffDir) {
   std::unique_ptr<TKeyValueStore> settings =
-      TKeyValueStore::open(TFilePath(eg->getSystemVarFile().toStdWString()));
+      TKeyValueStore::open(TFilePath(eg->getSystemVarFile()));
   settings->setStringValue(eg->getRootVarName(), userStuffDir.getWideString());
   settings->sync();
 }
@@ -764,7 +760,8 @@ void TEnv::initUserStuffDir() {
   TFilePath configuredRoot = eg->getRootVarPath();
   if (!configuredRoot.isEmpty() && configuredRoot != userStuffDir) return;
 
-  if (!QDir().mkpath(userStuffDir.getParentDir().getQString())) return;
+  if (!TSystemQtSemantics::mkpath(userStuffDir.getParentDir().getWideString()))
+    return;
   if (!seedStuffTreeIfMissing(userStuffDir)) return;
   if (configuredRoot.isEmpty()) writeRootVar(eg, userStuffDir);
 #endif

@@ -4,13 +4,18 @@
 // the file system as it is whether or not the Qt application object exists
 // (it used to report every path as missing before it did), and these tests
 // guard that. test_tsystem_qt.cpp compares the functions with the old code.
+// The last tests check the process information of step 6c.
 
 #include <gtest/gtest.h>
 
 #include "tfilepath.h"
 #include "tsystem.h"
 
+#include "tconvert.h"
+
+#include <chrono>
 #include <filesystem>
+#include <vector>
 #include <fstream>
 #include <string>
 #include <system_error>
@@ -112,4 +117,56 @@ TEST_F(TSystemTest, MakesListsCopiesAndRemoves) {
   EXPECT_THROW(TSystem::mkDir(at("a/plus+sign")), TSystemException);
   TSystem::rmDir(at("a/b/c"));
   EXPECT_FALSE(TFileStatus(at("a/b/c")).doesExist());
+}
+
+//------------------------------------------------------------
+// The process and its machine (step 6c), in both builds
+
+TEST(TSystemProcess, AnswersWithoutQt) {
+  TFilePath bin = TSystem::getBinDir();
+  EXPECT_FALSE(bin.isEmpty());
+  EXPECT_TRUE(TFileStatus(bin).isDirectory()) << ::to_string(bin.getWideString());
+  EXPECT_EQ(TSystem::getDllDir(), bin);
+  EXPECT_TRUE(TFileStatus(TSystem::getTempDir()).isDirectory());
+  EXPECT_FALSE(TSystem::getHostNameW().empty());
+  EXPECT_FALSE(TSystem::getUserNameW().empty());
+  EXPECT_GE(TSystem::getProcessorCount(), 1);
+
+  std::wstring u = TSystem::getUniqueFileW(L"field").getWideString();
+  ASSERT_GT(u.size(), 37u);
+  std::wstring uuid = u.substr(u.size() - 32);
+  for (wchar_t c : uuid)
+    EXPECT_TRUE((c >= L'0' && c <= L'9') || (c >= L'a' && c <= L'f'));
+  EXPECT_EQ(uuid[12], L'4');
+  EXPECT_EQ(u.substr(u.size() - 37, 5), L"field");
+  EXPECT_NE(TSystem::getUniqueFileW(L"field"), TSystem::getUniqueFileW(L"field"));
+
+  auto start = std::chrono::steady_clock::now();
+  TSystem::sleep(TINT64(20));
+  EXPECT_GE(std::chrono::steady_clock::now() - start,
+            std::chrono::milliseconds(20));
+}
+
+namespace {
+std::vector<std::wstring> shown;
+bool recordShow(const TFilePath &fp) {
+  shown.push_back(fp.getWideString());
+  return true;
+}
+}  // namespace
+
+TEST(TSystemProcess, ShowDocumentGoesThroughTheService) {
+  shown.clear();
+  TSystem::ShowDocumentService builtIn =
+      TSystem::setShowDocumentService(&recordShow);
+  ASSERT_NE(builtIn, nullptr);
+  EXPECT_TRUE(TSystem::showDocument(TFilePath("/some/file.pdf")));
+  EXPECT_EQ(shown, std::vector<std::wstring>{L"/some/file.pdf"});
+  EXPECT_EQ(TSystem::setShowDocumentService(nullptr), &recordShow);
+  EXPECT_EQ(TSystem::setShowDocumentService(nullptr), builtIn);
+#ifndef QT_CORE_LIB
+  // without Qt nothing opens documents until a program injects a service
+  EXPECT_FALSE(TSystem::showDocument(TFilePath("/some/file.pdf")));
+#endif
+  EXPECT_EQ(shown.size(), 1u);
 }

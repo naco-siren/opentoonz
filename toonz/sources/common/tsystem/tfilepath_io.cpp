@@ -8,7 +8,6 @@
 #include <fstream>
 #include <iostream>
 
-#include <QString>
 
 #ifdef _MSC_VER
 
@@ -82,13 +81,21 @@ bool Tofstream::isOpen() const { return m_file != 0; }
 //
 //======================
 
+namespace {
+// The bytes this used to open files with (the path's UTF-8, as Qt made it,
+// not normalized; doc/nexttoonz_core_noqt.md, step 6c)
+std::string utf8(const TFilePath &fp) {
+  return toUtf8AsQString(roundTripAsQString(fp.getWideString()));
+}
+}  // namespace
+
 FILE *fopen(const TFilePath &fp, std::string mode) {
-  return fopen(QString::fromStdWString(fp.getWideString()).toUtf8().data(),
+  return fopen(utf8(fp).c_str(),
                mode.c_str());
 }
 
 Tifstream::Tifstream(const TFilePath &fp)
-    : std::ifstream(QString::fromStdWString(fp.getWideString()).toUtf8().data(),
+    : std::ifstream(utf8(fp).c_str(),
                std::ios::binary)
 /*: ifstream(openFileForReading(fp), ios::binary)
 NO! This constructor is non-standard, although it is present in many versions. 
@@ -100,7 +107,7 @@ Tifstream::~Tifstream() {}
 
 Tofstream::Tofstream(const TFilePath &fp, bool append_existing)
     : std::ofstream(
-          QString::fromStdWString(fp.getWideString()).toUtf8().data(),
+          utf8(fp).c_str(),
           std::ios::binary | (append_existing ? std::ios_base::app : std::ios_base::trunc)) {}
 
 Tofstream::~Tofstream() {}

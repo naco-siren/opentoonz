@@ -306,14 +306,33 @@ DVAPI TFilePath toUNC(const TFilePath &fp);
    */
 DVAPI TFilePath toLocalPath(const TFilePath &fp);
 
+//! Opens the document with the program the system associates with it,
+//! through the current service (doc/nexttoonz_core_noqt.md, step 6c).
 DVAPI bool showDocument(const TFilePath &fp);
 
-// In tsystem_qt.cpp for now; step 6c of doc/nexttoonz_core_noqt.md gives the
-// core its own versions of what it needs of these.
+//! The one place the showDocument service comes from: sets it and returns
+//! the one it replaces; nullptr restores the built-in one (QDesktopServices,
+//! or ShellExecute on Windows, in the build with Qt; without Qt, one that
+//! opens nothing and returns false).
+typedef bool (*ShowDocumentService)(const TFilePath &fp);
+DVAPI ShowDocumentService setShowDocumentService(ShowDocumentService service);
+
+//! The machine's host name and the user's name, as QHostInfo::localHostName
+//! and the USER (USERNAME on Windows) of the environment gave them.
+DVAPI std::wstring getHostNameW();
+DVAPI std::wstring getUserNameW();
+//! A path in the temporary folder that no file has: getTempDir(), a
+//! backslash, field, and a random UUID as 32 hexadecimal digits.
+DVAPI TFilePath getUniqueFileW(const std::wstring &field = L"");
+
+// tsystem_qt.cpp: the QString versions of the above (step 6c), and two that
+// stay on the Qt side: the Windows registry and the DLL black list.
 DVAPI QDateTime getFileTime(const TFilePath &path);
 DVAPI QString getHostName();
 DVAPI QString getUserName();
 DVAPI QString getSystemValue(const TFilePath &name);
+//! getSystemValue(name).toStdString(), for code that does not use Qt types
+DVAPI std::string getSystemValueUtf8(const TFilePath &name);
 DVAPI TFilePath getUniqueFile(QString field);
 DVAPI TFilePath getUniqueFile();  // getUniqueFile(""), which the default was
 

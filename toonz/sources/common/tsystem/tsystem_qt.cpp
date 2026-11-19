@@ -6,6 +6,7 @@
 
 #include "tsystem.h"
 #include "tconvert.h"
+#include "tsystem_qtsemantics.h"
 
 #include <set>
 
@@ -101,34 +102,129 @@ bool TFileStatus::isLink() const {
 
 //------------------------------------------------------------
 
-QString TSystem::getHostName() { return QHostInfo::localHostName(); }
+#ifdef _WIN32
 
 //------------------------------------------------------------
+// Windows: the process and its machine as Qt gives them (step 6c did the
+// other systems in tsystem.cpp)
 
-QString TSystem::getUserName() {
+std::wstring TSystem::getHostNameW() {
+  return QHostInfo::localHostName().toStdWString();
+}
+
+std::wstring TSystem::getUserNameW() {
   QStringList list = QProcess::systemEnvironment();
   for (int j = 0; j < list.size(); j++) {
     QString value = list.at(j);
     QString user;
-#ifdef _WIN32
     if (value.startsWith("USERNAME=")) user = value.right(value.size() - 9);
-#else
-    if (value.startsWith("USER=")) user = value.right(value.size() - 5);
-#endif
-    if (!user.isEmpty()) return user;
+    if (!user.isEmpty()) return user.toStdWString();
   }
-  return QString("none");
+  return L"none";
 }
-
-//------------------------------------------------------------
 
 TFilePath TSystem::getTempDir() {
   return TFilePath(QDir::tempPath().toStdString());
 }
 
-//------------------------------------------------------------
+TFilePath TSystem::getBinDir() {
+  TFilePath fp =
+      TFilePath(QCoreApplication::applicationFilePath().toStdString());
+  return fp.getParentDir();
+}
 
-TFilePath TSystem::getDllDir() { return getBinDir(); }
+TFilePath TSystem::getUniqueFileW(const std::wstring &wfield) {
+  QString field = QString::fromStdWString(wfield);
+  QString uuid  = QUuid::createUuid()
+                     .toString(QUuid::Id128)
+                     .replace("{", "")
+                     .replace("}", "")
+                     .replace("-", "");
+
+  QString path = QDir::tempPath() + QString("\\") + field + uuid;
+
+  return TFilePath(path.toStdString());
+}
+
+class LocalThread final : public QThread {
+public:
+  static LocalThread *currentThread() {
+    QThread *current = QThread::currentThread();
+    return dynamic_cast<LocalThread *>(current);  // Safer cast
+  }
+  void sleep(TINT64 delay) { msleep(static_cast<unsigned long>(delay)); }
+};
+
+void TSystem::sleep(TINT64 delay) {
+  LocalThread::currentThread()->sleep(delay);
+}
+
+int TSystem::getProcessorCount() { return QThread::idealThreadCount(); }
+
+//------------------------------------------------------------
+// Windows: what tenv.cpp asks of tsystem_qtsemantics.h, from Qt itself
+
+namespace TSystemQtSemantics {
+
+std::wstring absolutePath(const std::wstring &path) {
+  return QFileInfo(QString::fromStdWString(path)).absolutePath().toStdWString();
+}
+
+std::wstring canonicalFilePath(const std::wstring &path) {
+  return QFileInfo(QString::fromStdWString(path))
+      .canonicalFilePath()
+      .toStdWString();
+}
+
+std::wstring currentPath() { return QDir::currentPath().toStdWString(); }
+
+std::wstring applicationFilePath() {
+  if (QCoreApplication::instance())
+    return QCoreApplication::applicationFilePath().toStdWString();
+  // without a QCoreApplication too (step 6c's decision)
+  wchar_t buf[32768];
+  DWORD n = GetModuleFileNameW(nullptr, buf, 32768);
+  if (n == 0 || n >= 32768) return std::wstring();
+  return QFileInfo(QString::fromWCharArray(buf, int(n)))
+      .canonicalFilePath()
+      .toStdWString();
+}
+
+std::wstring applicationDirPath() {
+  std::wstring file = applicationFilePath();
+  if (file.empty()) return file;
+  return QFileInfo(QString::fromStdWString(file)).path().toStdWString();
+}
+
+std::string toLatin1(const std::wstring &s) {
+  QByteArray ba = QString::fromStdWString(s).toLatin1();
+  return std::string(ba.constData(), size_t(ba.size()));
+}
+
+std::wstring environmentVariable(const char *name) {
+  return QString::fromLocal8Bit(qgetenv(name)).toStdWString();
+}
+
+}  // namespace TSystemQtSemantics
+
+#endif  // _WIN32
+
+//------------------------------------------------------------
+// The QString versions
+
+QString TSystem::getHostName() {
+  return QString::fromStdWString(getHostNameW());
+}
+
+QString TSystem::getUserName() {
+  return QString::fromStdWString(getUserNameW());
+}
+
+TFilePath TSystem::getUniqueFile(QString field) {
+  return getUniqueFileW(field.toStdWString());
+}
+
+TFilePath TSystem::getUniqueFile() { return getUniqueFileW(L""); }
 
 //------------------------------------------------------------
 
@@ -151,52 +247,14 @@ QString TSystem::getSystemValue(const TFilePath &name) {
   return qs.value(varName).toString();
 }
 
-//------------------------------------------------------------
-
-TFilePath TSystem::getBinDir() {
-  TFilePath fp =
-      TFilePath(QCoreApplication::applicationFilePath().toStdString());
-  return fp.getParentDir();
+std::string TSystem::getSystemValueUtf8(const TFilePath &name) {
+  return getSystemValue(name).toStdString();
 }
 
 //------------------------------------------------------------
 
-TFilePath TSystem::getUniqueFile(QString field) {
-  QString uuid = QUuid::createUuid()
-                     .toString(QUuid::Id128)
-                     .replace("{", "")
-                     .replace("}", "")
-                     .replace("-", "");
-
-  QString path = QDir::tempPath() + QString("\\") + field + uuid;
-
-  return TFilePath(path.toStdString());
-}
-
-TFilePath TSystem::getUniqueFile() { return getUniqueFile(QString("")); }
-
-//------------------------------------------------------------
-
-class LocalThread final : public QThread {
-public:
-  static LocalThread *currentThread() {
-    QThread *current = QThread::currentThread();
-    return dynamic_cast<LocalThread *>(current);  // Safer cast
-  }
-  void sleep(TINT64 delay) { msleep(static_cast<unsigned long>(delay)); }
-};
-
-void TSystem::sleep(TINT64 delay) {
-  LocalThread::currentThread()->sleep(delay);
-}
-
-//--------------------------------------------------------------
-
-int TSystem::getProcessorCount() { return QThread::idealThreadCount(); }
-
-//------------------------------------------------------------
-
-bool TSystem::showDocument(const TFilePath &path) {
+// The built-in showDocument service of the build with Qt (tsystem.cpp)
+bool showDocumentWithQt(const TFilePath &path) {
 #ifdef _WIN32
   HINSTANCE ret = ShellExecuteW(0, L"open", path.getWideString().c_str(), 0, 0,
                                 SW_SHOWNORMAL);
@@ -217,6 +275,8 @@ bool TSystem::showDocument(const TFilePath &path) {
   return true;
 #endif
 }
+
+//------------------------------------------------------------
 
 bool TSystem::isDLLBlackListed(QString dllFile) {
   static const QStringList dllBlackList = {"lvcod64.dll", "ff_vfw.dll",
