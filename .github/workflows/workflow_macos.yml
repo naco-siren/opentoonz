@@ -24,6 +24,57 @@ on:
   workflow_dispatch:
 
 jobs:
+  # The core libraries without Qt (WITH_QT=OFF; doc/nexttoonz_core_noqt.md):
+  # what has been moved off Qt so far, built where no Qt is installed, with
+  # its unit tests, also in the iPad simulator. x86_64 only, by the owner's
+  # platform order (Q8 of that document).
+  macOS-noqt:
+    timeout-minutes: 60
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install libraries
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          # The libraries the configuration looks for, as in the macOS job,
+          # but no Qt: nothing of the build may find it.
+          for pkg in pkg-config glew lz4 libjpeg libpng lzo boost libusb libmypaint jpeg-turbo ninja opencv@4 googletest; do
+            brew ls --versions "$pkg" >/dev/null || brew install "$pkg"
+          done
+          if brew list --formula | grep -q '^qt'; then
+            echo "Qt is installed on the runner:"; brew list --formula | grep '^qt'
+          fi
+
+      - name: Build libtiff
+        run: |
+          cd thirdparty/tiff-4.0.3
+          CFLAGS='-fPIC' CXXFLAGS='-fPIC' ./configure --disable-lzma
+          make -j $(sysctl -n hw.ncpu)
+
+      - name: Restore Skia
+        id: skia-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ runner.temp }}/skia-pack/*.zip
+          key: skia-pack-x64-${{ hashFiles('ci-scripts/skia/skia_pack.sh') }}
+      - name: Fetch Skia
+        run: |
+          dir="$(ci-scripts/skia/skia_pack.sh x64 "$RUNNER_TEMP/skia-pack" | tail -n 1)"
+          echo "SKIA_PACK_DIR=$dir" >> "$GITHUB_ENV"
+
+      - name: GoogleTest sources for the iPad simulator
+        run: git clone --quiet --depth 1 --branch v1.17.0 https://github.com/google/googletest.git "$RUNNER_TEMP/googletest"
+
+      - name: Build and test without Qt
+        run: |
+          export PKG_CONFIG_PATH="$(brew --prefix jpeg-turbo)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          ci-scripts/noqt/noqt_test.sh toonz/build-noqt "$RUNNER_TEMP/googletest" \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix googletest)" \
+            -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4 \
+            -DWITH_SKIA=ON -DNEXTTOONZ_SKIA_PACK_DIR="$SKIA_PACK_DIR"
+
   macOS:
     timeout-minutes: 180 # Stop job if it exceeds expected build time
     # NextToonz builds macOS arm64 and x86_64 at parity (doc/nexttoonz_plan.md, D5).

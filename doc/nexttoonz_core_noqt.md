@@ -259,7 +259,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 |---|---|---|---|
 | 0（本稿） | 实测清单与设计 | | |
 | 1（已完成） | `TThread::Mutex`/`MutexLocker` 换成 std；另外六处 `QMutex::Recursive`；`tpalette.h`、`tstroke.h`、`tgldisplaylistsmanager.h` 去掉 `<QMutex>`；`WITH_QT` 选项与无 Qt 构建的骨架 | tnzcore 10 个：tgeometry、tcolor（5）、trandom、tstopwatch、tdebugmessage、tsmartpointer | 8.1 节 |
-| 2 | 无 Qt 构建进 CI（Q8） | | 推送后 CI 的新 job 绿；要所有者同意推送 |
+| 2（已完成，未推送） | 无 Qt 构建进 CI（Q8）：macOS x86_64 上一个不装 Qt 的 job，构建、检查没有任何东西碰到 Qt、跑单测，再在 iPad 模拟器里跑核心单测 | | 8.2 节；推送后 CI 的新 job 绿，要所有者同意推送 |
 | 3 | 字符串转换：`tstring.cpp` 不用 QString，`tconvert.h` 的 QString 重载改成第 6 节的适配 | tnzcore：`tmathutil`、`texception`、`tcurves`、`tcurveutil`、`tstroke` 与笔触几何、`tsound`… | 新旧实现的差分测试：随机与构造的 UTF-8/UTF-16 输入（含无效序列、代理对、非 BMP 字符）逐字相同 |
 | 4 | `TFilePath`、`TFrameId` 不用 QString、QChar、QRegularExpression；QString 重载改成适配 | `tfilepath.cpp`、`tfiletype.cpp`、`tdata.cpp`… | 现有 `test_tfilepath.cpp`；加一个路径语料（参考工程、stuff 目录里的所有文件名，加构造的边界情况）的差分测试，新旧 `getName`/`getFrame`/`withFrame`/`getLevelName` 等逐字相同 |
 | 5 | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList | 栅格（`traster.cpp`）、trop 全部、图像读写框架、`tstream.cpp` | 现有 tstream、traster 的单测进入无 Qt 构建；round-trip 测试 |
@@ -336,6 +336,19 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 **结果（Linux 虚拟机，Ubuntu 24.04，clang，ASan + UBSan + LSan）。** 同步分支、构建全部目标（不只是清洁剂 CI 编的那几个，以便查出界面里只在 Linux 上编译的代码），按清洁剂 CI 的环境跑全部测试（`toonz/build-phase1/vm/phase2_step1.sh`）。前两次同步各查出一类问题（上面的 `tofflinegl.cpp` 和 13 个缺 `#include <QMutex>` 的文件），改掉后：全部目标编译通过；408 个测试里 407 个通过，失败的是 `golden_fx_sweep_font_a`，它在这个虚拟机里一直失败（基线要 GitHub runner 的字体，记在 Phase 0 的说明里），与本步无关；GL 画布的 32 个测试在 xvfb 下全部通过；无 Qt 构建（clang，带 Skia）编译命令里没有 Qt，`libtnzcore.so` 只依赖 libstdc++、libm、libgcc_s、libc，114 个测试全部通过。Linux 上没有做 golden 帧的逐字节前后对照：golden 测试本身按容差通过，这一步不碰像素计算。
 
 **没有做的。** 没有推送，所以 CI 没有跑（Ubuntu gcc、Fedora、macOS arm64 这几个 job 本机没有对应环境）；Windows 专用的三个文件没有编译过；arm64 只在 iPad 的 device 模式下编译链接过，没有运行；应用没有打开过（互斥锁的改动不改行为，交互路径只靠编译和测试覆盖）。互斥锁的性能没有单独测：`std::recursive_mutex` 在 macOS 上是 pthread 的递归锁，和 Qt 5 的递归 QMutex 的实现方式不同，golden 的总时间没有可见变化，但没有做基准。
+
+### 8.2 第 2 步实际做成的样子（2026-11-18）
+
+`.github/workflows/workflow_macos.yml` 加了一个 job `macOS-noqt`，跑在 `macos-15-intel` 上。它装 macOS job 装的那些库，唯独不装 Qt；编 tiff、取 Skia 预编译包（和 macOS job 共用缓存的键），浅克隆 GoogleTest v1.17.0 的源码供 iPad 用，然后调 `ci-scripts/noqt/noqt_test.sh`。这个脚本本机也能原样跑，做四件事：
+
+1. 用 `WITH_QT=OFF` 配置并构建。
+2. 检查没有任何东西碰到 Qt，三道：`compile_commands.json` 里没有 Qt 的目录或 `QT_*_LIB` 宏；`ninja -t deps` 记下的每个目标文件依赖的头里没有 Qt 的头，这一道连"Qt 恰好装在默认包含目录里、编译命令里看不出来"的情况也能查出；构建出的 `libtnz*` 没有一个链接 Qt。三道检查拿默认构建试过，都会报错。
+3. `ctest`。
+4. 给了 GoogleTest 源码时，`run_ios_noqt.sh simulator` 在 iPad 模拟器里跑核心单测。
+
+本机（x86_64 macOS，带 Skia）：脚本退出码 0，7 个库没有一个碰到 Qt，114 个测试通过，iPad 模拟器里 26 个通过。CI 上没有跑过：要推送，推送要所有者同意。runner 上会不会已经装了 Qt、iPad 模拟器是否可用，都只能推送后才知道；前一件 job 会在日志里打印出来，后一件失败时 job 失败。
+
+这个 job 现在还不是阻塞的：仓库没有分支保护（计划的待定事项"CI 阻塞合并的落实方式"），第 20 步收口时再定。
 
 ---
 
