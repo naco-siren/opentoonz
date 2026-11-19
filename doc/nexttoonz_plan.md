@@ -405,18 +405,22 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 - `TThread` 换为 `std::thread` 线程池加注入式主线程 dispatcher；`TRenderer` 去掉 `processEvents` 自旋与 `qGuiApp`；消掉 `QMutex::Recursive` 与 `TThread::Mutex`。
 - `TFilePath`、`tstring`、`tsystem`、`tenv` 去掉 QString、QDir、QSettings、QProcess；14 个泄漏 Qt 的核心头清理；约 730 个包含者机械扫。
 - 模型去 QObject：Handle 的信号改为 observer 回调；`Preferences` 换普通键值存储；`TUndoManager` 去 QObject；`TXshLevel`、`TXshSoundColumn` 去 QObject。
-- 把 GUI 里约 25k 行 xsheet 编辑命令搬进库，配 characterization 测试。
+- 把 GUI 里的 xsheet 编辑命令中 iPad MVP 需要的那部分（cell、column、level 的基本编辑）搬进库，配 characterization 测试；其余的随 Phase 3 一起做（2026-11-18 所有者对 `doc/nexttoonz_core_noqt.md` Q7 的决定，原文是"约 25k 行全部搬进库"）。
+- 核心库里 viewer 一侧的 OpenGL 入口移到界面一侧的新库，离线的 GL 退路改成由它注册的栅格化后端，使无 Qt 构建也不带桌面 GL（同日，Q1）。
 - 插件宿主的渲染适配器从 toonzqt 搬到核心库。
 - LZO 直接链库；ffmpeg 改为注入接口；删除 `t32bitsrv`、QuickTime、tipc。
 - 建引擎 API（D3）。
 - QtScript 绑定变为可选编译。
-- 新增构建选项使核心库不链接 Qt，在 Linux 与 macOS 上编译并跑单测。
+- 新增构建选项使核心库不链接 Qt，在 macOS x86_64 上编译并跑单测，并在 iPad 模拟器里跑核心单测（同日，Q8；原文是"在 Linux 与 macOS 上"）。
+
+进展（2026-11-18，本地分支 `wip/phase2-noqt`，没有合并、没有推送）：设计草案是 `doc/nexttoonz_core_noqt.md`，含重新实测的依赖清单（取代附录 8.3 的大部分）、21 步的迁移表和 8 个问题；所有者 2026-11-18 对 8 个问题都按草案的倾向定了，Q4、Q5 要跟进（见待定事项），上面的工作项和下面的完成判据已照此修改。迁移第 1 步已完成：`TThread::Mutex` 与全树的 `QMutex::Recursive` 换成 std，新增 `WITH_QT` 选项，`WITH_QT=OFF` 时只构建已经不用 Qt 的部分（目前是画布库和 tnzcore 的 10 个源文件）及其单测。
 
 完成判据：
 
 - 核心库的默认 CMake 目标不链接 Qt；"无 Qt"构建作为阻塞 CI job 常驻，编译、链接并通过全部单测与 round-trip 测试。
 - 核心与渲染路径无任何 `QProcess` 或等价的子进程调用。
-- 桌面 Qt UI 通过引擎 API 调用核心，golden 全部通过。
+- tcomposer、tconverter、tcleanupper 与应用的打开、保存、渲染入口通过引擎 API 调用核心，golden 全部通过（2026-11-18 按 Q7 修改，原文是"桌面 Qt UI 通过引擎 API 调用核心"）。
+- 核心库不链接桌面 OpenGL；无 Qt 构建的核心单测在 iPad 模拟器里通过（同日，按 Q1 新增）。
 
 ### Phase 3 viewer 与工具上画布，Qt6
 
@@ -425,6 +429,7 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 - 里程碑一：合并上游 Qt6 通道，切换为 Qt 6.8 或更高的构建，核心库零改动、golden 全部通过，作为 D2 要求的解耦验证。
 - `SceneViewer::paintGL`、`Stage::Visitor` 的绘制器、`ImagePainter`、`GLRasterPainter` 改为发 IR。LUT 校准作为画布后处理。`GL_SELECT` 改为 ID 命中测试。
 - 37 个工具的 `draw()` 与约 1.8k 处 GL 调用改为 IR，变换显式传入；`TMouseEvent` 去掉 Qt 类型。
+- Phase 2 没有搬的 xsheet 编辑命令搬进库（2026-11-18，Q7）。
 - `QRhiWidget` 后端消费网格级 IR。
 - ShaderFx 迁到新后端或改为 CPU 实现。
 - 15 个 GL 控件类（viewer、flipbook、PlaneViewer 及 9 个 swatch、色轮、30-bit 检测器）切到新后端。
@@ -455,12 +460,14 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 | x64 Windows 作为产品目标 | 继承的 workflow 继续跑，不阻塞 | 所有者决定 |
 | Skia 的获取方式 | 优先 vcpkg 的 skia port（metal、vulkan、graphite 特性），不可行时转 D6 的触发条件 1 | Phase 1 开工时试 |
 | Qt6 最低版本 | 6.7 是 QRhiWidget 的下限，倾向 6.8 LTS 或更高 | 合并 #6919 时确认其目标版本 |
-| 脚本引擎 | QtScript 绑定在 Phase 2 变可选；长期通过 C ABI 绑定 QuickJS、Lua 或 Python | Phase 2 末 |
+| 脚本引擎 | 已定（2026-11-18，Q3）：QtScript 绑定在 Phase 2 移出 toonzlib 成单独的可选库，不换引擎；长期通过 C ABI 绑定 QuickJS、Lua 或 Python | Phase 3 合并 Qt6 时 |
 | 改名为 NextToonz 的时机 | Phase 2 分叉时统一改产品名、二进制名、stuff 路径 | 所有者决定 |
-| ffmpeg 在桌面的形态 | 保留外部进程或改链 libav | Phase 2 |
+| ffmpeg 在桌面的形态 | 已定（2026-11-18，Q6）：编解码服务接口的桌面实现保留外部进程；改链 libav 以后随时可换 | 无 |
 | toonzfarm 的去留 | 暂不处理 | Phase 2 |
 | 扫描仪 twain、Canon SDK、stopmotion 的去留 | 暂不处理 | Phase 2 |
 | 本文档的英文版 | 未定 | 有外部贡献者时 |
+| 设置存储的跟进（Q4） | Phase 2 第 15 步按 Q4 (a) 做：注入的键值存储，桌面仍用 QSettings。要跟进：是否继续收缩为 `Preferences` 整个移到 toonzqt；iPad 壳的设置存在哪、用什么格式 | 第 15 步做完时，所有者 |
+| 文字渲染的跟进（Q5） | Phase 2 第 18 步按 Q5 (a) 做：注入的文字与字体服务，桌面仍用 Qt。要跟进：iPad 的 CoreText 与桌面 Qt 的文字像素不一致，是否、何时改用 Skia 文字使各平台一致（改变桌面文字像素，要出对照图） | 第 18 步做完时，所有者 |
 | “CI 阻塞合并”的落实方式 | 给 `nexttoonz/*` 分支加保护并改走 PR；单人项目下也可以维持现状，靠推送前看 CI | 所有者决定 |
 
 ---
@@ -542,6 +549,8 @@ GL 控件基类：`include/toonzqt/glwidget_for_highdpi.h` 的 `GLWidgetForHighD
 
 ### 8.3 核心库中的 Qt 类使用（行数 / 文件数）
 
+2026-11-17 在 `84f17b336` 上重新实测，按链接的符号、预处理器的包含树和按用途分类的行数三种口径，结果在 `doc/nexttoonz_core_noqt.md` 第 2 节，以那里为准。下表是最初的调查，留作对照；下面的难度分级已按实测修正。
+
 | 类 | tnzcore | tnzbase | toonzlib | image | stdfx | tnzext |
 |---|---|---|---|---|---|---|
 | QString | 268/28 | 101/11 | 752/89 | 205/28 | 92/11 | 35/3 |
@@ -560,9 +569,9 @@ GL 控件基类：`include/toonzqt/glwidget_for_highdpi.h` 的 `GLWidgetForHighD
 
 `common/` 下完全无 Qt 的子目录：trop、twain、tgeometry、tcolor、timage、traster、tmeshimage、tmetaimage、ttest、tunit、txsheet。stdfx 203 个 .cpp 中 172 个没有直接的 Qt 标识符。
 
-去 Qt 难度分级：
+去 Qt 难度分级（2026-11-17 修正：按各库自己的代码看，tnzext、colorfx、sound 的用量确实小，但它们的每个编译单元都经 tnzcore 的公共头碰到 Qt，在那些头清干净之前不可能单独去 Qt；真正的叶子只有 tnzcore 的算法目录。见 `doc/nexttoonz_core_noqt.md` 2.7 节）：
 
-- 小：tnzext（仅互斥锁与 QString）、colorfx（仅 translate）、sound（QProcess 调 ffmpeg）、tnzbase 的大部分、tnzcore 的算法目录、stdfx 的大部分。
+- 小：tnzcore 的算法目录（tgeometry、tcolor 本来就不碰 Qt；trop、笔触几何在互斥锁换掉之后不碰）；在 tnzcore 的头清干净之后，tnzext（互斥锁与 QString）、colorfx（translate）、sound（QProcess 调 ffmpeg）、tnzbase 的大部分、stdfx 的大部分。
 - 中：tnzcore 的基础设施（TFilePath、tstring、tsystem、tenv、TThread、TImageCache、tfont_qt、qtofflinegl、tsound_qt、tipc、tmsgcore、TUndoManager）；TRenderer；image。
 - 大：toonzlib 的模型层（QObject 级别、Handle、Preferences、脚本绑定、`orientation.cpp` 的 UI 几何、QPainter 渲染）。
 
