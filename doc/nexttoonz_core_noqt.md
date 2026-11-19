@@ -1,6 +1,6 @@
 # NextToonz 核心去 Qt 设计草案
 
-版本 0.5，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
+版本 0.6，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
 迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）和第 5 步（流、图像缓存与图像读写框架的头）已经实现（第 7 节，做成的样子在 8.1 到 8.5 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
@@ -249,7 +249,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 - 核心库自己的源文件不链接这个目标，因此在核心库里用 QString 重载会编译失败，这正是想要的。
 - 到 Phase 3 合并 Qt6 时，适配集中在少数几个头里，改起来也集中。
 
-**第 4 步时的补充（2026-11-18）。** 上面的宏只适合自由函数。成员函数（`TFilePath::getQString()`、`TFilePath(const QString &)`、`TFrameId::getLetter()`……）不能按宏有无出现或消失：同一个类在不同编译单元里的定义就不一样了，这违反 ODR。原来的打算是把它们改成非成员函数、界面机械替换，但仅 `getQString()` 就有约 310 处调用。第 4 步改用另一种做法：成员照样在核心头里**声明**，用前置声明的 `class QString; class QChar;`（`tfiletype.h` 早就这样做了），**定义**放进一个只在 Qt 构建里编译的源文件（tnzcore 的 `tfilepath_qt.cpp`）。类的定义在所有编译单元里都一样；不带 Qt 的代码看不到完整的 QString，调用这些成员就编译失败；界面和还没迁移的库原样调用，一处都不用改。宏 `NEXTTOONZ_QT_INTEROP` 仍用于自由函数（第 3 步的 `fromStr`）。这是对 Q2 (a) 的落实方式的改动，没有改变 Q2 的目的（界面的改动最小、适配集中）；它带来一个到第 20 步才要处理的问题，见第 11 节。
+**第 4 步时的补充（2026-11-18）。** 上面的宏只适合自由函数。成员函数（`TFilePath::getQString()`、`TFilePath(const QString &)`、`TFrameId::getLetter()`……）不能按宏有无出现或消失：同一个类在不同编译单元里的定义就不一样了，这违反 ODR。原来的打算是把它们改成非成员函数、界面机械替换，但仅 `getQString()` 就有约 310 处调用。第 4 步改用另一种做法：成员照样在核心头里**声明**，用前置声明的 `class QString; class QChar;`（`tfiletype.h` 早就这样做了），**定义**放进一个只在 Qt 构建里编译的源文件（tnzcore 的 `tfilepath_qt.cpp`）。类的定义在所有编译单元里都一样；不带 Qt 的代码看不到完整的 QString，调用这些成员就编译失败；界面和还没迁移的库原样调用，一处都不用改。宏 `NEXTTOONZ_QT_INTEROP` 仍用于自由函数（第 3 步的 `fromStr`）。这是对 Q2 (a) 的落实方式的改动，没有改变 Q2 的目的（界面的改动最小、适配集中）；它带来一个到第 20 步才要处理的问题，见第 11 节。2026-11-18 主会话受所有者委托认可了这个做法，以后同类接口都照此做（第 10 节开头）。
 
 ---
 
@@ -463,6 +463,13 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 - Q7 取 (b)：Phase 2 只要求 tcomposer、tconverter、tcleanupper 和应用的打开、保存、渲染入口经引擎 API；编辑命令只搬 iPad MVP 需要的那部分，其余放到 Phase 3。计划里 Phase 2 的工作项和完成判据已经照此修改。
 - Q8 取 (a)：无 Qt 构建的 CI job 在下一次推送时加，只在 macOS x86_64 上；Linux 不加。因为 tnzcore 里不带 Qt 的部分第 1 步就能在 iPad 模拟器里跑了，同一个 job 从第 2 步起也跑 `run_ios_noqt.sh`。
 
+**决定（2026-11-18，所有者委托主会话拍板）。** 第 4 步之后又有两件事要定：第 6 节补充里 Q2 落实方式的改动，和新的 Q9。所有者的原话是"我没什么大意见，你拍板吧"，把这类设计层面的取舍交给了主会话。主会话的决定：
+
+- **Q2 的落实方式认可第 4 步的做法**：带 Qt 类型的成员照样在核心头里声明（前置声明 `class QString;` 等），定义放进只在 Qt 构建里编译的 `*_qt.cpp`。理由：调用点不用改；类在每个编译单元里都一样，没有 ODR 问题；不带 Qt 的核心代码调用它们会在编译时失败。第 20 步在 Windows 上的 DLL 导入问题只影响 Windows，留在第 11 节的风险里，到那一步再处理。以后各步遇到同类接口照此做，不再另问。
+- **Q9 取 (b)**：macOS 和 iPadOS 用 CoreFoundation（第 4 步已做，顺序不变）；Windows 自己调用 `CompareStringEx`；Linux 用 C 库的排序，不引入 ICU。理由：Apple 平台是首要目标，已与 Qt 一致；Linux 只是 CI 的测试床，不值得为帧字母的顺序多一个依赖。**接受的差异**：核心不再链接 Qt 之后，Linux 上非 ASCII 字母（以及大小写混合时）的帧顺序可能与今天 Qt 经 ICU 给出的顺序不同。做到第 20 步时要用差分测试量出 Linux 上与 Qt/ICU 顺序的差别并记下来，对 golden 或已有测试有影响就报告。帧字母的顺序由 `test_tfilepath.cpp` 的 `TFrameId.LetterOrderIsPinned` 钉住（ASCII 字母、大小写混合、多字母后缀；各平台共同的部分在所有平台上检查，Apple 的完整顺序只在 Apple 上检查）。
+
+以后遇到同类的设计取舍，仍先停下来报告主会话，由主会话决定；涉及外观、产品范围、推送与合并的，仍由所有者本人决定。
+
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
 下面每个问题都写了选项和本稿的倾向。
@@ -492,7 +499,7 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 
 **Q8 无 Qt 构建的 CI job 什么时候加、加在哪。** 计划写"在 Linux 与 macOS 上编译并跑单测"。选项：(a) 下一次推送时在 macOS x86_64 的 workflow 里加一个 job（配置 `WITH_QT=OFF`，几十个编译单元，一两分钟）；Q1 选 (b) 时再加 iPad 模拟器；Linux 不加；(b) Linux 和 macOS 都加；(c) 到 Phase 2 末尾再加。倾向 (a)：符合"先做 x86_64 macOS 和 iPadOS"的平台重点；Linux 的全量构建和清洁剂 job 已经覆盖了 Linux 上的编译，无 Qt 构建在 Linux 上本机虚拟机里测过（第 8 节）。
 
-**Q9 不带 Qt 时，Apple 以外的平台上帧字母怎么排序（第 4 步发现，2026-11-18 起待定）。** `TFrameId` 的字母（`pippo.0001a.tzp` 的 `a`）原来按 `QString::localeAwareCompare` 排序，它决定同一帧号下带字母的帧在关卡里的先后。Qt 在 macOS 上调用 CoreFoundation 的 `CFStringCompare`，第 4 步在 Apple 平台上直接做同一个调用，所以 macOS 和 iPadOS 上逐位相同，也不需要 Qt。在 Linux 上 Ubuntu 的 Qt 用 ICU 的排序规则，在 Windows 上用 `CompareStringEx`；第 4 步在这两个平台的 Qt 构建里仍然问 Qt，行为不变。问题在于核心最终不链接 Qt 之后（第 20 步），这两个平台怎么办；现在只有 Linux 的无 Qt 构建（本机虚拟机，不在 CI 上）用 C 库的 `wcscoll` 临时顶着。选项：(a) Linux 链接 ICU、Windows 调用 `CompareStringEx`，与今天逐位相同；(b) Windows 调用 `CompareStringEx`（与 Qt 相同），Linux 改用 C 库的排序，只有大小写或重音不同的字母顺序可能与今天不同；(c) 所有平台都改用一个固定的、与语言环境无关的顺序，各平台一致，但 macOS 上带字母的帧顺序会变。倾向 (b)：Linux 目前只是 CI 测试床（D5），为它多一个 ICU 依赖不划算；(a) 留到 Linux 成为产品目标时再说。不影响现在的任何一步，第 20 步之前定即可。
+**Q9 不带 Qt 时，Apple 以外的平台上帧字母怎么排序（第 4 步发现，2026-11-18 起待定）。** `TFrameId` 的字母（`pippo.0001a.tzp` 的 `a`）原来按 `QString::localeAwareCompare` 排序，它决定同一帧号下带字母的帧在关卡里的先后。Qt 在 macOS 上调用 CoreFoundation 的 `CFStringCompare`，第 4 步在 Apple 平台上直接做同一个调用，所以 macOS 和 iPadOS 上逐位相同，也不需要 Qt。在 Linux 上 Ubuntu 的 Qt 用 ICU 的排序规则，在 Windows 上用 `CompareStringEx`；第 4 步在这两个平台的 Qt 构建里仍然问 Qt，行为不变。问题在于核心最终不链接 Qt 之后（第 20 步），这两个平台怎么办；现在只有 Linux 的无 Qt 构建（本机虚拟机，不在 CI 上）用 C 库的 `wcscoll` 临时顶着。选项：(a) Linux 链接 ICU、Windows 调用 `CompareStringEx`，与今天逐位相同；(b) Windows 调用 `CompareStringEx`（与 Qt 相同），Linux 改用 C 库的排序，只有大小写或重音不同的字母顺序可能与今天不同；(c) 所有平台都改用一个固定的、与语言环境无关的顺序，各平台一致，但 macOS 上带字母的帧顺序会变。倾向 (b)：Linux 目前只是 CI 测试床（D5），为它多一个 ICU 依赖不划算；(a) 留到 Linux 成为产品目标时再说。不影响现在的任何一步，第 20 步之前定即可。（2026-11-18 已定，取 (b)，见本节开头。）
 
 ---
 
