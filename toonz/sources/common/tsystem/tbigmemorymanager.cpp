@@ -5,6 +5,7 @@
 #include "timagecache.h"
 #include "tsystem.h"
 #include "tconvert.h"
+#include <atomic>
 #include <cstring>
 #include <set>
 #include "tfilepath_io.h"
@@ -57,10 +58,12 @@ void TBigMemoryManager::setRunOutOfContiguousMemoryHandler(
 
 //------------------------------------------------------------------------------
 
+// Atomic: rasters are allocated in several threads at once
+// (doc/nexttoonz_core_noqt.md, 8d).
 namespace {
-int allocationPeakKB               = 0;
-unsigned long long allocationSumKB = 0;
-unsigned long allocationCount      = 0;
+std::atomic<int> allocationPeakKB{0};
+std::atomic<unsigned long long> allocationSumKB{0};
+std::atomic<unsigned long> allocationCount{0};
 }
 
 //------------------------------------------------------------------------------
@@ -80,11 +83,10 @@ int TBigMemoryManager::getAllocationMean() {
 //------------------------------------------------------------------------------
 
 TBigMemoryManager *TBigMemoryManager::instance() {
-  static TBigMemoryManager *theManager = 0;
-
-  if (theManager) return theManager;
-
-  return theManager = new TBigMemoryManager();
+  // made on the first call, as before, once even when that call is made in
+  // several threads at once (doc/nexttoonz_core_noqt.md, 8d)
+  static TBigMemoryManager *const theManager = new TBigMemoryManager();
+  return theManager;
 }
 
 //------------------------------------------------------------------------------
@@ -269,7 +271,10 @@ bool TBigMemoryManager::putRaster(TRaster *ras, bool canPutOnDisk) {
   {
     if (!ras->m_parent) {
       int sizeKB       = size >> 10;
-      allocationPeakKB = std::max(allocationPeakKB, sizeKB);
+      int peak = allocationPeakKB.load();
+      while (sizeKB > peak &&
+             !allocationPeakKB.compare_exchange_weak(peak, sizeKB)) {
+      }
       allocationSumKB += sizeKB;
       allocationCount++;
     }

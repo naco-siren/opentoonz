@@ -1,5 +1,6 @@
 
 
+#include <atomic>
 #include "tmathutil.h"
 #include "tstrokeutil.h"
 #include "tstrokeoutline.h"
@@ -726,7 +727,10 @@ private:
 //-----------------------------------------------------------------------------
 
 namespace {
-int maxStrokeId = 0;
+// Atomic: strokes are made in several threads at once (a render reading
+// levels with -nthreads), and two must not get the same id. The ids are the
+// same as before in one thread (doc/nexttoonz_core_noqt.md, 8d).
+std::atomic<int> maxStrokeId{0};
 }
 
 /*! init() is required to initialize all variable

@@ -3,6 +3,8 @@
 #include "tsmartpointer.h"
 #include "tthreadmessage.h"
 
+#include <atomic>
+
 //-------------------------------------------------------------------
 
 namespace {
@@ -12,20 +14,27 @@ namespace {
 typedef TAtomicVar *TAtomicVarPtr;
 
 const int maxClassCode = 200;
-TAtomicVarPtr instanceCounts[maxClassCode + 1];
+// Atomic pointers: the double-checked lock below reads them unlocked
+// (doc/nexttoonz_core_noqt.md, 8d).
+std::atomic<TAtomicVarPtr> instanceCounts[maxClassCode + 1];
 
 //-------------------------------------------------------------------
 
 inline TAtomicVar &getInstanceCounter(TINT32 classCode) {
   assert(0 <= classCode && classCode <= maxClassCode);
-  TAtomicVarPtr &instanceCountPtr = instanceCounts[classCode];
-  if (instanceCountPtr == 0) {
+  std::atomic<TAtomicVarPtr> &instanceCountPtr = instanceCounts[classCode];
+  TAtomicVarPtr counter = instanceCountPtr.load(std::memory_order_acquire);
+  if (counter == 0) {
     static TThread::Mutex mutex;
     TThread::MutexLocker g(&mutex);
-    if (instanceCountPtr == 0) instanceCountPtr = new TAtomicVar();
+    counter = instanceCountPtr.load(std::memory_order_relaxed);
+    if (counter == 0) {
+      counter = new TAtomicVar();
+      instanceCountPtr.store(counter, std::memory_order_release);
+    }
   }
-  assert(instanceCountPtr);
-  return *instanceCountPtr;
+  assert(counter);
+  return *counter;
 }
 
 //-------------------------------------------------------------------
