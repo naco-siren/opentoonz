@@ -241,8 +241,8 @@ class DVAPI TCenterLineStrokeStyle final : public TSimpleStrokeStyle {
   USHORT m_stipple;
   double m_width;
 
-  // The OpenGL drawing of this style: an implementation detail of the
-  // OpenGL side (tglentries.h), not for other code.
+  // The OpenGL drawing of this style: an implementation detail of
+  // tnzglview (tglentries_gl.cpp), not for other code.
   friend struct TGLEntriesAccess;
 
 public:
@@ -303,8 +303,8 @@ private:
 class DVAPI TRasterImagePatternStrokeStyle final : public TColorStyle {
   static TFilePath m_rootDir;
 
-  // The OpenGL drawing of this style: an implementation detail of the
-  // OpenGL side (tglentries.h), not for other code.
+  // The OpenGL drawing of this style: an implementation detail of
+  // tnzglview (tglentries_gl.cpp), not for other code.
   friend struct TGLEntriesAccess;
 
 protected:
@@ -419,8 +419,8 @@ private:
 class DVAPI TVectorImagePatternStrokeStyle final : public TColorStyle {
   static TFilePath m_rootDir;
 
-  // The OpenGL drawing of this style: an implementation detail of the
-  // OpenGL side (tglentries.h), not for other code.
+  // The OpenGL drawing of this style: an implementation detail of
+  // tnzglview (tglentries_gl.cpp), not for other code.
   friend struct TGLEntriesAccess;
 
 protected:
@@ -520,8 +520,6 @@ public:
                          std::vector<TTranslatableText>& items) const override;
   int getParamValue(TColorStyle::int_tag, int index) const override;
   void setParamValue(int index, int value) override;
-
-  static void clearGlDisplayLists();
 
   TRectD getStrokeBBox(const TStroke *stroke) const override;
 

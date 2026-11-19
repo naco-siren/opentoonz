@@ -1,9 +1,12 @@
-// The OpenGL side of the seams of tglentries.h: what the desktop installs,
-// built into tnzcore until step 8c moves it to tnzglview
-// (doc/nexttoonz_core_noqt.md, step 8b). The bodies of the drawers are the
-// OpenGL entry points of tnzcore's styles as they were, moved here.
+// The OpenGL side of the seams of tglentries.h, in tnzglview: what
+// TGLView::install() puts in them (doc/nexttoonz_core_noqt.md, steps 8b and
+// 8c). The bodies of the drawers are the OpenGL entry points of tnzcore's
+// styles as they were, moved here.
 
 #include "tglentries.h"
+#include "tglview.h"
+
+#include "../../colorfx/colorfx_gl.h"
 
 #include "tgl.h"
 #include "tglcanvasbridge.h"
@@ -180,24 +183,28 @@ struct TGLEntriesAccess {
 };
 
 //=============================================================================
-//  What tglentries.cpp installs by default
+//  TGLView::install()
 
-const TGLEntries::ViewerCanvas *builtInViewerCanvas() {
-  return &glViewerCanvas;
+namespace {
+
+void registerCoreDrawers() {
+  using namespace TGLEntries;
+  setDrawer("TCenterLineStrokeStyle::drawStroke",
+            reinterpret_cast<AnyDrawer>(static_cast<StrokeDrawer>(
+                &TGLEntriesAccess::centerLineStroke)));
+  setDrawer("TRasterImagePatternStrokeStyle::drawStroke",
+            reinterpret_cast<AnyDrawer>(static_cast<PatternStrokeDrawer>(
+                &TGLEntriesAccess::rasterPatternStroke)));
+  setDrawer("TVectorImagePatternStrokeStyle::drawStroke",
+            reinterpret_cast<AnyDrawer>(static_cast<PatternStrokeDrawer>(
+                &TGLEntriesAccess::vectorPatternStroke)));
 }
 
-TGLEntries::OfflineFactory builtInOfflineFactory() { return &openGlOffline; }
+}  // namespace
 
-void registerBuiltInDrawers(void (*add)(const char *entry,
-                                        TGLEntries::AnyDrawer drawer)) {
-  using namespace TGLEntries;
-  add("TCenterLineStrokeStyle::drawStroke",
-      reinterpret_cast<AnyDrawer>(
-          static_cast<StrokeDrawer>(&TGLEntriesAccess::centerLineStroke)));
-  add("TRasterImagePatternStrokeStyle::drawStroke",
-      reinterpret_cast<AnyDrawer>(static_cast<PatternStrokeDrawer>(
-          &TGLEntriesAccess::rasterPatternStroke)));
-  add("TVectorImagePatternStrokeStyle::drawStroke",
-      reinterpret_cast<AnyDrawer>(static_cast<PatternStrokeDrawer>(
-          &TGLEntriesAccess::vectorPatternStroke)));
+void TGLView::install() {
+  TGLEntries::setViewerCanvas(&glViewerCanvas);
+  TGLEntries::setOfflineFactory(&openGlOffline);
+  registerCoreDrawers();
+  registerColorFxGlDrawers();
 }

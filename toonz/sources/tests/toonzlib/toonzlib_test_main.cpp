@@ -18,6 +18,7 @@
 #include "tiio_std.h"
 #include "tnzimage.h"
 #include "colorfx.h"
+#include "tglview.h"
 #include "stdfx/shaderfx.h"
 #include "tpalette.h"
 #include "tsimplecolorstyles.h"
@@ -97,6 +98,8 @@ public:
     initImageIo();
     initStdFx();
     initColorFx();
+    // As tcomposer does.
+    TGLView::install();
     // Shader fx are declared from their interface files, as tcomposer and
     // the generator do; scenes/shader_fx.tnz cannot be loaded otherwise.
     loadShaderInterfaces(stuff + "library" + "shaders");

@@ -66,7 +66,6 @@ public:
 
   // debug
   void enableTrace(bool enabled) { m_traceEnabled = enabled; }
-  void draw();
   void clear() { m_links.clear(); }
 
   void compute(End &a, End &b);

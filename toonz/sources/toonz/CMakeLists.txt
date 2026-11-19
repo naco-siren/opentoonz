@@ -462,7 +462,7 @@ else()
     set(MACOSX_BUNDLE_ICON_FILE "OpenToonz.icns")
     set_source_files_properties(OpenToonz.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
     add_executable(OpenToonz MACOSX_BUNDLE OpenToonz.icns ${HEADERS} ${SOURCES} ${OBJCSOURCES} ${RESOURCES})
-    add_dependencies(OpenToonz tnzcore tnzbase toonzlib colorfx tnzext image sound toonzqt tnztools tnzstdfx tfarm)
+    add_dependencies(OpenToonz tnzcore tnzbase toonzlib colorfx tnzglview tnzext image sound toonzqt tnztools tnzstdfx tfarm)
     #add_definitions(
     #    -DTNZBASE_EXPORTS
     #    -DTPARAM_EXPORTS
@@ -538,12 +538,12 @@ if(BUILD_ENV_MSVC)
         Qt5::Script Qt5::Widgets Qt5::PrintSupport Qt5::Multimedia Qt5::UiTools
         ${GL_LIB} ${GLUT_LIB}
         ${EXTRA_LIBS} strmiids
-        tnzcore tnzbase toonzlib colorfx tnzext image sound toonzqt tnztools tnzstdfx tfarm
+        tnzcore tnzbase toonzlib colorfx tnzglview tnzext image sound toonzqt tnztools tnzstdfx tfarm
     )
 elseif(BUILD_ENV_APPLE)
     find_library(COCOA_LIB Cocoa)
 
-    _find_toonz_library(EXTRA_LIBS "tnzcore;tnzbase;toonzlib;colorfx;tnzext;image;sound;toonzqt;tnztools")
+    _find_toonz_library(EXTRA_LIBS "tnzcore;tnzbase;toonzlib;colorfx;tnzglview;tnzext;image;sound;toonzqt;tnztools")
 
     # Workaround for non-standard library output locations
     set(EXTRA_LIBS ${EXTRA_LIBS} "$<TARGET_FILE:tnzstdfx>" "$<TARGET_FILE:tfarm>")
@@ -570,7 +570,7 @@ elseif(BUILD_ENV_APPLE)
     )
 
     # ADDED/UPDATED: Expanded dependencies for all libs and utilities (ensures build order)
-    add_dependencies(OpenToonz tnzcore tnzbase toonzlib colorfx tnzext image sound toonzqt tnztools tnzstdfx tfarm tcomposer tcleanup tconverter tfarmcontroller tfarmserver)
+    add_dependencies(OpenToonz tnzcore tnzbase toonzlib colorfx tnzglview tnzext image sound toonzqt tnztools tnzstdfx tfarm tcomposer tcleanup tconverter tfarmcontroller tfarmserver)
     add_dependencies(OpenToonz ${NEXTTOONZ_CANVAS_LIBS})
 
     # ADDED/UPDATED: Configure Info.plist for bundle (retina support etc.)
@@ -584,7 +584,7 @@ elseif(BUILD_ENV_APPLE)
     )
 
 elseif(BUILD_ENV_UNIXLIKE)
-    _find_toonz_library(EXTRA_LIBS "tnzcore;tnzbase;toonzlib;colorfx;tnzext;image;sound;toonzqt;tnztools")
+    _find_toonz_library(EXTRA_LIBS "tnzcore;tnzbase;toonzlib;colorfx;tnzglview;tnzext;image;sound;toonzqt;tnztools")
 
     # Workaround for non-standard library output locations
     set(EXTRA_LIBS ${EXTRA_LIBS} "$<TARGET_FILE:tnzstdfx>" "$<TARGET_FILE:tfarm>")
@@ -717,6 +717,7 @@ if(BUILD_ENV_UNIXLIKE AND BUILD_TARGET_WIN)
             "$<TARGET_FILE:tnzbase>"
             "$<TARGET_FILE:toonzlib>"
             "$<TARGET_FILE:colorfx>"
+            "$<TARGET_FILE:tnzglview>"
             "$<TARGET_FILE:tnzext>"
             "$<TARGET_FILE:image>"
             "$<TARGET_FILE:sound>"
@@ -780,6 +781,7 @@ elseif(BUILD_ENV_UNIXLIKE AND NOT BUILD_TARGET_WIN)
             "$<TARGET_FILE:tnzbase>"
             "$<TARGET_FILE:toonzlib>"
             "$<TARGET_FILE:colorfx>"
+            "$<TARGET_FILE:tnzglview>"
             "$<TARGET_FILE:tnzext>"
             "$<TARGET_FILE:image>"
             "$<TARGET_FILE:sound>"

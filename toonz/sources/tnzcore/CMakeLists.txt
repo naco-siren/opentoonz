@@ -71,8 +71,6 @@ set(HEADERS ${MOC_HEADERS}
     ../include/tstrokeoutline.h
     ../include/tsweepboundary.h
     ../include/tvectorimage.h
-    ../include/tgl.h
-    ../include/tstencilcontrol.h
     ../include/tsop.h
     ../include/tsound.h
     ../include/tsound_io.h
@@ -87,8 +85,6 @@ set(HEADERS ${MOC_HEADERS}
     ../include/tcolorstyles.h
     ../include/tfont.h
     ../include/tinbetween.h
-    ../include/tofflinegl.h
-    ../include/qtofflinegl.h
     ../include/tpalette.h
     ../include/tpaletteutil.h
     ../include/tregionprop.h
@@ -96,11 +92,9 @@ set(HEADERS ${MOC_HEADERS}
     ../include/tstrokedeformations.h
     ../include/tstrokeprop.h
     ../include/tstrokeutil.h
-    ../include/tvectorgl.h
     ../include/tvectorcanvas.h
     ../include/tvectorrasterizer.h
     ../include/tcanvasutil.h
-    ../include/tglcanvasbridge.h
     ../include/tglentries.h
     ../include/tvectorbrushstyle.h
     ../include/tvectorrenderdata.h
@@ -124,7 +118,6 @@ set(HEADERS ${MOC_HEADERS}
     ../include/tenv.h
     ../include/tkeyvaluestore.h
     ../include/tmeshimage.h
-    ../include/tgldisplaylistsmanager.h
     ../include/tversion.h
     ../include/tstringid.h
     ../include/tvariant.h
@@ -179,9 +172,6 @@ set(SOURCES
     ../common/tvectorimage/tsegmentadjuster.cpp
     ../common/tvectorimage/tsweepboundary.cpp
     ../common/tvectorimage/tvectorimage.cpp
-    ../common/tgl/tgl.cpp
-    ../common/tgl/tstencilcontrol.cpp
-    ../common/tgl/tgldisplaylistsmanager.cpp
     ../common/tsound/tsop.cpp
     ../common/tsound/tsound.cpp
     ../common/tsound/tsound_io.cpp
@@ -194,13 +184,9 @@ set(SOURCES
     ../common/tvrender/tcolorstyles.cpp
     ../common/tvrender/tcolorstyles_qt.cpp
     ../common/tvrender/tellipticbrush.cpp
-    ../common/tvrender/qtofflinegl.cpp
-    ../common/tvrender/tglregions.cpp
+    ../common/tvrender/tvectorcanvas.cpp
     ../common/tvrender/tinbetween.cpp
-    ../common/tvrender/tofflinegl.cpp
-    ../common/tvrender/tglcanvasbridge.cpp
     ../common/tvrender/tglentries.cpp
-    ../common/tvrender/tglentries_gl.cpp
     ../common/tvrender/tvectorrasterizer.cpp
     ../common/tvrender/tpalette.cpp
     ../common/tvrender/tpaletteutil.cpp
@@ -358,7 +344,6 @@ add_definitions(
     -DTIMAGE_EXPORTS
     -DTSYSTEM_EXPORTS
     -DTVECTORIMAGE_EXPORTS
-    -DTGL_EXPORTS
     -DTSOUND_EXPORTS
     -DTIMAGE_IO_EXPORTS
     -DTRASTERIMAGE_EXPORTS
@@ -402,8 +387,6 @@ if(BUILD_ENV_MSVC)
         netapi32.lib
         mpr.lib
         winmm.lib
-        opengl32.lib
-        glu32.lib
         dbghelp.lib
     )
 elseif(BUILD_ENV_APPLE)
@@ -425,9 +408,7 @@ elseif(BUILD_ENV_UNIXLIKE)
             ${FREETYPE_INCLUDE_DIRS}
         )
     endif()
-    set(EXTRA_LIBS
-        ${GLU_LIB}
-    )
+    set(EXTRA_LIBS)
     if(BUILD_TARGET_WIN)
         set(EXTRA_LIBS
             ${EXTRA_LIBS}
@@ -455,15 +436,17 @@ if(NOT APPLE)
         PROPERTIES COMPILE_DEFINITIONS NEXTTOONZ_LETTER_ORDER_FROM_QT)
 endif()
 
+# No OpenGL since step 8c (doc/nexttoonz_core_noqt.md): it is in
+# tnzglview, which links tnzcore.
 target_link_libraries(tnzcore
-    Qt5::Core Qt5::OpenGL Qt5::Network Qt5::Multimedia
-    ${GL_LIB} ${GLUT_LIB} ${QT_LIB} ${Z_LIB} ${JPEG_LIB} ${LZ4_LIB}
+    Qt5::Core Qt5::Gui Qt5::Network Qt5::Multimedia
+    ${QT_LIB} ${Z_LIB} ${JPEG_LIB} ${LZ4_LIB}
     ${EXTRA_LIBS}
 )
 
-# The canvas interface the vector renderer draws through, and the OpenGL
-# canvas the old drawing code reaches migrated styles with.
-target_link_libraries(tnzcore tnzcanvas tnzglcanvas)
+# The canvas interface the vector renderer draws through (the OpenGL canvas
+# went with the old drawing code to tnzglview).
+target_link_libraries(tnzcore tnzcanvas)
 
 # With Skia, vector images can also be rasterised without OpenGL
 # (tvectorrasterizer.h). Only that one file knows.

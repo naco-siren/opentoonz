@@ -3,9 +3,10 @@
 #
 # It keeps OpenGL targets working while drawing code moves to the canvas
 # interface. It links OpenGL and tnzcanvas and nothing else of the tree, so
-# that it can stay behind with the viewers when the core libraries give up
-# OpenGL; until then tnzcore links it, for the styles the old renderer
-# reaches through tglDraw().
+# that it could stay behind with the viewers when the core libraries gave up
+# OpenGL: since step 8c of doc/nexttoonz_core_noqt.md tnzglview links it,
+# for the styles the old renderer reaches through tglDraw(), and tnzcore
+# does not.
 
 set(HEADERS
     ../include/canvas/tglcanvas.h

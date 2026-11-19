@@ -1,7 +1,7 @@
 // The OpenGL side of colorfx's styles (tglentries.h): the OpenGL entry
 // points of the styles that set OpenGL state of their own, as they were,
-// moved here. Registered by initColorFx() until step 8c moves them, with
-// the rest of OpenGL, to tnzglview (doc/nexttoonz_core_noqt.md, step 8b).
+// moved here. Built into tnzglview and registered by TGLView::install()
+// (doc/nexttoonz_core_noqt.md, steps 8b and 8c).
 
 #include "colorfx_gl.h"
 

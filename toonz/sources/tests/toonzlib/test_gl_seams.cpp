@@ -1,8 +1,10 @@
-// What goes through the seams to OpenGL (tglentries.h, step 8b of
+// What goes through the seams to OpenGL (tglentries.h, steps 8b and 8c of
 // doc/nexttoonz_core_noqt.md) when the styles and their props draw: fakes
 // are put in the seams, and what reaches them is compared with what the
 // code did with OpenGL before. These tests run without an OpenGL context:
-// nothing here reaches OpenGL.
+// nothing here reaches OpenGL. The test program installs tnzglview, as
+// tcomposer does (toonzlib_test_main.cpp); the fakes stand in for it and
+// put it back.
 
 #include <gtest/gtest.h>
 
@@ -56,12 +58,14 @@ const TGLEntries::ViewerCanvas g_fakeCanvas = {&fakePaint, &fakePush,
                                                &fakePop, &fakePixelSize2};
 
 class FakeViewerCanvas {
+  const TGLEntries::ViewerCanvas *m_installed;
+
 public:
   FakeViewerCanvas() {
     g_events.clear();
-    TGLEntries::setViewerCanvas(&g_fakeCanvas);
+    m_installed = TGLEntries::setViewerCanvas(&g_fakeCanvas);
   }
-  ~FakeViewerCanvas() { TGLEntries::setViewerCanvas(nullptr); }
+  ~FakeViewerCanvas() { TGLEntries::setViewerCanvas(m_installed); }
 };
 
 //-----------------------------------------------------------------------------
@@ -131,16 +135,17 @@ std::unique_ptr<TGLEntries::OfflineContext> recordingFactory(
 // tests are about are the ones without a CPU rasteriser.
 class RecordingOffline {
   bool m_rasterizer;
+  TGLEntries::OfflineFactory m_installed;
 
 public:
   RecordingOffline() : m_rasterizer(TVectorRasterizer::isSelected()) {
     g_events.clear();
-    TGLEntries::setOfflineFactory(&recordingFactory);
+    m_installed = TGLEntries::setOfflineFactory(&recordingFactory);
     TVectorRasterizer::select(false);
   }
   ~RecordingOffline() {
     TVectorRasterizer::select(m_rasterizer);
-    TGLEntries::setOfflineFactory(nullptr);
+    TGLEntries::setOfflineFactory(m_installed);
   }
 };
 
@@ -309,11 +314,23 @@ TEST(GlSeams, ColorFxStrokeStylesDrawOnTheViewerCanvas) {
 //=============================================================================
 // 2. Drawers by class
 
-// Each of the nine has a drawer of its own, built in, and its OpenGL entry
-// point goes to whatever drawer is set for it, with the style itself.
-TEST(GlSeams, TheStylesWithOpenGlStateOfTheirOwnGoToTheirDrawers) {
+// TGLView::install() fills all three seams, with a drawer for each of the
+// nine.
+TEST(GlSeams, TheOpenGlViewInstallsEverySeam) {
+  const TGLEntries::ViewerCanvas *canvas = TGLEntries::setViewerCanvas(nullptr);
+  EXPECT_NE(canvas, nullptr);
+  TGLEntries::setViewerCanvas(canvas);
+  const TGLEntries::OfflineFactory factory =
+      TGLEntries::setOfflineFactory(nullptr);
+  EXPECT_NE(factory, nullptr);
+  TGLEntries::setOfflineFactory(factory);
   for (const char *entry : kDrawerEntries)
     EXPECT_NE(TGLEntries::findDrawer(entry), nullptr) << entry;
+}
+
+// The OpenGL entry point of each of the nine goes to whatever drawer is set
+// for it, with the style itself.
+TEST(GlSeams, TheStylesWithOpenGlStateOfTheirOwnGoToTheirDrawers) {
 
   TStrokeOutline strokeOutline;
   TRegionOutline regionOutline;

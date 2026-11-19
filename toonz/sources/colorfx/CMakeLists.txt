@@ -5,7 +5,6 @@ set(HEADERS
     regionstyles.h
     strokestyles.h
     flowlinestrokestyle.h
-    colorfx_gl.h
 )
 
 set(SOURCES
@@ -15,7 +14,6 @@ set(SOURCES
     regionstyles.cpp
     strokestyles.cpp
     flowlinestrokestyle.cpp
-    colorfx_gl.cpp
 )
 
 add_library(colorfx SHARED ${HEADERS} ${SOURCES})
@@ -44,7 +42,9 @@ _find_toonz_library(EXTRA_LIBS "tnzcore;tnzbase")
 
 message("FIND_FILE:" ${EXTRA_LIBS})
 
-target_link_libraries(colorfx Qt5::Core Qt5::Gui ${GL_LIB} ${EXTRA_LIBS})
+# No OpenGL since step 8c (doc/nexttoonz_core_noqt.md): the OpenGL drawers
+# of these styles (colorfx_gl.cpp) are built into tnzglview.
+target_link_libraries(colorfx Qt5::Core Qt5::Gui ${EXTRA_LIBS})
 
 # The styles of this library draw on the canvas interface.
 target_link_libraries(colorfx tnzcanvas)

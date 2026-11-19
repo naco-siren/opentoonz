@@ -31,6 +31,7 @@ target_link_libraries(nexttoonz_toonzlib_tests
         image
         tnzstdfx
         colorfx
+        tnzglview
         tnzext
         tnzbase
         tnzcore
@@ -49,7 +50,7 @@ endforeach()
 # macOS: stage the @executable_path dylibs and the lzo helpers next to the
 # test binary (no-op elsewhere; see nexttoonz_stage_runtime in ../CMakeLists.txt).
 nexttoonz_stage_runtime(nexttoonz_toonzlib_tests
-    toonzlib image tnzstdfx colorfx tnzext tnzbase tnzcore
+    toonzlib image tnzstdfx colorfx tnzglview tnzext tnzbase tnzcore
     lzocompress lzodecompress
 )
 

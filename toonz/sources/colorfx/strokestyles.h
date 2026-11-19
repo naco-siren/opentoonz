@@ -495,8 +495,8 @@ public:
 //-------------------------------------------------------------------
 
 class TSketchStrokeStyle final : public TSimpleStrokeStyle {
-  // The OpenGL drawing of this style: an implementation detail of the
-  // OpenGL side (colorfx_gl.cpp), not for other code.
+  // The OpenGL drawing of this style: an implementation detail of
+  // tnzglview (colorfx_gl.cpp), not for other code.
   friend struct TColorFxGLAccess;
 
   TPixel32 m_color;
@@ -713,8 +713,8 @@ public:
 //-------------------------------------------------------------------
 
 class TNormal2StrokeStyle final : public TOutlineStyle {
-  // The OpenGL drawing of this style: an implementation detail of the
-  // OpenGL side (colorfx_gl.cpp), not for other code.
+  // The OpenGL drawing of this style: an implementation detail of
+  // tnzglview (colorfx_gl.cpp), not for other code.
   friend struct TColorFxGLAccess;
 
   TPixel32 m_color;

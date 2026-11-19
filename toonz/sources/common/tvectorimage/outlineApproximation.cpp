@@ -493,45 +493,6 @@ TQuadratic getCircleQuarter(const TThickQuadratic *tq, int versus) {
 
 //---------------------------------------------------------------------------
 
-void drawQuadratic(const TQuadratic &quad, double pixelSize) {
-  double m_min_step_at_normal_size = localComputeStep(quad, pixelSize);
-
-  // It draws the curve as a linear piecewise approximation
-
-  double invSqrtScale = 1.0;
-  // First of all, it computes the control circles of the curve in screen
-  // coordinates
-  TPointD scP0 = quad.getP0();
-  TPointD scP1 = quad.getP1();
-  TPointD scP2 = quad.getP2();
-
-  TPointD A = scP0 - 2 * scP1 + scP2;
-  TPointD B = scP0 - scP1;
-
-  double h;
-  h         = invSqrtScale * m_min_step_at_normal_size;
-  double h2 = h * h;
-
-  TPointD P = scP0, D2 = 2 * h2 * A, D1 = A * h2 - 2 * B * h;
-
-  if (h < 0 || isAlmostZero(h)) return;
-  assert(h > 0);
-
-  // It draws the whole curve, using forward differencing
-  glBegin(GL_LINE_STRIP);  // The curve starts from scP0
-  glVertex2d(scP0.x, scP0.y);
-
-  for (double t = h; t < 1; t = t + h) {
-    P  = P + D1;
-    D1 = D1 + D2;
-    glVertex2d(P.x, P.y);
-  }
-
-  glVertex2d(scP2.x, scP2.y);  // The curve ends in scP2
-  glEnd();
-}
-
-//---------------------------------------------------------------------------
 
 }  // end of unnamed namespace
 
@@ -627,13 +588,6 @@ static void makeOutline(const TStroke *stroke, int startQuad, int endQuad,
 }
 
 //-----------------------------------------------------------------------------
-
-static void drawOutline(const outlineBoundary &ob, double pixelSize) {
-  for (UINT i = 0; i < ob.size(); ++i) {
-    drawQuadratic(*ob[i].first, pixelSize);
-    drawQuadratic(*ob[i].second, pixelSize);
-  }
-}
 
 void computeOutlines(const TStroke *stroke, int startQuad, int endQuad,
                      std::vector<TQuadratic *> &quadArray, double error2) {

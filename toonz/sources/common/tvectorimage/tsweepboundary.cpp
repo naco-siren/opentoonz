@@ -339,29 +339,6 @@ inline void TraceLinkedQuadraticList(LinkedQuadraticList &quadraticList) {
 #endif
 }
 
-inline void drawPointSquare(const TPointD &point, double R, double G,
-                            double B) {
-#define SQUARE_DIM 0.04
-  glBegin(GL_LINE_LOOP);
-  glColor3d(R, G, B);
-  glVertex2d(point.x + SQUARE_DIM, point.y + SQUARE_DIM);
-  glVertex2d(point.x + SQUARE_DIM, point.y - SQUARE_DIM);
-  glVertex2d(point.x - SQUARE_DIM, point.y - SQUARE_DIM);
-  glVertex2d(point.x - SQUARE_DIM, point.y + SQUARE_DIM);
-  glEnd();
-}
-
-inline void drawPointCross(const TPointD &point, double R, double G, double B) {
-#define CROSS_DIM 0.04
-  glBegin(GL_LINES);
-  glColor3d(R, G, B);
-  glVertex2d(point.x - CROSS_DIM, point.y - CROSS_DIM);
-  glVertex2d(point.x + CROSS_DIM, point.y + CROSS_DIM);
-  glVertex2d(point.x + CROSS_DIM, point.y - CROSS_DIM);
-  glVertex2d(point.x - CROSS_DIM, point.y + CROSS_DIM);
-  glEnd();
-}
-
 //-------------------------------------------------------------------
 
 static TStroke *getOutStroke(LinkedQuadraticList &inputBoundaries) {

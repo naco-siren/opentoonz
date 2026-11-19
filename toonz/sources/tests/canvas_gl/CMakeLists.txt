@@ -25,6 +25,7 @@ target_link_libraries(nexttoonz_canvas_gl_tests
     PRIVATE
         tnzglcanvas
         tnzcanvas
+        tnzglview
         tnzcore
         Qt5::Core
         Qt5::Gui
@@ -32,7 +33,8 @@ target_link_libraries(nexttoonz_canvas_gl_tests
         GTest::gtest
 )
 
-nexttoonz_stage_runtime(nexttoonz_canvas_gl_tests tnzcore)
+# tnzglview (TOfflineGL, the stencil masks) loads colorfx, and it tnzbase.
+nexttoonz_stage_runtime(nexttoonz_canvas_gl_tests tnzcore tnzglview colorfx tnzbase)
 
 if(WITH_SKIA)
     target_compile_definitions(nexttoonz_canvas_gl_tests PRIVATE NEXTTOONZ_HAVE_SKIA)

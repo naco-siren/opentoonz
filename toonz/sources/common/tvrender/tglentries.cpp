@@ -1,6 +1,7 @@
 // The three seams between the core's drawing and desktop OpenGL
-// (tglentries.h, doc/nexttoonz_core_noqt.md step 8b). No OpenGL here: the
-// built-in OpenGL implementations are in tglentries_gl.cpp.
+// (tglentries.h, doc/nexttoonz_core_noqt.md steps 8b and 8c). No OpenGL
+// here: the OpenGL implementations are in tnzglview, which a program
+// installs with TGLView::install() (tglview.h).
 
 #include "tglentries.h"
 
@@ -12,36 +13,10 @@
 #include <mutex>
 #include <string>
 
-#ifdef QT_CORE_LIB
-// tglentries_gl.cpp, until step 8c moves OpenGL out of the core
-const TGLEntries::ViewerCanvas *builtInViewerCanvas();
-TGLEntries::OfflineFactory builtInOfflineFactory();
-void registerBuiltInDrawers(void (*add)(const char *entry,
-                                         TGLEntries::AnyDrawer drawer));
-#endif
-
 namespace {
 
-const TGLEntries::ViewerCanvas *builtInCanvas() {
-#ifdef QT_CORE_LIB
-  return builtInViewerCanvas();
-#else
-  return nullptr;
-#endif
-}
-
-TGLEntries::OfflineFactory builtInFactory() {
-#ifdef QT_CORE_LIB
-  return builtInOfflineFactory();
-#else
-  return nullptr;
-#endif
-}
-
 std::atomic<const TGLEntries::ViewerCanvas *> currentCanvas{nullptr};
-std::atomic<bool> canvasSet{false};
 std::atomic<TGLEntries::OfflineFactory> currentFactory{nullptr};
-std::atomic<bool> factorySet{false};
 
 std::mutex drawersMutex;
 // std::less<> finds an entry by its const char * without making a string:
@@ -51,26 +26,10 @@ Drawers &drawers() {
   static Drawers map;
   return map;
 }
-// The built-in drawers go in before the first drawer is set or looked up,
-// so that a drawer set later replaces them.
-void builtInDrawersOnce() {
-#ifdef QT_CORE_LIB
-  static std::once_flag once;
-  std::call_once(once, [] {
-    registerBuiltInDrawers([](const char *entry, TGLEntries::AnyDrawer d) {
-      std::lock_guard<std::mutex> lock(drawersMutex);
-      drawers()[entry] = d;
-    });
-  });
-#endif
-}
-
-const TGLEntries::ViewerCanvas *canvas() {
-  return canvasSet.load() ? currentCanvas.load() : builtInCanvas();
-}
+const TGLEntries::ViewerCanvas *canvas() { return currentCanvas.load(); }
 
 // A seam asked for and not installed: say so, once, in the build with Qt
-// (where a program that draws with OpenGL forgot to install it).
+// (where a program that draws with OpenGL forgot TGLView::install()).
 void missing(const char *what) {
 #ifdef QT_CORE_LIB
   static std::atomic<bool> told{false};
@@ -90,10 +49,7 @@ void missing(const char *what) {
 namespace TGLEntries {
 
 const ViewerCanvas *setViewerCanvas(const ViewerCanvas *hooks) {
-  const ViewerCanvas *previous = canvas();
-  currentCanvas.store(hooks);
-  canvasSet.store(hooks != nullptr);
-  return previous;
+  return currentCanvas.exchange(hooks);
 }
 
 void paintOnViewerCanvas(Painter painter, void *what, bool saveAllAttributes) {
@@ -120,7 +76,6 @@ double pixelSize2() {
 }
 
 AnyDrawer setDrawer(const char *entry, AnyDrawer drawer) {
-  builtInDrawersOnce();
   std::lock_guard<std::mutex> lock(drawersMutex);
   auto &map         = drawers();
   auto it           = map.find(entry);
@@ -133,7 +88,6 @@ AnyDrawer setDrawer(const char *entry, AnyDrawer drawer) {
 }
 
 AnyDrawer findDrawer(const char *entry) {
-  builtInDrawersOnce();
   AnyDrawer d = nullptr;
   {
     std::lock_guard<std::mutex> lock(drawersMutex);
@@ -147,17 +101,12 @@ AnyDrawer findDrawer(const char *entry) {
 OfflineContext::~OfflineContext() {}
 
 OfflineFactory setOfflineFactory(OfflineFactory factory) {
-  OfflineFactory previous = factorySet.load() ? currentFactory.load()
-                                              : builtInFactory();
-  currentFactory.store(factory);
-  factorySet.store(factory != nullptr);
-  return previous;
+  return currentFactory.exchange(factory);
 }
 
 std::unique_ptr<OfflineContext> openOffline(const TDimension &size,
                                             bool stock) {
-  OfflineFactory f =
-      factorySet.load() ? currentFactory.load() : builtInFactory();
+  OfflineFactory f = currentFactory.load();
   if (!f) {
     missing("an offline OpenGL render");
     return nullptr;

@@ -28,6 +28,7 @@
 #include "tvectorimage.h"
 #include "tvectorrenderdata.h"
 #include "tofflinegl.h"
+#include "tglview.h"
 #include "tvectorrasterizer.h"
 
 #if defined(LINUX) || defined(FREEBSD)
@@ -499,6 +500,9 @@ int main(int argc, char *argv[]) {
 
     TPropertyGroup *prop = nullptr;
     initImageIo();
+    // Vector levels are drawn through OpenGL (TOfflineGL, and the styles
+    // through the seams of doc/nexttoonz_core_noqt.md, 8c).
+    TGLView::install();
 
     TRenderSettings::ResampleQuality resQuality =
         TRenderSettings::StandardResampleQuality;

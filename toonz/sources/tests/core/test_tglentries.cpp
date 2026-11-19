@@ -1,11 +1,12 @@
 // The three seams between the core's drawing and OpenGL (tglentries.h,
-// step 8b of doc/nexttoonz_core_noqt.md): each is set in one place, hands
-// on what it is given, and gives back what it replaced. In the build with
-// Qt the OpenGL implementations are built in; in the build without Qt
-// nothing is, and a seam that is asked for draws nothing, silently.
+// steps 8b and 8c of doc/nexttoonz_core_noqt.md): each is set in one place,
+// hands on what it is given, and gives back what it replaced. Nothing is in
+// them until a program calls TGLView::install() (tnzglview, which this test
+// does not link); a seam that is asked for then draws nothing, and only the
+// build with Qt says so.
 //
-// What goes through them when a style or a prop draws is tested with the
-// styles (tests/toonzlib/test_gl_seams.cpp).
+// What goes through them when a style or a prop draws, with tnzglview
+// installed, is tested with the styles (tests/toonzlib/test_gl_seams.cpp).
 
 #include <gtest/gtest.h>
 
@@ -76,7 +77,7 @@ TEST(TGLEntries, TheViewerCanvasGoesThroughTheHooksSet) {
       "push 3.000000 4.000000", "pop"};
   EXPECT_EQ(g_events, expected);
 
-  // Setting gives back what was set; nullptr goes back to the built-in.
+  // Setting gives back what was set.
   EXPECT_EQ(TGLEntries::setViewerCanvas(nullptr), &g_fakeCanvas);
   EXPECT_EQ(TGLEntries::setViewerCanvas(before), before);
   TGLEntries::setViewerCanvas(nullptr);
@@ -106,19 +107,15 @@ TEST(TGLEntries, OfflineContextsComeFromTheFactorySet) {
   TGLEntries::setOfflineFactory(nullptr);
 }
 
-#ifdef QT_CORE_LIB
-
-// The OpenGL implementations are built in until step 8c.
-TEST(TGLEntries, TheBuildWithQtHasTheOpenGlImplementationsBuiltIn) {
-  const TGLEntries::ViewerCanvas *builtIn =
-      TGLEntries::setViewerCanvas(nullptr);
-  EXPECT_NE(builtIn, nullptr);
-  EXPECT_NE(TGLEntries::setOfflineFactory(nullptr), nullptr);
-  for (const char *entry : {"TCenterLineStrokeStyle::drawStroke",
-                            "TRasterImagePatternStrokeStyle::drawStroke",
-                            "TVectorImagePatternStrokeStyle::drawStroke"})
-    EXPECT_NE(TGLEntries::findDrawer(entry), nullptr) << entry;
+// tnzcore alone installs nothing, in either build.
+TEST(TGLEntries, NothingIsInstalledUntilAProgramInstallsTheOpenGlView) {
+  EXPECT_EQ(TGLEntries::setViewerCanvas(nullptr), nullptr);
+  EXPECT_EQ(TGLEntries::setOfflineFactory(nullptr), nullptr);
+  const char *entry = "TCenterLineStrokeStyle::drawStroke";
+  EXPECT_EQ(TGLEntries::setDrawer(entry, nullptr), nullptr);
 }
+
+#ifdef QT_CORE_LIB
 
 // A drawer that is missing draws nothing and says so on the standard error,
 // once in the life of the program (and asserts in a Debug build, which is

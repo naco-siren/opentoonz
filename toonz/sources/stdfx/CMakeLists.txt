@@ -341,3 +341,7 @@ target_link_libraries(tnzstdfx Qt5::Core Qt5::Gui Qt5::OpenGL ${GL_LIB} ${GLEW_L
 if(OpenCV_FOUND)
     target_link_libraries(tnzstdfx ${OpenCV_LIBS})
 endif()
+
+# The desktop OpenGL drawing (tgl.h, tvectorgl.h, tofflinegl.h, ...): in
+# tnzglview since step 8c of doc/nexttoonz_core_noqt.md.
+target_link_libraries(tnzstdfx tnzglview)

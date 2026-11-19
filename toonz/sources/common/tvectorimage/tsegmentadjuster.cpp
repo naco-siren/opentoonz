@@ -50,9 +50,3 @@ void TSegmentAdjuster::compute(End &pa, End &pb) {
   pb.m_w  = v;
 }
 
-void TSegmentAdjuster::draw() {
-  for (int i = 0; i < (int)m_links.size(); i++) {
-    glColor3d(0.9, 0.8, 0.7);
-    tglDrawSegment(m_links[i].first, m_links[i].second);
-  }
-}

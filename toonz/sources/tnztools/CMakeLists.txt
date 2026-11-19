@@ -197,3 +197,7 @@ include_directories(
 _find_toonz_library(EXTRA_LIBS "tnzcore;tnzbase;tnzext;toonzlib;toonzqt")
 
 target_link_libraries(tnztools Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network Qt5::OpenGL ${GLUT_LIB} ${EXTRA_LIBS} ${GL_LIB} ${MYPAINT_LIB_LDFLAGS})
+
+# The desktop OpenGL drawing (tgl.h, tvectorgl.h, tofflinegl.h, ...): in
+# tnzglview since step 8c of doc/nexttoonz_core_noqt.md.
+target_link_libraries(tnztools tnzglview)

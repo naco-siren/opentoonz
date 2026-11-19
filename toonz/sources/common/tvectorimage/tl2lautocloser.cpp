@@ -299,10 +299,6 @@ public:
 
   void search(std::vector<TL2LAutocloser::Segment> &segments, TStroke *strokea,
               TStroke *strokeb, const std::vector<DoublePair> *intersection);
-
-  void drawLinks();
-  void drawStroke(StrokePointSet *);
-  void drawStrokes();
 };
 
 //-----------------------------------------------------------------------------
@@ -319,39 +315,6 @@ TL2LAutocloser::Imp::~Imp() {
 }
 
 //-----------------------------------------------------------------------------
-
-void TL2LAutocloser::Imp::drawLinks() {
-  glColor3d(0, 0, 1);
-  glBegin(GL_LINES);
-  for (int i = 0; i < (int)m_segments.size(); i++) {
-    tglVertex(m_segments[i].p0);
-    tglVertex(m_segments[i].p1);
-  }
-  glEnd();
-}
-
-void TL2LAutocloser::Imp::drawStroke(StrokePointSet *ps) {
-  if (ps && ps->points.size() >= 2) {
-    glBegin(GL_LINES);
-    for (int i = 0; i < (int)ps->points.size(); i++)
-      tglVertex(ps->points[i].pos);
-    glEnd();
-  }
-}
-
-void TL2LAutocloser::Imp::drawStrokes() {
-  if (m_lastStrokePair.first) {
-    if (m_lastStrokePair.first == m_lastStrokePair.second) {
-      glColor3d(1, 0, 1);
-      drawStroke(m_lastStrokePair.first);
-    } else {
-      glColor3d(1, 0, 0);
-      drawStroke(m_lastStrokePair.first);
-      glColor3d(0, 1, 0);
-      drawStroke(m_lastStrokePair.second);
-    }
-  }
-}
 
 //-----------------------------------------------------------------------------
 
@@ -518,7 +481,3 @@ void TL2LAutocloser::search(std::vector<Segment> &segments, TStroke *stroke0,
 
 //-----------------------------------------------------------------------------
 
-void TL2LAutocloser::draw() {
-  m_imp->drawStrokes();
-  m_imp->drawLinks();
-}

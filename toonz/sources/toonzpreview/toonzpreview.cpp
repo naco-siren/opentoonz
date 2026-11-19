@@ -3,6 +3,7 @@
 #include "tiio.h"
 #include "tiio_std.h"
 #include "tnzimage.h"
+#include "tglview.h"
 
 #include "toonzqt/icongenerator.h"
 #include "timagecache.h"
@@ -806,6 +807,8 @@ IFACEMETHODIMP CToonzThumbnailProvider::GetThumbnail(UINT cx, HBITMAP *phbmp,
       LoadDependencies();
       Tiio::defineStd();
       initImageIo();
+      // The icons are drawn through OpenGL (doc/nexttoonz_core_noqt.md, 8c).
+      TGLView::install();
       TThread::init();
       DebugLog("Tiio and ImageIo initialized successfully.");
     });

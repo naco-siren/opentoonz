@@ -6,7 +6,6 @@
 #include "colorfx.h"
 
 #include "flowlinestrokestyle.h"
-#include "colorfx_gl.h"
 
 // static TPluginInfo info("ColorFxPlugin");
 
@@ -102,6 +101,4 @@ void initColorFx() {
   add(new TNoColorRasterStyle());
 
   add(new FlowLineStrokeStyle());
-
-  registerColorFxGlDrawers();
 }

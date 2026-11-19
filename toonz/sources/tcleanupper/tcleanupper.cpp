@@ -2,6 +2,7 @@
 
 // TnzFarm includes
 #include "tfarmcontroller.h"
+#include "tglview.h"
 
 // TnzLib includes
 #include "toonz/txshleveltypes.h"
@@ -588,6 +589,9 @@ int main(int argc, char *argv[]) {
   /*- 画像Read/Writeの関数を登録 -*/
   initImageIo();
   Tiio::defineStd();
+  // Saving a scene makes its icon, which can be drawn through OpenGL
+  // (doc/nexttoonz_core_noqt.md, 8c).
+  TGLView::install();
 
   /*- プロジェクトのロード -*/
   auto project = TProjectManager::instance()->loadSceneProject(srcName);

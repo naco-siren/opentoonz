@@ -19,6 +19,7 @@
 #include "tiio_std.h"
 #include "tnzimage.h"
 #include "colorfx.h"
+#include "tglview.h"
 #include "tvectorimage.h"
 #include "tstroke.h"
 #include "tregion.h"
@@ -2266,6 +2267,8 @@ int main(int argc, char *argv[]) {
   initImageIo();
   initStdFx();
   initColorFx();
+  // As tcomposer does.
+  TGLView::install();
   // Shader fx are declared from their interface files, as tcomposer does.
   loadShaderInterfaces(stuff + "library" + "shaders");
   TSoundTrackReader::define("wav", FixtureWavReader::create);

@@ -20,6 +20,7 @@ target_link_libraries(nexttoonz_gen_fixtures
         image
         tnzstdfx
         colorfx
+        tnzglview
         tnzext
         tnzbase
         tnzcore
@@ -36,6 +37,6 @@ endforeach()
 # generator, as for the test binaries (see nexttoonz_stage_runtime in
 # ../CMakeLists.txt). Without this the generator cannot start on macOS.
 nexttoonz_stage_runtime(nexttoonz_gen_fixtures
-    toonzlib image tnzstdfx colorfx tnzext tnzbase tnzcore
+    toonzlib image tnzstdfx colorfx tnzglview tnzext tnzbase tnzcore
     lzocompress lzodecompress
 )

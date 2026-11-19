@@ -35,9 +35,10 @@ class TVectorRenderData;
 //! step 8 and Q8-A). The core no longer calls OpenGL itself: the styles' and
 //! props' OpenGL entry points, and the offline renders that fall back on
 //! OpenGL, go through three seams, each settable in one place. The OpenGL
-//! implementations are installed by the desktop (until step 8c by tnzcore
-//! itself, as built-ins). With a seam missing nothing is drawn; the build
-//! with Qt says so on the standard error, once (and asserts in Debug).
+//! implementations are in tnzglview; a program that draws with OpenGL
+//! installs them with TGLView::install() (tglview.h). With a seam missing
+//! nothing is drawn; the build with Qt says so on the standard error, once
+//! (and asserts in Debug).
 namespace TGLEntries {
 
 //------------------------------------------------------------------
@@ -57,8 +58,7 @@ struct ViewerCanvas {
   double (*pixelSize2)();  //!< the square of the current pixel's size
 };
 
-//! Sets the hooks and returns the ones they replace; nullptr restores the
-//! built-in ones (none once OpenGL has left the core).
+//! Sets the hooks and returns the ones they replace (nullptr: none).
 DVAPI const ViewerCanvas *setViewerCanvas(const ViewerCanvas *hooks);
 
 DVAPI void paintOnViewerCanvas(Painter painter, void *what,
@@ -132,7 +132,7 @@ typedef std::unique_ptr<OfflineContext> (*OfflineFactory)(
     const TDimension &size, bool stock);
 
 //! The one place offline contexts come from: sets the factory and returns
-//! the one it replaces; nullptr restores the built-in one.
+//! the one it replaces (nullptr: none).
 DVAPI OfflineFactory setOfflineFactory(OfflineFactory factory);
 //! A context, or nullptr when no factory is installed.
 DVAPI std::unique_ptr<OfflineContext> openOffline(const TDimension &size,
@@ -141,8 +141,7 @@ DVAPI std::unique_ptr<OfflineContext> openOffline(const TDimension &size,
 }  // namespace TGLEntries
 
 //! The OpenGL drawers of tnzcore's own styles, friends of those styles: an
-//! implementation detail of the OpenGL side (tglentries_gl.cpp, step 8b;
-//! tnzglview from step 8c).
+//! implementation detail of tnzglview (tglentries_gl.cpp).
 struct TGLEntriesAccess;
 
 #endif

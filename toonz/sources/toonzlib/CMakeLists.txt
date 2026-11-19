@@ -400,3 +400,7 @@ endif()
 
 # Styles of this library draw on the canvas interface.
 target_link_libraries(toonzlib tnzcanvas)
+
+# The desktop OpenGL drawing (tgl.h, tvectorgl.h, tofflinegl.h, ...): in
+# tnzglview since step 8c of doc/nexttoonz_core_noqt.md.
+target_link_libraries(toonzlib tnzglview)

@@ -133,3 +133,7 @@ elseif(BUILD_ENV_UNIXLIKE)
         ${GLUT_LIB} ${GL_LIB} ${SUPERLU_LIB} ${OPENBLAS_LIB} ${EXTRA_LIBS}
     )
 endif()
+
+# The desktop OpenGL drawing (tgl.h, tvectorgl.h, tofflinegl.h, ...): in
+# tnzglview since step 8c of doc/nexttoonz_core_noqt.md.
+target_link_libraries(tnzext tnzglview)

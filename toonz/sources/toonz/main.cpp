@@ -140,6 +140,7 @@ static void toonzRunOutOfContMemHandler(unsigned long size) {
 // todo.. da mettere in qualche .h
 DV_IMPORT_API void initStdFx();
 DV_IMPORT_API void initColorFx();
+#include "tglview.h"
 
 //-----------------------------------------------------------------------------
 
@@ -194,6 +195,8 @@ static void initToonzEnv(QHash<QString, QString> &argPathValues) {
   initSoundIo();
   initStdFx();
   initColorFx();
+  // The OpenGL drawing the core reaches (doc/nexttoonz_core_noqt.md, 8c).
+  TGLView::install();
 
   // TPluginManager::instance()->loadStandardPlugins();
 

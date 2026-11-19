@@ -58,8 +58,6 @@ public:
   void search(std::vector<Segment> &segments, TStroke *stroke0,
               TStroke *stroke1, const std::vector<DoublePair> &intersection);
 
-  //! debug only. show the internal state related to the last performed search
-  void draw();
 
 private:
   // not implemented

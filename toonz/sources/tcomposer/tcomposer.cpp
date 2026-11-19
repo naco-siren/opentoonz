@@ -596,6 +596,7 @@ static std::pair<int, int> generateMovie(ToonzScene *scene, const TFilePath &fp,
 
 DV_IMPORT_API void initStdFx();
 DV_IMPORT_API void initColorFx();
+#include "tglview.h"
 int main(int argc, char *argv[]) {
   TCli::UsageLine usageLine;
   //  setCurrentModule("tcomposer");
@@ -796,6 +797,8 @@ int main(int argc, char *argv[]) {
     initSoundIo();
     initStdFx();
     initColorFx();
+    // The OpenGL drawing the core reaches (doc/nexttoonz_core_noqt.md, 8c).
+    TGLView::install();
 
     loadShaderInterfaces(ToonzFolder::getLibraryFolder() +
                          TFilePath("shaders"));
