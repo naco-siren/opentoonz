@@ -686,7 +686,7 @@ void tglDraw(const TVectorRenderData &rd, const TVectorImage *vim,
   assert(vim);
   if (!vim) return;
 
-  QMutexLocker sl(vim->getMutex());
+  TThread::MutexLocker sl(vim->getMutex());
 
   checkErrorsByGL;
   checkErrorsByGL;
@@ -933,7 +933,7 @@ bool tcanvasCanDraw(const TVectorRenderData &_rd, const TVectorImage *vim) {
   if (!vim) return true;
   if (!canvasSettingsAllow(_rd)) return false;
 
-  QMutexLocker sl(vim->getMutex());
+  TThread::MutexLocker sl(vim->getMutex());
 
   TVectorRenderData rd(_rd);
   if (!rd.m_palette) rd.m_palette = vim->getPalette();
@@ -956,7 +956,7 @@ void tcanvasDraw(TCanvas &canvas, const TVectorRenderData &_rd,
   assert(vim);
   if (!vim) return;
 
-  QMutexLocker sl(vim->getMutex());
+  TThread::MutexLocker sl(vim->getMutex());
 
   TVectorRenderData rd(_rd);
   if (!rd.m_palette) rd.m_palette = vim->getPalette();

@@ -174,7 +174,7 @@ void copyStrokesWithoutUndo(TVectorImageP image, std::set<int> &indexes) {
 
 bool pasteStrokesWithoutUndo(TVectorImageP image, std::set<int> &outIndexes,
                              TSceneHandle *sceneHandle, bool insert = true) {
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
   QClipboard *clipboard = QApplication::clipboard();
   const StrokesData *stData =
       dynamic_cast<const StrokesData *>(clipboard->mimeData());
@@ -220,7 +220,7 @@ bool pasteStrokesWithoutUndo(TVectorImageP image, std::set<int> &outIndexes,
 //-----------------------------------------------------------------------------
 
 void deleteStrokesWithoutUndo(TVectorImageP image, std::set<int> &indexes) {
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
   std::vector<int> indexesV(indexes.begin(), indexes.end());
   TRectD bbox;
   UINT i = 0;
@@ -788,7 +788,7 @@ void StrokeSelection::saveSelectedVectors(bool chooseDestination) {
 
   TVectorImageP selectedImage;
   {
-    QMutexLocker lock(m_vi->getMutex());
+    TThread::MutexLocker lock(m_vi->getMutex());
     selectedImage = m_vi->splitImage(indexes, false);
   }
   if (!selectedImage || selectedImage->getStrokeCount() == 0) return;
@@ -937,7 +937,7 @@ void StrokeSelection::paste() {
     TVectorImageP img       = stData->m_image;
     if (!splineImg || !img) return;
 
-    QMutexLocker lock(splineImg->getMutex());
+    TThread::MutexLocker lock(splineImg->getMutex());
     TUndo *undo = new ToolUtils::UndoPath(
         tool->getXsheet()->getStageObject(tool->getObjectId())->getSpline());
     while (splineImg->getStrokeCount() > 0) splineImg->deleteStroke(0);
@@ -1221,7 +1221,7 @@ class AlignStrokesUndo final : public ToolUtils::TToolUndo {
   void apply(bool forward) const {
     TVectorImageP vi = m_level->getFrame(m_frameId, true);
     if (!vi) return;
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
     const auto &target = forward ? m_after : m_before;
     std::vector<std::unique_ptr<TStroke>> previous;
     std::vector<TStroke *> previousPtrs;
@@ -1328,7 +1328,7 @@ void StrokeSelection::alignStrokes(VectorAlignment::Type type) {
     DVGui::error(QObject::tr("The selection is not editable."));
     return;
   }
-  QMutexLocker lock(m_vi->getMutex());
+  TThread::MutexLocker lock(m_vi->getMutex());
   auto objects = alignmentObjects(m_vi, selectionOrder());
   std::vector<TRectD> boxes;
   for (const auto &object : objects) boxes.push_back(object.box);

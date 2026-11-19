@@ -24,7 +24,7 @@ ctest --output-on-failure
 | `canvas_skia/` | Pixel tests of the Skia canvas backend (`tnzskia`): what each canvas call puts into the pixels. Built with `WITH_SKIA`. |
 | `canvas_gl/` | Tests of the OpenGL canvas backend (`tnzglcanvas`) and of how far it agrees with the Skia one. Off by default (`WITH_CANVAS_GL_TESTS`): they need an OpenGL context. |
 | `skia_spike/` | Phase 1 spike: one test binary that links Skia and checks pixels. Off by default (`WITH_SKIA_SPIKE`, with `WITH_SKIA`); see its README. |
-| `ios_gtest.sh` | Builds a GoogleTest binary for iPadOS with Xcode's clang and runs it in the iPad simulator; used by the `run_ios.sh` of `canvas/`, `canvas_skia/` and `skia_spike/`. |
+| `ios_gtest.sh` | Builds a GoogleTest binary for iPadOS with Xcode's clang and runs it in the iPad simulator; used by the `run_ios.sh` of `canvas/`, `canvas_skia/` and `skia_spike/`, and by `core/run_ios_noqt.sh`. |
 
 ## Unit tests
 
@@ -44,6 +44,32 @@ as its own ctest entry:
 ctest -R TFilePath
 ./bin/nexttoonz_core_tests --gtest_filter='TAffine.*'
 ```
+
+## Building the core without Qt
+
+Phase 2 of the plan moves the core libraries off Qt one step at a time
+(`doc/nexttoonz_core_noqt.md`). `-DWITH_QT=OFF` configures a build that does
+not look for Qt at all: it has the canvas libraries, tnzcore made of the
+sources that are off Qt already (`TNZCORE_NOQT_SOURCES` in
+`tnzcore/CMakeLists.txt`) and the unit tests that need no more
+(`NEXTTOONZ_CORE_NOQT_TEST_SOURCES` here, still registered as `core.*`). The
+application, the command-line tools, the toonzlib and GL canvas tests, the
+golden renders and the fixture generator are left out. Use a build directory
+of its own; the third-party libraries are found as in the full build:
+
+```
+cmake -S ../sources -B ../build-noqt -G Ninja -DWITH_QT=OFF [-DWITH_SKIA=ON ...]
+ninja -C ../build-noqt && (cd ../build-noqt && ctest)
+```
+
+`core/run_ios_noqt.sh <simulator|device> <googletest source dir> <work dir>`
+builds the same sources and tests for iPadOS (with `ios_gtest.sh`, reading
+the two lists from the CMake files) and runs them in the iPad simulator.
+
+There is no Qt include directory in that build, so a listed source that
+reaches a Qt header through any include fails to compile, and the library
+does not link if it needs a symbol of an unlisted source. Each migration
+step adds what it moved off Qt to those lists.
 
 ## Sample files (not in the repository)
 

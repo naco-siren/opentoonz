@@ -147,7 +147,7 @@ public:
     TVectorImageP image = m_level->getFrame(m_frameId, true);
     assert(image);
     if (!image) return;
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
     std::vector<int> newStrokeIndex(m_newStrokes.size());
     mapToVector(m_newStrokes, newStrokeIndex);
 
@@ -201,7 +201,7 @@ public:
     assert(image);
     if (!image) return;
 
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
     std::vector<int> oldStrokeIndex(m_originalStrokes.size());
     mapToVector(m_originalStrokes, oldStrokeIndex);
 
@@ -589,7 +589,7 @@ void EraserTool::erase(TVectorImageP vi, const TPointD &pos) {
 
   std::vector<int> oneStrokeIndex(1);
   int index = TTool::getApplication()->getCurrentLevelStyleIndex();
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
   while (i < vi->getStrokeCount()) {
     assert(it != m_indexes.end());
 

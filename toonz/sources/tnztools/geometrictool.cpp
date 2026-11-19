@@ -1720,7 +1720,7 @@ void GeometricTool::addStroke() {
         m_primitive->setIsPrompting(false);
         if (ret == 2 || ret == 0) return;
       }
-      QMutexLocker lock(vi->getMutex());
+      TThread::MutexLocker lock(vi->getMutex());
       TUndo *undo =
           new UndoPath(getXsheet()->getStageObject(getObjectId())->getSpline());
       while (vi->getStrokeCount() > 0) vi->deleteStroke(0);
@@ -1729,7 +1729,7 @@ void GeometricTool::addStroke() {
     } else {
       int styleId = TTool::getApplication()->getCurrentLevelStyleIndex();
       if (styleId >= 0) stroke->setStyle(styleId);
-      QMutexLocker lock(vi->getMutex());
+      TThread::MutexLocker lock(vi->getMutex());
       std::vector<TFilledRegionInf> *fillInformation =
           new std::vector<TFilledRegionInf>;
       ImageUtils::getFillingInformationOverlappingArea(vi, *fillInformation,

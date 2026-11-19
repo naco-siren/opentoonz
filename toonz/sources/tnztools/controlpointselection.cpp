@@ -1362,7 +1362,7 @@ void ControlPointSelection::alignControlPoints(VectorAlignment::Type type) {
     cpUndo->addOldStroke(strokeIndex, vi->getVIStroke(strokeIndex));
     undo = std::move(cpUndo);
   }
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
   vi->findRegions();
   TStroke previous(*vi->getStroke(strokeIndex));
   for (size_t i = 0; i < indexes.size(); ++i)

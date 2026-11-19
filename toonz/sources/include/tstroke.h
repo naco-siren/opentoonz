@@ -9,8 +9,6 @@
 #include "tgeometry.h"
 #include "tthreadmessage.h"
 
-#include <QMutex>
-
 #undef DVAPI
 #undef DVVAR
 

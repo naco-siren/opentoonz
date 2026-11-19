@@ -22,6 +22,7 @@
 
 // Qt includes
 #include <QDir>
+#include <QMutex>
 #include <QOpenGLShaderProgram>
 #include <QCoreApplication>
 #include <QOffscreenSurface>

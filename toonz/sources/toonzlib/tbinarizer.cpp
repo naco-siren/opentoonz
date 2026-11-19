@@ -3,6 +3,8 @@
 #include "toonz/tbinarizer.h"
 #include "tpixelutils.h"
 
+#include <utility>
+
 namespace {
 
 //
@@ -13,9 +15,9 @@ inline void computeColor(int &color, int &value, int &chroma,
                          const TPixel32 &pix) {
   int c[3] = {pix.r, pix.g, pix.b};
   // unrolled bubble-sort
-  if (c[0] < c[1]) qSwap(c[0], c[1]);
-  if (c[1] < c[2]) qSwap(c[1], c[2]);
-  if (c[0] < c[1]) qSwap(c[0], c[1]);
+  if (c[0] < c[1]) std::swap(c[0], c[1]);
+  if (c[1] < c[2]) std::swap(c[1], c[2]);
+  if (c[0] < c[1]) std::swap(c[0], c[1]);
   assert(c[0] >= c[1] && c[1] >= c[2]);
   int cMax = c[0];
   int cMin = c[2];

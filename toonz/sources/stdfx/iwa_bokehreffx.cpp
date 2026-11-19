@@ -2,6 +2,7 @@
 
 #include "trop.h"
 
+#include <QMutex>
 #include <QReadWriteLock>
 #include <QSet>
 #include <QMap>

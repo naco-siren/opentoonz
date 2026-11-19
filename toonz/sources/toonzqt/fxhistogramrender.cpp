@@ -129,7 +129,7 @@ void FxHistogramRender::computeHistogram(TFxP fx, int frame) {
 
 void FxHistogramRender::invalidateFrame(int frame) {
   if (!m_histograms || !m_scene) return;
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   updateRenderer(frame);
 }
 
@@ -195,7 +195,7 @@ void FxHistogramRender::onRenderCompleted(const TRasterP &raster,
     return;
   }
 
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   TRasterImageP img(raster);
   std::string id = std::to_string(m_lastFrameInfo.m_fx->getIdentifier()) +
                    ".noext" + std::to_string(m_lastFrameInfo.m_frame);

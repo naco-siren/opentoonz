@@ -177,7 +177,7 @@ public:
     m_active           = false;
     TVectorImageP vi   = TImageP(getImage(true));
     if (!vi) return;
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
     m_active = true;
 
     m_pointAtMove = m_pointAtMouseDown = p;
@@ -282,7 +282,7 @@ public:
     // double sc = exp(0.001 * (double)dx);
     TVectorImageP vi = TImageP(getImage(true));
     if (!vi) return;
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
     TPointD offset = p - m_pointAtMove;
 
     /*
@@ -333,7 +333,7 @@ lefrightButtonDown(p);
 
     TVectorImageP vi = TImageP(getImage(true));
     if (!vi) return;
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
     UINT i, j;
 
     for (i = 0; i < m_strokeHit.size(); ++i) {

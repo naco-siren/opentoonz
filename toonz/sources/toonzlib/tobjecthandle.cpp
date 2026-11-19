@@ -18,7 +18,7 @@ void clearImage(TVectorImage *img) {
 // obj -> image
 void getSpline(TVectorImage *dstImg, TStageObjectId objId,
                TStageObjectSpline *currentSpline) {
-  QMutexLocker lock(dstImg->getMutex());
+  TThread::MutexLocker lock(dstImg->getMutex());
   clearImage(dstImg);
   if (currentSpline)
     dstImg->addStroke(new TStroke(*currentSpline->getStroke()));

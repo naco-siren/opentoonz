@@ -80,7 +80,7 @@ void TToonzImage::setSubsampling(int s) { m_subsampling = s; }
 //---------------------------------------------------------
 
 void TToonzImage::setSavebox(const TRect &rect) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   // assert(m_lockCount>0);
   assert(m_ras);
@@ -225,7 +225,7 @@ else
 //---------------------------------------------------------
 
 void TToonzImage::setCMapped(const TRasterCM32P &ras) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   m_ras     = ras;
   m_size    = ras->getSize();
   m_savebox = ras->getBounds();
@@ -239,7 +239,7 @@ void TToonzImage::setCMapped(const TRasterCM32P &ras) {
 void TToonzImage::getCMapped(const TRasterCM32P &ras) {
   assert(ras && ras->getSize() == m_size);
 
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   if (m_ras) ras->copy(m_ras);
   /*
 else

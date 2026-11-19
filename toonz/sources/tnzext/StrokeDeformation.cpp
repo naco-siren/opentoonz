@@ -54,7 +54,7 @@ StrokeDeformation::~StrokeDeformation() {}
 //-----------------------------------------------------------------------------
 
 void StrokeDeformation::activate(const ContextStatus *status) {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
 
   assert(status && "Status is null!!!");
   if (!status) return;
@@ -86,7 +86,7 @@ void StrokeDeformation::activate(const ContextStatus *status) {
 //-----------------------------------------------------------------------------
 
 void StrokeDeformation::update(const TPointD &delta) {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
 
   assert(deformationImpl_ && "Deformation is null!!!");
   if (!deformationImpl_) {
@@ -107,7 +107,7 @@ void StrokeDeformation::update(const TPointD &delta) {
 //-----------------------------------------------------------------------------
 
 TStroke *StrokeDeformation::deactivate() {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
 
   if (!deformationImpl_) {
     state_ = DEACTIVE;
@@ -129,7 +129,7 @@ TStroke *StrokeDeformation::deactivate() {
 //-----------------------------------------------------------------------------
 
 void StrokeDeformation::reset() {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
 
   state_ = RESETTED;
 }
@@ -137,7 +137,7 @@ void StrokeDeformation::reset() {
 //-----------------------------------------------------------------------------
 
 void StrokeDeformation::draw(Designer *designer) {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
 
   assert(designer && "Designer is null!!!");
   if (!deformationImpl_ || !designer) return;
@@ -152,14 +152,14 @@ void StrokeDeformation::draw(Designer *designer) {
 //-----------------------------------------------------------------------------
 
 void StrokeDeformation::check(const ContextStatus *status) {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
   if (state_ != UPDATING) deformationImpl_ = this->retrieveDeformator(status);
 }
 
 //-----------------------------------------------------------------------------
 
 const TStroke *StrokeDeformation::getCopiedStroke() const {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
   if (deformationImpl_) return deformationImpl_->getCopiedStroke();
   return 0;
 }
@@ -167,7 +167,7 @@ const TStroke *StrokeDeformation::getCopiedStroke() const {
 //-----------------------------------------------------------------------------
 
 const TStroke *StrokeDeformation::getStroke() const {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
   if (deformationImpl_) return deformationImpl_->getStrokeSelected();
   return 0;
 }
@@ -175,7 +175,7 @@ const TStroke *StrokeDeformation::getStroke() const {
 //-----------------------------------------------------------------------------
 
 const TStroke *StrokeDeformation::getTransformedStroke() const {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
   if (deformationImpl_) return deformationImpl_->getTransformedStroke();
   return 0;
 }
@@ -183,7 +183,7 @@ const TStroke *StrokeDeformation::getTransformedStroke() const {
 //-----------------------------------------------------------------------------
 
 void StrokeDeformation::recover() {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
   assert(deformationImpl_ && "Deformation is null!!!");
   if (!deformationImpl_) return;
 
@@ -200,7 +200,7 @@ void StrokeDeformation::recover() {
 //-----------------------------------------------------------------------------
 
 const ContextStatus *StrokeDeformation::getStatus() const {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
   if (deformationImpl_) return deformationImpl_->getImplStatus();
   return 0;
 }
@@ -208,7 +208,7 @@ const ContextStatus *StrokeDeformation::getStatus() const {
 //-----------------------------------------------------------------------------
 
 ToonzExt::Interval StrokeDeformation::getExtremes() const {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
   if (!deformationImpl_) return Interval(-1, -1);
   return deformationImpl_->getExtremes();
 }
@@ -217,14 +217,14 @@ ToonzExt::Interval StrokeDeformation::getExtremes() const {
 
 StrokeDeformationImpl *StrokeDeformation::retrieveDeformator(
     const ContextStatus *status) {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
   return DeformationSelector::instance()->getDeformation(status);
 }
 
 //-----------------------------------------------------------------------------
 
 int StrokeDeformation::getCursorId() const {
-  QMutexLocker sl(&s_mutex);
+  TThread::MutexLocker sl(&s_mutex);
   if (!deformationImpl_) return -1;
   return deformationImpl_->getCursorId();
 }

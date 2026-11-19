@@ -162,7 +162,7 @@ void PumpTool::draw() {
   TVectorImageP vi = TImageP(getImage(false));
   if (!vi) return;
 
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   TPalette *palette = vi->getPalette();
   assert(palette);
@@ -288,7 +288,7 @@ void PumpTool::leftButtonDown(const TPointD &pos, const TMouseEvent &e) {
   TVectorImageP vi(getImage(true));
   if (!vi) return;
 
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   // set current point and init parameters
   m_oldPoint  = pos;
@@ -359,7 +359,7 @@ void PumpTool::leftButtonDrag(const TPointD &pos, const TMouseEvent &e) {
 
   m_isCtrlPressed = e.isCtrlPressed();
 
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   // Revert current deformation, recovering the one from button press
   delete m_outStroke;
@@ -422,7 +422,7 @@ void PumpTool::leftButtonUp(const TPointD &pos, const TMouseEvent &e) {
   {
     m_active = false;
 
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
 
     // Reset cursor data
     double t;

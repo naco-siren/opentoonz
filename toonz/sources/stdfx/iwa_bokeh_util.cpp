@@ -6,6 +6,7 @@
 
 #include <array>
 
+#include <QMutex>
 #include <QSet>
 #include <QMap>
 #include <QReadWriteLock>

@@ -216,7 +216,7 @@ void StrokesData::setImage(TVectorImageP image, const std::set<int> &indices) {
 
   // indices e' un set; splitImage si aspetta un vector
   vector<int> indicesV(indices.begin(), indices.end());
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
   m_image = image->splitImage(indicesV, false);
   if (m_image->getPalette() == 0) {
     // nel caso lo stroke sia un path (e quindi senza palette)
@@ -232,7 +232,7 @@ void StrokesData::getImage(TVectorImageP image, std::set<int> &indices,
 
   TVectorImageP srcImg = m_image;
 
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
   if (insert) {
     TAffine offset    = findOffset(srcImg, image);
     UINT oldImageSize = image->getStrokeCount();

@@ -56,18 +56,36 @@ file(GLOB NEXTTOONZ_CORE_TEST_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_*.cpp
 )
 
-add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_TEST_SOURCES})
-
-target_link_libraries(nexttoonz_core_tests
-    PRIVATE
-        tnzcore
-        tnzbase
-        Qt5::Core
-        GTest::gtest
-        GTest::gtest_main
+# The ones that need no more of tnzcore than its sources that are off Qt
+# (TNZCORE_NOQT_SOURCES), and no Qt themselves: with WITH_QT=OFF the core
+# test binary is made of these alone.
+set(NEXTTOONZ_CORE_NOQT_TEST_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tgeometry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tsmartpointer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tthreadmutex.cpp
 )
 
-nexttoonz_stage_runtime(nexttoonz_core_tests tnzcore tnzbase)
+if(WITH_QT)
+    add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_TEST_SOURCES})
+    target_link_libraries(nexttoonz_core_tests
+        PRIVATE
+            tnzcore
+            tnzbase
+            Qt5::Core
+            GTest::gtest
+            GTest::gtest_main
+    )
+    nexttoonz_stage_runtime(nexttoonz_core_tests tnzcore tnzbase)
+else()
+    add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_NOQT_TEST_SOURCES})
+    target_link_libraries(nexttoonz_core_tests
+        PRIVATE
+            tnzcore
+            GTest::gtest
+            GTest::gtest_main
+    )
+    nexttoonz_stage_runtime(nexttoonz_core_tests tnzcore)
+endif()
 
 # Registered as "core.<Suite>.<Test>" with the label "core", so that
 # `ctest -L core` or `ctest -R core` selects them (the toonzlib tests use
@@ -86,7 +104,7 @@ add_subdirectory(canvas)
 #-----------------------------------------------------------------------------
 # Tests against toonzlib and the image library (formats, scene model)
 
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toonzlib/CMakeLists.txt)
+if(WITH_QT AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toonzlib/CMakeLists.txt)
     add_subdirectory(toonzlib)
 endif()
 
@@ -100,12 +118,12 @@ if(WITH_SKIA)
 endif()
 
 option(WITH_CANVAS_GL_TESTS "Build the tests of the OpenGL canvas backend (they need an OpenGL context)" OFF)
-if(WITH_CANVAS_GL_TESTS)
+if(WITH_CANVAS_GL_TESTS AND WITH_QT)
     add_subdirectory(canvas_gl)
 endif()
 
 option(WITH_SKIA_SPIKE "Build the Phase 1 Skia spike test (needs WITH_SKIA)" OFF)
-if(WITH_SKIA_SPIKE)
+if(WITH_SKIA_SPIKE AND WITH_QT)
     if(NOT WITH_SKIA)
         message(FATAL_ERROR "WITH_SKIA_SPIKE needs WITH_SKIA")
     endif()
@@ -115,9 +133,13 @@ endif()
 #-----------------------------------------------------------------------------
 # Golden renders (registered by golden/CMakeLists.txt once fixtures exist)
 
-add_subdirectory(golden)
+if(WITH_QT)
+    add_subdirectory(golden)
+endif()
 
 #-----------------------------------------------------------------------------
 # Fixture generator (developer tool, not a test)
 
-add_subdirectory(fixtures)
+if(WITH_QT)
+    add_subdirectory(fixtures)
+endif()

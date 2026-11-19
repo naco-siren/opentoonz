@@ -4,6 +4,7 @@
 #define TPASSIVECACHEMANAGER_INCLUDED
 
 #include "tfxcachemanager.h"
+#include "tthreadmessage.h"
 
 //=========================================================================
 
@@ -56,7 +57,7 @@ void clear();*/
   class ResourcesContainer;
 
 private:
-  QMutex m_mutex;
+  TThread::Mutex m_mutex;
 
   std::vector<FxData> m_fxDataVector;
   std::set<std::string> m_invalidatedLevels;

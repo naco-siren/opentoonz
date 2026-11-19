@@ -535,7 +535,7 @@ void MovieRenderer::Imp::doRenderRasterCompleted(const RenderData &renderData) {
   assert(!(m_cacheResults &&
            m_levelUpdaterB.get()));  // Cannot cache results on stereoscopy
 
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   bool allowMT    = Preferences::instance()->getFfmpegMultiThread();
   bool requireSeq = allowMT ? m_seqRequired : m_movieType;
@@ -627,11 +627,11 @@ void MovieRenderer::Imp::doRenderRasterCompleted(const RenderData &renderData) {
       // Unlock the mutex only in case this is NOT a movie type. Single images
       // can be saved concurrently.
       struct MutexUnlocker {
-        QMutexLocker *m_locker;
+        TThread::MutexLocker *m_locker;
         ~MutexUnlocker() {
           if (m_locker) m_locker->relock();
         }
-      } unlocker = {requireSeq ? (QMutexLocker *)0
+      } unlocker = {requireSeq ? (TThread::MutexLocker *)0
                                : (locker.unlock(), &locker)};
 
       savedFrame = saveFrame(frame, rasters);
@@ -688,7 +688,7 @@ void MovieRenderer::Imp::doPreviewRasterCompleted(
 
   assert(!m_levelUpdaterA.get());
 
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   QString name = getPreviewName(m_renderSessionId);
 
@@ -753,8 +753,8 @@ void MovieRenderer::Imp::doPreviewRasterCompleted(
 
 void MovieRenderer::Imp::onRenderFailure(const RenderData &renderData,
                                          TException &e) {
-  QMutexLocker sl(&m_mutex);  // Lock as soon as possible.
-                              // No sense making it later in this case!
+  TThread::MutexLocker sl(&m_mutex);  // Lock as soon as possible.
+                                      // No sense making it later in this case!
   m_failure = true;
 
   bool allowMT    = Preferences::instance()->getFfmpegMultiThread();

@@ -807,7 +807,7 @@ inline QString toString(const ServerInfo &info) {
 //------------------------------------------------------------------------------
 
 QString FarmController::execute(const vector<QString> &argv) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   if (argv.size() > 0) {
 #ifdef TRACE
@@ -1085,7 +1085,7 @@ CtrlFarmTask *FarmController::doAddTask(
 //------------------------------------------------------------------------------
 
 void FarmController::startTask(CtrlFarmTask *task, FarmServerProxy *server) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   CtrlFarmTask *taskToBeSubmittedParent = 0;
   CtrlFarmTask *taskToBeSubmitted       = 0;
@@ -1150,7 +1150,7 @@ void FarmController::startTask(CtrlFarmTask *task, FarmServerProxy *server) {
 //------------------------------------------------------------------------------
 
 CtrlFarmTask *FarmController::getTaskToStart(FarmServerProxy *server) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   int maxPriority         = 0;
   CtrlFarmTask *candidate = 0;
@@ -1198,7 +1198,7 @@ CtrlFarmTask *FarmController::getTaskToStart(FarmServerProxy *server) {
 
 CtrlFarmTask *FarmController::getNextTaskToStart(CtrlFarmTask *except,
                                                  FarmServerProxy *server) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   int maxPriority         = 0;
   CtrlFarmTask *candidate = 0;
@@ -1241,7 +1241,7 @@ CtrlFarmTask *FarmController::getNextTaskToStart(CtrlFarmTask *except,
 //------------------------------------------------------------------------------
 
 bool FarmController::tryToStartTask(CtrlFarmTask *task) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   bool dependenciesCompleted = true;
 
@@ -2166,7 +2166,7 @@ void FarmController::save(const TFilePath &fp) const {
 //------------------------------------------------------------------------------
 
 void FarmController::activateReadyServers() {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   map<QString, FarmServerProxy *>::iterator it = m_servers.begin();
   for (; it != m_servers.end(); ++it) {

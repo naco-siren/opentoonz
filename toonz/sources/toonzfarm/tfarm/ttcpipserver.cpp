@@ -223,7 +223,7 @@ int TTcpIpServerImp::readData(int sock, std::string &data) {
 //---------------------------------------------------------------------
 
 void TTcpIpServerImp::onReceive(int sock, const QString &data) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   m_server->onReceive(sock, data);
 }
 

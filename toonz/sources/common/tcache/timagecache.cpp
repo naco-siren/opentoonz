@@ -47,6 +47,7 @@
 #endif
 
 // Qt includes
+#include <QMutex>
 #include <QThreadStorage>
 
 //------------------------------------------------------------------------------

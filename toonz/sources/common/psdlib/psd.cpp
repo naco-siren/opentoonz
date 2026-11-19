@@ -61,7 +61,7 @@ TPSDReader::TPSDReader(const TFilePath &path)
   name.remove(sepPos, dotPos - sepPos);
   m_path = path.getParentDir() + TFilePath(name.toStdString());
   // m_path = path;
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   openFile();
   if (!doInfo()) {
     fclose(m_file);
@@ -419,7 +419,7 @@ void TPSDReader::doImage(TRasterP &rasP, int layerId) {
 }
 
 void TPSDReader::load(TRasterImageP &img, int layerId) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   TPSDLayerInfo *li = NULL;
   int layerIndex    = 0;
   if (layerId > 0) {

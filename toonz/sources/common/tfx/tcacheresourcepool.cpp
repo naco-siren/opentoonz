@@ -2,6 +2,7 @@
 
 // Qt includes
 #include <QMap>
+#include <QMutex>
 #include <QSettings>
 #include <QDate>
 #include <QDir>
@@ -55,7 +56,7 @@ void TCacheResourcePool::reset() { setPath("", "", ""); }
 // are intended as 'reference-protected' material which is expected to last
 // as long as references are held.
 void TCacheResourcePool::invalidateAll() {
-  QMutexLocker locker(&m_memMutex);
+  TThread::MutexLocker locker(&m_memMutex);
 
   MemResources::iterator it;
   for (it = m_memResources.begin(); it != m_memResources.end(); ++it)
@@ -130,8 +131,7 @@ TCacheResourcePool *TCacheResourcePool::instance() {
 //----------------------------------------------------------------------
 
 TCacheResourcePool::TCacheResourcePool()
-    : m_memMutex(QMutex::Recursive)
-    , m_searchCount(0)
+    : m_searchCount(0)
     , m_foundIterator(false)
     , m_searchIterator(m_memResources.end())
     , m_hdPool(0)
@@ -269,7 +269,7 @@ TCacheResource *TCacheResourcePool::getResource(const std::string &name,
 //----------------------------------------------------------------------
 
 void TCacheResourcePool::releaseResource(TCacheResource *resource) {
-  QMutexLocker locker(&m_memMutex);
+  TThread::MutexLocker locker(&m_memMutex);
 
   // Re-check the resource's reference count. This is necessary since a
   // concurrent

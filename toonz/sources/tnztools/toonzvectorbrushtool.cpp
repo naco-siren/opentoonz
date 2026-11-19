@@ -411,7 +411,7 @@ static void closeOpenStroke(TStroke *stroke) {
 
 // TVectorImage::clone() does not copy the currently entered group.
 static TVectorImageP cloneWithEnteredGroup(const TVectorImageP &image) {
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
   TVectorImageP copy = image->clone();
   std::vector<int> groups;
   while (image->isInsideGroup() > 0) groups.push_back(image->exitGroup());
@@ -537,7 +537,7 @@ static void addStroke(TTool::Application *application, const TVectorImageP &vi,
                       bool autoFill, bool frameCreated, bool levelCreated,
                       TXshSimpleLevel *sLevel = NULL,
                       TFrameId fid            = TFrameId::NO_FRAME) {
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   if (application->getCurrentObject()->isSpline()) {
     application->getCurrentXsheet()->notifyXsheetChanged();
@@ -676,7 +676,7 @@ void addStrokeToImage(TTool::Application *application, const TVectorImageP &vi,
                       bool autoGroup, bool autoFill, bool frameCreated,
                       bool levelCreated, TXshSimpleLevel *sLevel = NULL,
                       TFrameId id = TFrameId::NO_FRAME) {
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
   addStroke(application, vi.getPointer(), stroke, drawOrder, breakAngles,
             autoGroup, autoFill, frameCreated, levelCreated, sLevel, id);
   // la notifica viene gia fatta da addStroke!
@@ -1134,7 +1134,7 @@ void ToonzVectorBrushTool::inputSetBusy(bool busy) {
         return; // 1 here means "Yes" button
     }
 
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
 
     TUndo *undo = new UndoPath(
       getXsheet()->getStageObject(getObjectId())->getSpline() );
@@ -1152,7 +1152,7 @@ void ToonzVectorBrushTool::inputSetBusy(bool busy) {
   
   TVectorImageP vi = getImage(true);
   if (!vi) return;
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
   TTool::Application *app = TTool::getApplication();
   
   // prepare strokes

@@ -362,7 +362,7 @@ void TLevelWriterAvi::save(const TImageP &img, int frameIndex) {
   if (pixelSize != 4)
     throw TImageException(getFilePath(), "Unsupported pixel type");
 
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   if (!m_initDone) {
     searchForCodec();
@@ -909,7 +909,7 @@ TImageReaderP TLevelReaderAvi::getFrameReader(TFrameId fid) {
 //------------------------------------------------------------------------------
 
 TDimension TLevelReaderAvi::getSize() {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   AVISTREAMINFO psi;
   AVIStreamInfo(m_videoStream, &psi, sizeof(AVISTREAMINFO));
   return TDimension(psi.rcFrame.right - psi.rcFrame.left,

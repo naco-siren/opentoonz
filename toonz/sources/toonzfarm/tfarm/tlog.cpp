@@ -103,28 +103,28 @@ static TThread::Mutex MyMutex;
 //------------------------------------------------------------------------------
 
 void TSysLog::success(const QString &msg) {
-  QMutexLocker sl(&MyMutex);
+  TThread::MutexLocker sl(&MyMutex);
   notify(LEVEL_SUCCESS, msg);
 }
 
 //------------------------------------------------------------------------------
 
 void TSysLog::warning(const QString &msg) {
-  QMutexLocker sl(&MyMutex);
+  TThread::MutexLocker sl(&MyMutex);
   notify(LEVEL_WARNING, msg);
 }
 
 //------------------------------------------------------------------------------
 
 void TSysLog::error(const QString &msg) {
-  QMutexLocker sl(&MyMutex);
+  TThread::MutexLocker sl(&MyMutex);
   notify(LEVEL_ERROR, msg);
 }
 
 //------------------------------------------------------------------------------
 
 void TSysLog::info(const QString &msg) {
-  QMutexLocker sl(&MyMutex);
+  TThread::MutexLocker sl(&MyMutex);
   notify(LEVEL_INFO, msg);
 }
 
@@ -150,7 +150,7 @@ public:
 //------------------------------------------------------------------------------
 
 void TUserLog::Imp::write(const QString &msg) {
-  QMutexLocker sl(&MyMutex);
+  TThread::MutexLocker sl(&MyMutex);
   *m_os << msg.toStdString();
   m_os->flush();
 }

@@ -125,7 +125,7 @@ public:
     TVectorImageP img = m_level->getFrame(m_frameId, true);
     assert(img);
     if (!img) return;
-    QMutexLocker lock(img->getMutex());
+    TThread::MutexLocker lock(img->getMutex());
 
     vectorFill(img, m_type, m_point, m_oldColorStyle);
     TTool::Application *app = TTool::getApplication();
@@ -142,7 +142,7 @@ public:
     TVectorImageP img = m_level->getFrame(m_frameId, true);
     assert(img);
     if (!img) return;
-    QMutexLocker lock(img->getMutex());
+    TThread::MutexLocker lock(img->getMutex());
 
     vectorFill(img, m_type, m_point, m_newColorStyle);
 
@@ -936,7 +936,7 @@ void fillAreaWithUndo(const TImageP &img, const TRaster32P &ref,
         new VectorRectFillUndo(regionFillInformation, strokeFillInformation,
                                selArea, stroke, cs, onlyUnfilled, sl, fid);
 
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
     if (vi->selectFill(area, stroke, cs, onlyUnfilled, colorType != LINES,
                        colorType != AREAS))
       TUndoManager::manager()->add(fUndo);
@@ -1138,7 +1138,7 @@ void doRefFill(const TImageP &img, const TRaster32P &refImg, const TPointD &pos,
     ras->unlock();
   } else if (TVectorImageP vi = TImageP(img)) {
     int oldStyleId;
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
 
     if ((oldStyleId = vectorFill(vi, params.m_fillType, pos, params.m_styleId,
                                  params.m_emptyOnly)) != -1)

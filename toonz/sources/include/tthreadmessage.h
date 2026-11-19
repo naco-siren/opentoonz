@@ -8,11 +8,7 @@
 //! the main thread:
 //  MyMessage().send();
 
-#ifndef TNZCORE_LIGHT
-#include <QMutex>
-#else
-#include <windows.h>
-#endif
+#include <mutex>
 
 #undef DVAPI
 #undef DVVAR
@@ -51,50 +47,63 @@ public:
   void sendBlocking();
 };
 
-#ifdef TNZCORE_LIGHT
-
-class DVAPI Mutex {
+//! A recursive mutex: the thread that holds it may lock it again, and must
+//! unlock it as many times. It was a QMutex built with QMutex::Recursive,
+//! which Qt 6 no longer has; the C++ library's recursive mutex has the same
+//! semantics. It is Lockable, so std::lock_guard and std::unique_lock accept
+//! it as well as MutexLocker.
+class Mutex final {
 public:
-  HANDLE m_mutex;
-  Mutex() { m_mutex = CreateMutex(NULL, FALSE, NULL); }
-  ~Mutex() { CloseHandle(m_mutex); }
-  void lock() {
-    WaitForSingleObject(m_mutex,  // handle to mutex
-                        INFINITE);
-  }
-  void unlock() { ReleaseMutex(m_mutex); }
+  Mutex() = default;
+
+  void lock() { m_mutex.lock(); }
+  bool tryLock() { return m_mutex.try_lock(); }
+  void unlock() { m_mutex.unlock(); }
+
+  // The names the C++ library's lock types expect.
+  bool try_lock() { return m_mutex.try_lock(); }
 
 private:
-  // not implemented
-  Mutex(const Mutex &);
-  Mutex &operator=(const Mutex &);
+  std::recursive_mutex m_mutex;
+
+  Mutex(const Mutex &)            = delete;
+  Mutex &operator=(const Mutex &) = delete;
 };
 
-class DVAPI MutexLocker {
-  HANDLE m_mutex;
-
+//! Locks a Mutex for its lifetime, like the QMutexLocker it replaces: a null
+//! mutex is accepted and does nothing, and unlock() and relock() release and
+//! retake the lock inside the scope.
+class MutexLocker final {
 public:
-  MutexLocker(Mutex *mutex) : m_mutex(mutex->m_mutex) {
-    WaitForSingleObject(m_mutex, INFINITE);
+  explicit MutexLocker(Mutex *mutex) : m_mutex(mutex) {
+    if (m_mutex) {
+      m_mutex->lock();
+      m_locked = true;
+    }
   }
-  ~MutexLocker() { ReleaseMutex(m_mutex); }
-};
+  ~MutexLocker() { unlock(); }
 
-#else
-
-class DVAPI Mutex final : public QMutex {
-public:
-  Mutex() : QMutex(QMutex::Recursive) {}
+  void unlock() {
+    if (m_locked) {
+      m_locked = false;
+      m_mutex->unlock();
+    }
+  }
+  void relock() {
+    if (m_mutex && !m_locked) {
+      m_mutex->lock();
+      m_locked = true;
+    }
+  }
+  Mutex *mutex() const { return m_mutex; }
 
 private:
-  // not implemented
-  Mutex(const Mutex &);
-  Mutex &operator=(const Mutex &);
+  Mutex *m_mutex;
+  bool m_locked = false;
+
+  MutexLocker(const MutexLocker &)            = delete;
+  MutexLocker &operator=(const MutexLocker &) = delete;
 };
-
-typedef QMutexLocker MutexLocker;
-
-#endif
 
 }  // namespace  TThread
 

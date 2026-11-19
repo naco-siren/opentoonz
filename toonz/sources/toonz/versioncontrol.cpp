@@ -31,6 +31,7 @@
 // Qt includes
 #include <QFile>
 #include <QDir>
+#include <QMutex>
 #include <QSettings>
 #include <QRegularExpression>
 

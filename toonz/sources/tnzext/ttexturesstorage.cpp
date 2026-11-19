@@ -12,8 +12,6 @@
 // Qt includes
 #include <QString>
 #include <QCache>
-#include <QMutex>
-#include <QMutexLocker>
 
 #include "ext/ttexturesstorage.h"
 
@@ -40,8 +38,8 @@ private:
 
 namespace {
 
-QMutex l_mutex(QMutex::Recursive);  // A mutex is needed to synchronize access
-                                    // to the following objects
+TThread::Mutex l_mutex;  // A mutex is needed to synchronize access to the
+                         // following objects
 
 std::map<int, TexturesContainer *>
     l_texturesContainers;  // Texture Containers by display lists space id
@@ -77,7 +75,7 @@ inline void deleteTexturesContainer(
 //***************************************************************************************
 
 DrawableTextureData::~DrawableTextureData() {
-  QMutexLocker locker(&l_mutex);
+  TThread::MutexLocker locker(&l_mutex);
 
   TexturesContainer *texContainer = l_texturesContainers[m_dlSpaceId];
 
@@ -91,7 +89,7 @@ DrawableTextureData::~DrawableTextureData() {
 
     // Unbind the textures
     {
-      QMutexLocker locker(proxy->mutex());
+      std::lock_guard<std::mutex> locker(*proxy->mutex());
 
       proxy->makeCurrent();
       texContainer->m_texturizer.unbindTexture(m_texId);
@@ -144,7 +142,7 @@ DrawableTextureDataP TTexturesStorage::loadTexture(const std::string &textureId,
   QString texString(::textureString(dlSpaceId, textureId));
 
   // Deal with containers
-  QMutexLocker locker(&l_mutex);
+  TThread::MutexLocker locker(&l_mutex);
 
   // If necessary, allocate a textures container
   std::map<int, TexturesContainer *>::iterator it =
@@ -180,7 +178,7 @@ DrawableTextureDataP TTexturesStorage::loadTexture(const std::string &textureId,
 //-------------------------------------------------------------------------------------
 
 void TTexturesStorage::unloadTexture(const std::string &textureId) {
-  QMutexLocker locker(&l_mutex);
+  TThread::MutexLocker locker(&l_mutex);
 
   // Remove the specified texture from ALL the display lists spaces
   std::map<int, TexturesContainer *>::iterator it,
@@ -192,7 +190,7 @@ void TTexturesStorage::unloadTexture(const std::string &textureId) {
 //-----------------------------------------------------------------------------------
 
 void TTexturesStorage::onDisplayListDestroyed(int dlSpaceId) {
-  QMutexLocker locker(&l_mutex);
+  TThread::MutexLocker locker(&l_mutex);
 
   // Remove the textures container associated with dlSpaceId
   std::map<int, TexturesContainer *>::iterator it =
@@ -224,7 +222,7 @@ DrawableTextureDataP TTexturesStorage::getTextureData(
   // stored.
   if (dlSpaceId < 0) return DrawableTextureDataP();
 
-  QMutexLocker locker(&l_mutex);
+  TThread::MutexLocker locker(&l_mutex);
 
   // Search the texture object
   QString texString(::textureString(dlSpaceId, textureId));

@@ -18,6 +18,7 @@
 
 // Qt includes
 #include <QDirIterator>
+#include <QMutex>
 #include <QPixmap>
 #include <QPixmapCache>
 #include <QImage>

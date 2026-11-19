@@ -276,7 +276,7 @@ void PinchTool::leftButtonDrag(const TPointD &pos, const TMouseEvent &e) {
     ContextStatus *status = &m_status;
     if (!vi || !status->stroke2change_ || !m_active) return;
 
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
 
     // assert( status->stroke2change_->getLength() >= 0.0 );
 
@@ -328,7 +328,7 @@ void PinchTool::leftButtonUp(const TPointD &pos, const TMouseEvent &e) {
     return;
   }
 
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   TStroke *deactivateStroke          = m_deformation->deactivate();
   deactivateStroke->outlineOptions() = status->stroke2change_->outlineOptions();

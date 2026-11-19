@@ -273,7 +273,7 @@ TRaster32P convertToIcon(TVectorImageP vimage, int frame,
   // Image bounding box with a small margin to prevent issues with empty images
   TRectD imageBox;
   {
-    QMutexLocker sl(vimage->getMutex());
+    TThread::MutexLocker sl(vimage->getMutex());
     imageBox = vimage->getBBox().enlarge(.1);
   }
 

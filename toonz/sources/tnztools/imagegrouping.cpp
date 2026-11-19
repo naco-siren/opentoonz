@@ -174,7 +174,7 @@ public:
     }
     TVectorImageP image = m_level->getFrame(m_frameId, true);
     if (!image) return;
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
     image->moveStrokes(refStroke, m_count, moveBefore);
     StrokeSelection *selection = dynamic_cast<StrokeSelection *>(
         TTool::getApplication()->getCurrentSelection()->getSelection());
@@ -196,7 +196,7 @@ public:
   void redo() const override {
     TVectorImageP image = m_level->getFrame(m_frameId, true);
     if (!image) return;
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
     image->moveStrokes(m_refStroke, m_count, m_moveBefore);
     StrokeSelection *selection = dynamic_cast<StrokeSelection *>(
         TTool::getApplication()->getCurrentSelection()->getSelection());
@@ -486,7 +486,7 @@ void TGroupCommand::group() {
     return;
   }
 
-  QMutexLocker lock(vimg->getMutex());
+  TThread::MutexLocker lock(vimg->getMutex());
   groupWithoutUndo(vimg, m_sel);
   TXshSimpleLevel *level =
       TTool::getApplication()->getCurrentLevel()->getSimpleLevel();
@@ -554,7 +554,7 @@ void TGroupCommand::ungroup() {
     return;
   }
 
-  QMutexLocker lock(vimg->getMutex());
+  TThread::MutexLocker lock(vimg->getMutex());
   ungroupWithoutUndo(vimg, m_sel);
   TXshSimpleLevel *level =
       TTool::getApplication()->getCurrentLevel()->getSimpleLevel();

@@ -348,7 +348,7 @@ public:
       m_undo = 0;
       return;
     }
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
 
     // TStroke *oldStroke = new TStroke(*(vi->getStroke(m_selectedStroke)));
 

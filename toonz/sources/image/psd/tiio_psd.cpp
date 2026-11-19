@@ -67,7 +67,7 @@ TLevelReaderPsd::~TLevelReaderPsd() { delete m_psdreader; }
 
 void TLevelReaderPsd::load(TRasterImageP &rasP, int shrinkX, int shrinkY,
                            TRect region) {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   TRasterImageP img;
   m_psdreader->setShrink(shrinkX, shrinkY);
   m_psdreader->setRegion(region);

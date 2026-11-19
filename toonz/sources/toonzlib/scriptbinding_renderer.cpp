@@ -13,6 +13,7 @@
 #include "toonz/tcamera.h"
 #include "toutputproperties.h"
 #include <QEventLoop>
+#include <QMutex>
 #include <QWaitCondition>
 
 #include "timagecache.h"

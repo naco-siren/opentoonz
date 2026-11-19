@@ -224,7 +224,7 @@ void VectorFreeDeformer::deformImage() {
     return;
   }
 
-  QMutexLocker lock(m_vi->getMutex());
+  TThread::MutexLocker lock(m_vi->getMutex());
 
   std::size_t i = 0;
   for (auto it = m_strokeIndexes.begin(), end = m_strokeIndexes.end();
@@ -1705,7 +1705,7 @@ void VectorSelectionTool::leftButtonDrag(const TPointD &pos,
 
     clearSelectedStrokes();
 
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
 
     m_strokeSelection.setImage(vi);  // >_<  Shouldn't be done here...?
 
@@ -1775,7 +1775,7 @@ void VectorSelectionTool::leftButtonUp(const TPointD &pos,
     if (m_strokeSelectionType.getIndex() == RECT_SELECTION_IDX)
       notifySelectionChanged();
     else if (m_strokeSelectionType.getIndex() == FREEHAND_SELECTION_IDX) {
-      QMutexLocker lock(vi->getMutex());
+      TThread::MutexLocker lock(vi->getMutex());
 
       closeFreehand(pos);
 

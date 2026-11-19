@@ -435,7 +435,7 @@ void TLevelWriterMov::save(const TImageP &img, int frameIndex) {
   if (pixSize != 4)
     throw TImageException(getFilePath(), "Unsupported pixel type");
 
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   if (!m_videoTrack) {
     if (!m_properties) m_properties = new Tiio::MovWriterProperties();
@@ -1230,7 +1230,7 @@ void TLevelReaderMov::load(const TRasterP &rasP, int frameIndex,
                            const TPoint &pos, int shrinkX, int shrinkY) {
   GWorldPtr offscreenGWorld = 0;
   {
-    QMutexLocker sl(&m_mutex);
+    TThread::MutexLocker sl(&m_mutex);
     if (m_IOError != QTNoError)
       throw TImageException(m_path, buildQTErrorString(m_IOError));
 
@@ -1329,7 +1329,7 @@ void TLevelReaderMov::timecode(int frameIndex, UCHAR &hh, UCHAR &mm, UCHAR &ss,
   hh = mm = ss = ff = 0xff;
   if (!m_timecodeHandler) return;
 
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
   {
     if (m_IOError != QTNoError) goto error;
 

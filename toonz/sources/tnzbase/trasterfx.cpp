@@ -518,7 +518,7 @@ public:
   ~TRasterFxImp() {}
 
   void enableCache(bool on) {
-    QMutexLocker sl(&m_mutex);
+    TThread::MutexLocker sl(&m_mutex);
     m_cacheEnabled = on;
     if (!m_cacheEnabled) {
       m_interactiveCacheId = "";
@@ -532,12 +532,12 @@ public:
   bool isCacheEnabled() const { return m_cacheEnabled; }
 
   bool isEnabled() const {
-    QMutexLocker sl(&m_mutex);  // a che serve??
+    TThread::MutexLocker sl(&m_mutex);  // a che serve??
     return m_isEnabled;
   }
 
   void enable(bool on) {
-    QMutexLocker sl(&m_mutex);  // a che serve
+    TThread::MutexLocker sl(&m_mutex);  // a che serve
     m_isEnabled = on;
   }
 

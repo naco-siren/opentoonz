@@ -242,7 +242,6 @@ TPalette::TPalette()
     , m_isCleanupPalette(false)
     , m_currentFrame(-1)
     , m_dirtyFlag(false)
-    , m_mutex(QMutex::Recursive)
     , m_isLocked(false)
     , m_askOverwriteFlag(false)
     , m_shortcutScopeIndex(0)
@@ -1088,7 +1087,7 @@ int TPalette::getFrame() const { return m_currentFrame; }
 //-------------------------------------------------------------------
 
 void TPalette::setFrame(int frame) {
-  QMutexLocker muLock(&m_mutex);
+  TThread::MutexLocker muLock(&m_mutex);
 
   if (m_currentFrame == frame) return;
 

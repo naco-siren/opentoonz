@@ -22,7 +22,7 @@ using namespace std;
 
 class TSoundOutputDeviceImp: public std::enable_shared_from_this<TSoundOutputDeviceImp> {
 private:
-  QMutex m_mutex;
+  TThread::Mutex m_mutex;
 
   double m_volume;
   bool m_looping;
@@ -37,14 +37,12 @@ private:
 public:
   std::set<TSoundOutputDeviceListener *> m_listeners;
 
-  TSoundOutputDeviceImp():
-    m_mutex(QMutex::Recursive),
-    m_volume(0.5),
-    m_looping(false),
-    m_bytesSent(0),
-    m_bufferIndex(0),
-    m_audioBuffer()
-  { }
+  TSoundOutputDeviceImp()
+      : m_volume(0.5)
+      , m_looping(false)
+      , m_bytesSent(0)
+      , m_bufferIndex(0)
+      , m_audioBuffer() {}
 
 private:
   void reset() {
@@ -56,7 +54,7 @@ private:
   }
 
   void sendBuffer() {
-    QMutexLocker lock(&m_mutex);
+    TThread::MutexLocker lock(&m_mutex);
 
     if (!m_audioOutput) return;
     if (!m_buffer.size()) return;
@@ -88,22 +86,22 @@ private:
 
 public:
   double getVolume() {
-    QMutexLocker lock(&m_mutex);
+    TThread::MutexLocker lock(&m_mutex);
     return m_volume;
   }
 
   bool isLooping() {
-    QMutexLocker lock(&m_mutex);
+    TThread::MutexLocker lock(&m_mutex);
     return m_looping;
   }
 
   void prepareVolume(double x) {
-    QMutexLocker lock(&m_mutex);
+    TThread::MutexLocker lock(&m_mutex);
     m_volume = x;
   }
 
   bool isPlaying() {
-    QMutexLocker lock(&m_mutex);
+    TThread::MutexLocker lock(&m_mutex);
     return m_audioOutput
         && m_buffer.size()
         && ( isLooping()
@@ -112,13 +110,13 @@ public:
   }
 
   void setVolume(double x) {
-    QMutexLocker lock(&m_mutex);
+    TThread::MutexLocker lock(&m_mutex);
     m_volume = x;
     if (m_audioOutput) m_audioOutput->setVolume(m_volume);
   }
 
   void setLooping(bool x) {
-    QMutexLocker lock(&m_mutex);
+    TThread::MutexLocker lock(&m_mutex);
     if (m_looping != x) {
       m_looping = x;
       if (m_audioOutput) {
@@ -143,14 +141,14 @@ public:
   }
 
   void stop() {
-    QMutexLocker lock(&m_mutex);
+    TThread::MutexLocker lock(&m_mutex);
     //reset(); audio buffer too small, so optimization not uses
     m_buffer.clear();
     m_bufferIndex = 0;
   }
 
   void play(const TSoundTrackP &st, TINT32 s0, TINT32 s1, bool loop, bool scrubbing) {
-    QMutexLocker lock(&m_mutex);
+    TThread::MutexLocker lock(&m_mutex);
 
     QAudioFormat format;
     format.setSampleSize(st->getBitPerSample());

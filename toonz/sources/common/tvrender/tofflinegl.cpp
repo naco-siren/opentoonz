@@ -27,6 +27,9 @@
 
 #include "tofflinegl.h"
 
+// Qt includes
+#include <QMutex>
+
 #ifndef checkErrorsByGL
 #define checkErrorsByGL                                                        \
   {                                                                            \
@@ -357,7 +360,7 @@ public:
     static std::map<pthread_t, GLXContext> m_glxContext;
     static TThread::Mutex mutex;
 
-    QMutexLocker sl(&mutex);
+    TThread::MutexLocker sl(&mutex);
     pthread_t self                               = pthread_self();
     std::map<pthread_t, GLXContext>::iterator it = m_glxContext.find(self);
     if (((it != m_glxContext.end()) && (it->second != m_context)) ||

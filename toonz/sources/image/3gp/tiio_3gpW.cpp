@@ -297,7 +297,7 @@ void TImageWriter3gp::save(const TImageP &img) {
 void TLevelWriter3gp::save(const TImageP &img, int frameIndex) {
   if (m_cancelled) return;
   std::string msg;
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   TRasterImageP image(img);
   TRasterP ras = image->getRaster();
@@ -934,7 +934,7 @@ inline void setMatteAndYMirror(const TRaster32P &ras) {
 void TLevelReader3gp::load(const TRasterP &rasP, int frameIndex,
                            const TPoint &pos, int shrinkX, int shrinkY) {
   {
-    QMutexLocker sl(&m_mutex);
+    TThread::MutexLocker sl(&m_mutex);
     if (m_IOError != QTNoError)
       throw TImageException(m_path, buildQTErrorString(m_IOError));
 

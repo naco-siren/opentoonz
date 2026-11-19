@@ -27,6 +27,7 @@
 
 #include <QDebug>
 #include <QGuiApplication>
+#include <QMutex>
 
 using namespace TFxUtil;
 
@@ -517,7 +518,7 @@ void SwatchViewer::computeContent() {
 //-----------------------------------------------------------------------------
 
 void SwatchViewer::updateRaster() {
-  QMutexLocker sl(&m_mutex);
+  TThread::MutexLocker sl(&m_mutex);
 
   if (!m_enabled) return;
   if (!m_raster) return;

@@ -22,7 +22,7 @@ public:
   public:
     ListenerNotifier(Imp *imp) : m_imp(imp) {}
     void onDeliver() override {
-      QMutexLocker sl(&m_imp->m_mutex);
+      TThread::MutexLocker sl(&m_imp->m_mutex);
       std::set<TLogger::Listener *>::iterator it;
       for (it = m_imp->m_listeners.begin(); it != m_imp->m_listeners.end();
            ++it)
@@ -57,24 +57,24 @@ TLogger::Message::Message(MessageType type, std::string text)
 }
 
 void TLogger::addMessage(const Message &msg) {
-  QMutexLocker sl(&m_imp->m_mutex);
+  TThread::MutexLocker sl(&m_imp->m_mutex);
   m_imp->m_messages.push_back(msg);
   m_imp->notify();
 }
 
 void TLogger::clearMessages() {
-  QMutexLocker sl(&m_imp->m_mutex);
+  TThread::MutexLocker sl(&m_imp->m_mutex);
   m_imp->m_messages.clear();
   m_imp->notify();
 }
 
 int TLogger::getMessageCount() const {
-  QMutexLocker sl(&m_imp->m_mutex);
+  TThread::MutexLocker sl(&m_imp->m_mutex);
   return m_imp->m_messages.size();
 }
 
 TLogger::Message TLogger::getMessage(int index) const {
-  QMutexLocker sl(&m_imp->m_mutex);
+  TThread::MutexLocker sl(&m_imp->m_mutex);
   assert(0 <= index && index < getMessageCount());
   return m_imp->m_messages[index];
 }

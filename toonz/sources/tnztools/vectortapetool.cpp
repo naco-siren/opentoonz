@@ -119,7 +119,7 @@ public:
     TVectorImageP image = m_level->getFrame(m_frameId, true);
     assert(!!image);
     if (!image) return;
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
     int strokeIndex = image->getStrokeIndexById(m_newStrokeId);
     if (strokeIndex != -1) image->removeStroke(strokeIndex);
 
@@ -153,7 +153,7 @@ public:
     TVectorImageP image = m_level->getFrame(m_frameId, true);
     assert(!!image);
     if (!image) return;
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
     if (m_oldStroke1) {
       int strokeIndex = image->getStrokeIndexById(m_oldStrokeId1);
       if (strokeIndex != -1) image->removeStroke(strokeIndex);
@@ -633,7 +633,7 @@ public:
     if (!confirmTape(vi, joinsExistingStrokes)) return false;
     vi = TVectorImageP(getImage(true));
     if (!vi) return false;
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
     std::vector<TFilledRegionInf> *fillInformation =
         new std::vector<TFilledRegionInf>;
     ImageUtils::getFillingInformationOverlappingArea(vi, *fillInformation,
@@ -715,7 +715,7 @@ public:
     if (!m_joinStrokes.getValue() || !joinsExistingStrokes) return true;
     bool hasFills = false;
     {
-      QMutexLocker lock(vi->getMutex());
+      TThread::MutexLocker lock(vi->getMutex());
       vi->findRegions();  // Includes fills whose region data was not yet
                           // computed.
       for (UINT i = 0; i < vi->getRegionCount() && !hasFills; ++i)
@@ -785,7 +785,7 @@ public:
       resetGesture();
       return;
     }
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
     m_secondPoint = false;
     std::vector<TFilledRegionInf> *fillInformation =
         new std::vector<TFilledRegionInf>;

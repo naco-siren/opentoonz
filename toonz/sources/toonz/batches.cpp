@@ -24,6 +24,7 @@
 
 #include "toonzqt/gutil.h"
 
+#include <QMutex>
 #include <QString>
 #include <QProcess>
 #include <QHostInfo>

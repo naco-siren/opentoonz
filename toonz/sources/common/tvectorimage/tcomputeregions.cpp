@@ -2821,7 +2821,7 @@ int TVectorImage::Imp::computeRegions() {
 
   if (!m_computeRegions) return 0;
 
-  QMutexLocker sl(m_mutex);
+  TThread::MutexLocker sl(m_mutex);
 
   /*if (m_intersectionData->m_computedAlmostOnce)
 {

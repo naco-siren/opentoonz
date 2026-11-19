@@ -676,7 +676,7 @@ void ControlPointEditorTool::leftButtonDrag(const TPointD &pos,
   TVectorImageP vi(getImage(true));
   int currentStroke = m_controlPointEditorStroke.getStrokeIndex();
   if (!vi || currentStroke == -1 || m_action == NONE) return;
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   TPointD delta = pos - m_pos;
 
@@ -763,7 +763,7 @@ void ControlPointEditorTool::leftButtonUp(const TPointD &realPos,
   TVectorImageP vi(getImage(true));
   int currentStroke = m_controlPointEditorStroke.getStrokeIndex();
   if (!vi || currentStroke == -1) return;
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   TPointD pos;
   pos = getSnap(realPos);

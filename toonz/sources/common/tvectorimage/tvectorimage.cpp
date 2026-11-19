@@ -338,7 +338,7 @@ TStroke *TVectorImage::removeStroke(int index, bool doComputeRegions) {
 
 TStroke *TVectorImage::Imp::removeStroke(int index, bool doComputeRegions) {
   assert(index >= 0 && index < (int)m_strokes.size());
-  QMutexLocker sl(m_mutex);
+  TThread::MutexLocker sl(m_mutex);
 
   VIStroke *stroke = m_strokes[index];
 
@@ -365,7 +365,7 @@ void TVectorImage::removeStrokes(const std::vector<int> &toBeRemoved,
 
 void TVectorImage::Imp::removeStrokes(const std::vector<int> &toBeRemoved,
                                       bool deleteThem, bool recomputeRegions) {
-  QMutexLocker sl(m_mutex);
+  TThread::MutexLocker sl(m_mutex);
 
   for (int i = toBeRemoved.size() - 1; i >= 0; i--) {
     assert(i == 0 || toBeRemoved[i - 1] < toBeRemoved[i]);
@@ -1138,7 +1138,7 @@ void TVectorImage::Imp::notifyChangedStrokes(
     return;
   }
 
-  QMutexLocker sl(m_mutex);
+  TThread::MutexLocker sl(m_mutex);
   for (i = 0; i < (int)strokeIndexArray.size(); i++)  // ATTENZIONE! non si puo'
                                                       // fare eraseIntersection
                                                       // in questo stesso ciclo
@@ -1288,7 +1288,7 @@ VIStroke::VIStroke(const VIStroke &s, bool sameId)
 
 int TVectorImage::mergeImage(const TVectorImageP &img, const TAffine &affine,
                              bool sameStrokeId) {
-  QMutexLocker sl(m_imp->m_mutex);
+  TThread::MutexLocker sl(m_imp->m_mutex);
 
 #ifdef _DEBUG
   checkIntersections();
@@ -1320,7 +1320,7 @@ int TVectorImage::mergeImage(const TVectorImageP &img, const TAffine &affine,
                              bool sameStrokeId) {
   int imageSize = img->getStrokeCount();
   if (imageSize == 0) return 0;
-  QMutexLocker sl(m_imp->m_mutex);
+  TThread::MutexLocker sl(m_imp->m_mutex);
 
   m_imp->m_computedAlmostOnce |= img->m_imp->m_computedAlmostOnce;
 

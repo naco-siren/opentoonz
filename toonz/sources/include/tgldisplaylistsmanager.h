@@ -10,7 +10,7 @@
 #include "tcg/tcg_observer_notifier.h"
 
 // Qt includes
-#include <QMutex>
+#include <mutex>
 
 #undef DVAPI
 #undef DVVAR
@@ -41,7 +41,7 @@ proxy.
 */
 
 class TGLDisplayListsProxy {
-  QMutex m_mutex;
+  std::mutex m_mutex;
 
 public:
   virtual ~TGLDisplayListsProxy() {}
@@ -49,7 +49,7 @@ public:
   virtual void makeCurrent() = 0;
   virtual void doneCurrent() = 0;
 
-  QMutex *mutex() { return &m_mutex; }
+  std::mutex *mutex() { return &m_mutex; }
 };
 
 //**************************************************************************************************

@@ -226,7 +226,7 @@ private:
 
   void recordList(GLuint listId, TVectorImage *image,
                   const TVectorRenderData &rd) {
-    QMutexLocker sl(&m_mutex);
+    TThread::MutexLocker sl(&m_mutex);
     TRectD bbox = image->getBBox();
     double ry   = bbox.getLy() * 0.5;
     if (ry < 1e-5) ry = 1e-5;
@@ -272,7 +272,7 @@ public:
 
   GLuint getDisplayListId(TVectorImage *image, std::string name, TFrameId fid,
                           const TVectorRenderData &rd) {
-    QMutexLocker sl(&m_mutex);
+    TThread::MutexLocker sl(&m_mutex);
     TColorFunction::Parameters parameters;
     if (rd.m_cf) rd.m_cf->getParameters(parameters);
     CHECK_GL_ERROR

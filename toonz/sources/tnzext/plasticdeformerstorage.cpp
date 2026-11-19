@@ -15,8 +15,6 @@
 #include <boost/multi_index/member.hpp>
 
 // Qt includes
-#include <QMutex>
-#include <QMutexLocker>
 
 #include "ext/plasticdeformerstorage.h"
 
@@ -410,12 +408,12 @@ PlasticDeformerDataGroup::~PlasticDeformerDataGroup() {}
 
 class PlasticDeformerStorage::Imp {
 public:
-  QMutex m_mutex;            //!< Access mutex - needed for thread-safety
+  TThread::Mutex m_mutex;    //!< Access mutex - needed for thread-safety
   DeformersSet m_deformers;  //!< Set of deformers, ordered by mesh image,
                              //! deformation, and affine.
 
 public:
-  Imp() : m_mutex(QMutex::Recursive) {}
+  Imp() {}
 };
 
 //***********************************************************************************************
@@ -440,7 +438,7 @@ PlasticDeformerStorage *PlasticDeformerStorage::instance() {
 PlasticDeformerDataGroup *PlasticDeformerStorage::deformerData(
     const TMeshImage *meshImage, const PlasticSkeletonDeformation *deformation,
     int skelId) {
-  QMutexLocker locker(&m_imp->m_mutex);
+  TThread::MutexLocker locker(&m_imp->m_mutex);
 
   // Search for the corresponding deformation in the storage
   Key key(meshImage, deformation, skelId);
@@ -463,7 +461,7 @@ const PlasticDeformerDataGroup *PlasticDeformerStorage::process(
     double frame, const TMeshImage *meshImage,
     const PlasticSkeletonDeformation *deformation, int skelId,
     const TAffine &skeletonAffine, DataType dataType) {
-  QMutexLocker locker(&m_imp->m_mutex);
+  TThread::MutexLocker locker(&m_imp->m_mutex);
 
   PlasticDeformerDataGroup *group =
       deformerData(meshImage, deformation, skelId);
@@ -529,7 +527,7 @@ const PlasticDeformerDataGroup *PlasticDeformerStorage::processOnce(
 
 void PlasticDeformerStorage::invalidateMeshImage(const TMeshImage *meshImage,
                                                  int recompiledData) {
-  QMutexLocker locker(&m_imp->m_mutex);
+  TThread::MutexLocker locker(&m_imp->m_mutex);
 
   DeformersByMeshImage &deformers = m_imp->m_deformers.get<TMeshImage>();
 
@@ -551,7 +549,7 @@ void PlasticDeformerStorage::invalidateMeshImage(const TMeshImage *meshImage,
 void PlasticDeformerStorage::invalidateSkeleton(
     const PlasticSkeletonDeformation *deformation, int skelId,
     int recompiledData) {
-  QMutexLocker locker(&m_imp->m_mutex);
+  TThread::MutexLocker locker(&m_imp->m_mutex);
 
   DeformedSkeleton ds(deformation, skelId);
 
@@ -575,7 +573,7 @@ void PlasticDeformerStorage::invalidateSkeleton(
 
 void PlasticDeformerStorage::invalidateDeformation(
     const PlasticSkeletonDeformation *deformation, int recompiledData) {
-  QMutexLocker locker(&m_imp->m_mutex);
+  TThread::MutexLocker locker(&m_imp->m_mutex);
 
   DeformersByDeformedSkeleton &deformers =
       m_imp->m_deformers.get<DeformedSkeleton>();
@@ -600,7 +598,7 @@ void PlasticDeformerStorage::invalidateDeformation(
 //----------------------------------------------------------------------------------
 
 void PlasticDeformerStorage::releaseMeshData(const TMeshImage *meshImage) {
-  QMutexLocker locker(&m_imp->m_mutex);
+  TThread::MutexLocker locker(&m_imp->m_mutex);
 
   DeformersByMeshImage &deformers = m_imp->m_deformers.get<TMeshImage>();
 
@@ -614,7 +612,7 @@ void PlasticDeformerStorage::releaseMeshData(const TMeshImage *meshImage) {
 
 void PlasticDeformerStorage::releaseSkeletonData(const SkD *deformation,
                                                  int skelId) {
-  QMutexLocker locker(&m_imp->m_mutex);
+  TThread::MutexLocker locker(&m_imp->m_mutex);
 
   DeformedSkeleton ds(deformation, skelId);
 
@@ -630,7 +628,7 @@ void PlasticDeformerStorage::releaseSkeletonData(const SkD *deformation,
 //----------------------------------------------------------------------------------
 
 void PlasticDeformerStorage::releaseDeformationData(const SkD *deformation) {
-  QMutexLocker locker(&m_imp->m_mutex);
+  TThread::MutexLocker locker(&m_imp->m_mutex);
 
   DeformersByDeformedSkeleton &deformers =
       m_imp->m_deformers.get<DeformedSkeleton>();
@@ -649,7 +647,7 @@ void PlasticDeformerStorage::releaseDeformationData(const SkD *deformation) {
 //----------------------------------------------------------------------------------
 
 void PlasticDeformerStorage::clear() {
-  QMutexLocker locker(&m_imp->m_mutex);
+  TThread::MutexLocker locker(&m_imp->m_mutex);
 
   m_imp->m_deformers.clear();
 }

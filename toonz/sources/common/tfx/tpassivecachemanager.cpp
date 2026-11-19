@@ -432,7 +432,6 @@ TPassiveCacheManager::TPassiveCacheManager()
 #endif
     , m_enabled(true)
     , m_descriptorCallback(0)
-    , m_mutex(QMutex::Recursive)
     , m_resources(new ResourcesContainer) {
   reset();
 }
@@ -452,7 +451,7 @@ TPassiveCacheManager *TPassiveCacheManager::instance() {
 
 void TPassiveCacheManager::setContextName(unsigned long renderId,
                                           const std::string &name) {
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   // Retrieve the context data if already present
   std::map<std::string, UCHAR>::iterator it = m_contextNames.find(name);
@@ -467,7 +466,7 @@ void TPassiveCacheManager::setContextName(unsigned long renderId,
 //-------------------------------------------------------------------------
 
 std::string TPassiveCacheManager::getContextName() {
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   // First, search the context name
   std::map<unsigned long, std::string>::iterator it =
@@ -542,7 +541,7 @@ void TPassiveCacheManager::onSceneLoaded() {
 void TPassiveCacheManager::touchFxData(int &idx) {
   if (idx >= 0) return;
 
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   m_fxDataVector.push_back(FxData());
   idx = m_fxDataVector.size() - 1;
@@ -579,7 +578,7 @@ bool TPassiveCacheManager::cacheEnabled(TFx *fx) {
 
   assert(idx < (int)m_fxDataVector.size());
 
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   return m_fxDataVector[idx].m_storageFlag > 0;
 }
@@ -603,7 +602,7 @@ TPassiveCacheManager::StorageFlag TPassiveCacheManager::getStorageMode(
   int idx = fx->getAttributes()->passiveCacheDataIdx();
   if (idx < 0) return NONE;
 
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   return (StorageFlag)m_fxDataVector[idx].m_storageFlag;
 }
@@ -616,7 +615,7 @@ void TPassiveCacheManager::enableCache(TFx *fx) {
 
   FxData &data = m_fxDataVector[idx];
 
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
 #ifdef DIAGNOSTICS
   DIAGNOSTICS_STR("#activity.txt | " + QTime::currentTime().toString() + " " +
@@ -662,7 +661,7 @@ void TPassiveCacheManager::disableCache(TFx *fx) {
 
   FxData &data = m_fxDataVector[idx];
 
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
 #ifdef DIAGNOSTICS
   DIAGNOSTICS_STR("#activity.txt | " + QTime::currentTime().toString() + " " +
@@ -699,7 +698,7 @@ void TPassiveCacheManager::toggleCache(TFx *fx) {
 
   FxData &data = m_fxDataVector[idx];
 
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   StorageFlag flag = getStorageMode();
   if (flag) {
@@ -759,7 +758,7 @@ void TPassiveCacheManager::toggleCache(TFx *fx) {
 //-------------------------------------------------------------------------
 
 void TPassiveCacheManager::invalidateLevel(const std::string &levelName) {
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   // Traverse the managed resources for passed levelName.
   ResourcesTable &table       = m_resources->getTable();
@@ -885,7 +884,7 @@ void TPassiveCacheManager::getResource(TCacheResourceP &resource,
 #endif
 
   if (flag & IN_MEMORY) {
-    QMutexLocker locker(&m_mutex);
+    TThread::MutexLocker locker(&m_mutex);
 
     int passiveCacheId =
         m_fxDataVector[fx->getAttributes()->passiveCacheDataIdx()]
@@ -898,7 +897,7 @@ void TPassiveCacheManager::getResource(TCacheResourceP &resource,
 
 void TPassiveCacheManager::releaseContextNamesWithPrefix(
     const std::string &prefix) {
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
 #ifdef DIAGNOSTICS
   DIAGNOSTICS_STR("#activity.txt | " + QTime::currentTime().toString() +
@@ -938,7 +937,7 @@ void TPassiveCacheManager::releaseContextNamesWithPrefix(
 //-------------------------------------------------------------------------
 
 void TPassiveCacheManager::releaseOldResources() {
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   // Release all the resources that were stored in the old render instance of
   // the
@@ -971,7 +970,7 @@ void TPassiveCacheManager::onRenderInstanceStart(unsigned long renderId) {
 //-------------------------------------------------------------------------
 
 void TPassiveCacheManager::onRenderInstanceEnd(unsigned long renderId) {
-  QMutexLocker locker(&m_mutex);
+  TThread::MutexLocker locker(&m_mutex);
 
   releaseOldResources();
   m_contextNamesByRenderId.erase(renderId);

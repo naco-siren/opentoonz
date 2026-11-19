@@ -230,7 +230,7 @@ void BenderTool::leftButtonUp(const TPointD &pos, const TMouseEvent &) {
   m_active         = false;
   TVectorImageP vi = TImageP(getImage(true));
   if (!vi) return;
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   m_active = true;
 
@@ -327,7 +327,7 @@ void BenderTool::leftButtonDrag(const TPointD &pos, const TMouseEvent &) {
   if (!m_active) return;
   TVectorImageP vi = TImageP(getImage(true));
   if (!vi) return;
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   double pixelSize = getPixelSize();
   if (tdistance2(pos, m_prevPoint) < 9.0 * pixelSize * pixelSize) return;
@@ -419,7 +419,7 @@ void BenderTool::leftButtonDown(const TPointD &p, const TMouseEvent &) {
   m_active         = false;
   TVectorImageP vi = TImageP(getImage(true));
   if (!vi) return;
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
   m_active = true;
 
   switch (m_buttonDownCounter) {

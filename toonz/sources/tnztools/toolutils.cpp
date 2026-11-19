@@ -853,7 +853,7 @@ void ToolUtils::UndoModifyStroke::undo() const {
   TVectorImageP image = m_level->getFrame(m_frameId, true);
   assert(image);
   if (!image) return;
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
   TStroke *stroke = 0;
   if (image->getStrokeCount() ==
       1)  // && image->getStroke(0)->getStyle()==SplineStyle)
@@ -887,7 +887,7 @@ void ToolUtils::UndoModifyStroke::redo() const {
   TVectorImageP image = m_level->getFrame(m_frameId, true);
   assert(image);
   if (!image) return;
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
   TStroke *stroke = 0;
   if (image->getStrokeCount() ==
       1)  //&& image->getStroke(0)->getStyle()==SplineStyle)
@@ -1136,7 +1136,7 @@ void ToolUtils::UndoPencil::undo() const {
   assert(image);
   if (!image) return;
 
-  QMutexLocker sl(image->getMutex());
+  TThread::MutexLocker sl(image->getMutex());
   VIStroke *stroke = image->getStrokeById(m_strokeId);
   if (!stroke) return;
   image->deleteStroke(stroke);
@@ -1177,7 +1177,7 @@ void ToolUtils::UndoPencil::redo() const {
   TVectorImageP image = m_level->getFrame(m_frameId, true);
   if (!image) return;
 
-  QMutexLocker sl(image->getMutex());
+  TThread::MutexLocker sl(image->getMutex());
   TStroke *stroke = new TStroke(*m_stroke);
   stroke->setId(m_strokeId);
   image->addStroke(stroke);
@@ -1400,7 +1400,7 @@ void ToolUtils::UndoControlPointEditor::onAdd() {
   TVectorImageP image = m_level->getFrame(m_frameId, true);
   assert(image);
   if (!image) return;
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
   if (m_isStrokeDelete) return;
   addNewStroke(m_oldStroke.first, image->getVIStroke(m_oldStroke.first));
 }
@@ -1430,7 +1430,7 @@ void ToolUtils::UndoControlPointEditor::undo() const {
   TVectorImageP image = m_level->getFrame(m_frameId, true);
   assert(image);
   if (!image) return;
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
 
   if (!m_isStrokeDelete) image->removeStroke(m_newStroke.first, false);
 
@@ -1461,7 +1461,7 @@ void ToolUtils::UndoControlPointEditor::redo() const {
   TVectorImageP image = m_level->getFrame(m_frameId, true);
   assert(image);
   if (!image) return;
-  QMutexLocker lock(image->getMutex());
+  TThread::MutexLocker lock(image->getMutex());
 
   image->removeStroke(m_oldStroke.first, false);
 

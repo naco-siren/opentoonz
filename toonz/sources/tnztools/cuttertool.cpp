@@ -86,7 +86,7 @@ public:
     TVectorImageP image = m_level->getFrame(m_frameId, true);
     assert(!!image);
     if (!image) return;
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
     VIStroke *stroke;
 
     stroke = image->getStrokeById(m_newStrokeId1);
@@ -128,7 +128,7 @@ public:
     TVectorImageP image = m_level->getFrame(m_frameId, true);
     assert(!!image);
     if (!image) return;
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
 
     bool isSelfLoop = image->getStroke(m_pos)->isSelfLoop();
     image->splitStroke(m_pos, *m_sortedWRanges);
@@ -310,7 +310,7 @@ public:
 
     TVectorImageP vi = TImageP(getImage(true));
     if (!vi) return;
-    QMutexLocker sl(vi->getMutex());
+    TThread::MutexLocker sl(vi->getMutex());
 
     double dist, pW;
     UINT strokeIndex;

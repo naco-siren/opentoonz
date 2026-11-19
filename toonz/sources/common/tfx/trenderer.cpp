@@ -33,6 +33,7 @@
 #include <queue>
 #include <functional>
 
+#include <QMutex>
 #include <QOffscreenSurface>
 #include <QSurfaceFormat>
 #include <QOpenGLContext>
@@ -192,7 +193,7 @@ public:
 //---------------------------------------------------------
 
 void RasterPool::clear() {
-  QMutexLocker sl(&m_repositoryLock);
+  TThread::MutexLocker sl(&m_repositoryLock);
   clearPointerContainer(m_rasterRepository);
 }
 
@@ -217,7 +218,7 @@ TRasterP RasterPool::getRaster(const TDimension &size, int bpp) {
 
 //! Returns for the first not-busy raster
 TRasterP RasterPool::getRaster() {
-  QMutexLocker sl(&m_repositoryLock);
+  TThread::MutexLocker sl(&m_repositoryLock);
 
   RasterRepository::iterator it = m_rasterRepository.begin();
   while (it != m_rasterRepository.end()) {
@@ -252,7 +253,7 @@ TRasterP RasterPool::getRaster() {
 void RasterPool::releaseRaster(const TRasterP &r) {
   if (!r) return;
 
-  QMutexLocker sl(&m_repositoryLock);
+  TThread::MutexLocker sl(&m_repositoryLock);
   for (RasterRepository::iterator it = m_rasterRepository.begin();
        it != m_rasterRepository.end(); ++it) {
     RasterItem *rasItem = *it;

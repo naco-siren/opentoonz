@@ -268,9 +268,35 @@ elseif(BUILD_TARGET_UNIX)
     )
 endif()
 
-qt5_wrap_cpp(SOURCES ${MOC_HEADERS})
+# The sources that build without Qt (doc/nexttoonz_core_noqt.md). With
+# WITH_QT=OFF tnzcore is made of these alone; each migration step that moves
+# a source off Qt adds it here, until the list is all of SOURCES. Step 1 (the
+# mutexes) took Qt out of tthreadmessage.h, which is what kept
+# tsmartpointer.cpp on it; the others never needed Qt.
+set(TNZCORE_NOQT_SOURCES
+    ../common/tcore/tdebugmessage.cpp
+    ../common/tcore/trandom.cpp
+    ../common/tcore/tsmartpointer.cpp
+    ../common/tcore/tstopwatch.cpp
+    ../common/tcolor/tcolorfunctions.cpp
+    ../common/tcolor/tcolorvalue.cpp
+    ../common/tcolor/tpixel.cpp
+    ../common/tcolor/tpixelutils.cpp
+    ../common/tcolor/tspectrum.cpp
+    ../common/tgeometry/tgeometry.cpp
+)
+foreach(_source ${TNZCORE_NOQT_SOURCES})
+    if(NOT _source IN_LIST SOURCES)
+        message(FATAL_ERROR "TNZCORE_NOQT_SOURCES: ${_source} is not in SOURCES")
+    endif()
+endforeach()
 
-add_library(tnzcore SHARED ${HEADERS} ${SOURCES})
+if(WITH_QT)
+    qt5_wrap_cpp(SOURCES ${MOC_HEADERS})
+    add_library(tnzcore SHARED ${HEADERS} ${SOURCES})
+else()
+    add_library(tnzcore SHARED ${TNZCORE_NOQT_SOURCES})
+endif()
 
 if(WITH_TRANSLATION)
     add_translation(tnzcore ${HEADERS} ${SOURCES})
@@ -369,6 +395,11 @@ elseif(BUILD_ENV_UNIXLIKE)
             -ldbghelp
         )
     endif()
+endif()
+
+if(NOT WITH_QT)
+    # What TNZCORE_NOQT_SOURCES need: the C++ library and nothing else yet.
+    return()
 endif()
 
 target_link_libraries(tnzcore

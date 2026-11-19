@@ -331,7 +331,7 @@ static void addStroke(TTool::Application *application, const TVectorImageP &vi,
                       TStroke *stroke, bool breakAngles, bool frameCreated,
                       bool levelCreated, TXshSimpleLevel *sLevel = NULL,
                       TFrameId fid = TFrameId::NO_FRAME) {
-  QMutexLocker lock(vi->getMutex());
+  TThread::MutexLocker lock(vi->getMutex());
 
   if (application->getCurrentObject()->isSpline()) {
     application->getCurrentXsheet()->notifyXsheetChanged();

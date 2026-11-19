@@ -110,12 +110,18 @@ option(WITH_TRANSLATION "Generate translation projects as well" ON)
 option(WITH_WINTAB "(Windows only) Build with customized Qt with WinTab support. https://github.com/shun-iwasawa/qt5/releases/tag/v5.15.2_wintab" OFF)
 option(WITH_TESTS "Build the GoogleTest unit tests and register ctest targets" ON)
 option(WITH_SKIA "Build tnzskia, the canvas backend that rasterises with Skia (see tnzskia/CMakeLists.txt for where Skia comes from)" OFF)
+option(WITH_QT "Build everything that needs Qt. OFF builds only the core libraries, or the parts of them, that are off Qt already, with their tests (doc/nexttoonz_core_noqt.md)" ON)
 
 # Always export compile_commands.json for clangd, clang-tidy and friends.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # avoid using again
 option_defaults_clear()
+
+if(NOT WITH_QT)
+    # The translations are made with Qt's tools.
+    set(WITH_TRANSLATION OFF)
+endif()
 
 # end option(...)
 
@@ -190,7 +196,9 @@ if(BUILD_ENV_MSVC)
       )
 elseif(BUILD_ENV_APPLE)
     # Try to find Qt from Homebrew if not explicitly set
-    if(NOT DEFINED QT_PATH)
+    if(NOT WITH_QT)
+        # No Qt to find
+    elseif(NOT DEFINED QT_PATH)
         execute_process(
             COMMAND brew --prefix qt@5
             OUTPUT_VARIABLE HOMEBREW_QT_PREFIX
@@ -250,7 +258,9 @@ elseif(BUILD_ENV_UNIXLIKE)
 
     set(CMAKE_CXX_STANDARD 17)
 
-    find_package(Qt5Widgets)
+    if(WITH_QT)
+        find_package(Qt5Widgets)
+    endif()
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     if (NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
@@ -258,12 +268,14 @@ elseif(BUILD_ENV_UNIXLIKE)
     endif()
 endif()
 
-add_definitions(
-    -DQT_GUI_LIB
-    -DQT_NETWORK_LIB
-    -DQT_CORE_LIB
-    -DQT_SHARED
-  )
+if(WITH_QT)
+    add_definitions(
+        -DQT_GUI_LIB
+        -DQT_NETWORK_LIB
+        -DQT_CORE_LIB
+        -DQT_SHARED
+      )
+endif()
 
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -286,34 +298,36 @@ include_directories(
   )
 
 # Find the QtWidgets library
-find_package(Qt5 REQUIRED
-    Core
-    Gui
-    Network
-    OpenGL
-    Svg
-    Xml
-    Script
-    Widgets
-    PrintSupport
-    LinguistTools
-    Multimedia
-    MultimediaWidgets
-    SerialPort
-    UiTools
-  )
+if(WITH_QT)
+    find_package(Qt5 REQUIRED
+        Core
+        Gui
+        Network
+        OpenGL
+        Svg
+        Xml
+        Script
+        Widgets
+        PrintSupport
+        LinguistTools
+        Multimedia
+        MultimediaWidgets
+        SerialPort
+        UiTools
+      )
 
-if(NOT Qt5Core_FOUND)
-    message(FATAL_ERROR "Qt5Core not found check paths")
-endif()
-message(STATUS "Qt5 Modules: ${Qt5Core_VERSION}")
+    if(NOT Qt5Core_FOUND)
+        message(FATAL_ERROR "Qt5Core not found check paths")
+    endif()
+    message(STATUS "Qt5 Modules: ${Qt5Core_VERSION}")
 
-set(QT_MINIMUM_VERSION 5.5.0)
-if(Qt5Core_VERSION VERSION_LESS QT_MINIMUM_VERSION)
-    MESSAGE(FATAL_ERROR "Minimum supported Qt version: ${QT_MINIMUM_VERSION}.
+    set(QT_MINIMUM_VERSION 5.5.0)
+    if(Qt5Core_VERSION VERSION_LESS QT_MINIMUM_VERSION)
+        MESSAGE(FATAL_ERROR "Minimum supported Qt version: ${QT_MINIMUM_VERSION}.
     Installed version: ${Qt5Core_VERSION}")
+    endif()
+    unset(QT_MINIMUM_VERSION)
 endif()
-unset(QT_MINIMUM_VERSION)
 
 if(BUILD_ENV_MSVC)
     include_directories(
@@ -345,9 +359,11 @@ if(PLATFORM EQUAL 64)
     endif()
 endif()
 
-get_target_property(QtCore_location Qt5::Core LOCATION)
-get_target_property(QtWidget_location Qt5::Widgets LOCATION)
-message(STATUS "Qt Core Location:" ${QtCore_location})
+if(WITH_QT)
+    get_target_property(QtCore_location Qt5::Core LOCATION)
+    get_target_property(QtWidget_location Qt5::Widgets LOCATION)
+    message(STATUS "Qt Core Location:" ${QtCore_location})
+endif()
 
 macro(_find_toonz_library OUT_LIB_LIST IN_LIB_LIST)
     set(OUTLIST "")
@@ -759,6 +775,26 @@ endif()
 
 set(CMAKE_C_FLAGS "${C_WARNINGS} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CXX_WARNINGS} ${CMAKE_CXX_FLAGS}")
+
+if(NOT WITH_QT)
+    # Without Qt: the canvas libraries, and tnzcore made of its sources that
+    # are off Qt already (TNZCORE_NOQT_SOURCES in tnzcore/CMakeLists.txt). In
+    # that form tnzcore draws nothing, so it links neither canvas library.
+    # The list grows with the migration in doc/nexttoonz_core_noqt.md.
+    set(NEXTTOONZ_CANVAS_LIBS "")
+    set(NEXTTOONZ_CANVAS_LIB_FILES "")
+    add_subdirectory(tnzcanvas)
+    if(WITH_SKIA)
+        add_subdirectory(tnzskia)
+    endif()
+    add_subdirectory(tnzcore)
+
+    if(WITH_TESTS)
+        enable_testing()
+        add_subdirectory(tests)
+    endif()
+    return()
+endif()
 
 # The canvas libraries come first: tnzcore draws through them. Whatever
 # packages tnzcore has to take these along (NEXTTOONZ_CANVAS_LIB_FILES).

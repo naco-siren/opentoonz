@@ -621,7 +621,7 @@ int FarmServer::addTask(const QString &id, const QString &cmdline) {
 
   m_executor->addTask(new Task(id, lcmdline, m_userLog, this, m_controller));
 
-  QMutexLocker sl(&m_mux);
+  TThread::MutexLocker sl(&m_mux);
   m_tasks.push_back(id);
   return 0;
 }
@@ -646,7 +646,7 @@ int FarmServer::terminateTask(const QString &taskid) {
 //------------------------------------------------------------------------------
 
 int FarmServer::getTasks(std::vector<QString> &tasks) {
-  QMutexLocker sl(&m_mux);
+  TThread::MutexLocker sl(&m_mux);
   tasks = m_tasks;
   return m_tasks.size();
 }
@@ -698,7 +698,7 @@ void FarmServer::detachController(const ControllerData &data) {
 //------------------------------------------------------------------------------
 
 void FarmServer::removeTask(const QString &id) {
-  QMutexLocker sl(&m_mux);
+  TThread::MutexLocker sl(&m_mux);
   std::vector<QString>::iterator it = find(m_tasks.begin(), m_tasks.end(), id);
   if (it != m_tasks.end()) m_tasks.erase(it);
 }

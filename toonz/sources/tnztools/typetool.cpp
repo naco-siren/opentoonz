@@ -401,7 +401,7 @@ public:
     TVectorImageP image = m_level->getFrame(m_frameId, true);
     assert(!!image);
     if (!image) return;
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
     UINT i;
     for (i = 0; i < m_strokes.size(); i++) {
       VIStroke *stroke = image->getStrokeById(m_strokes[i]->getId());
@@ -431,7 +431,7 @@ public:
 
     TTool::Application *application = TTool::getApplication();
 
-    QMutexLocker lock(image->getMutex());
+    TThread::MutexLocker lock(image->getMutex());
     UINT i;
     for (i = 0; i < m_strokes.size(); i++) {
       TStroke *stroke = new TStroke(*m_strokes[i]);
@@ -2238,7 +2238,7 @@ void TypeTool::addTextToImage() {
       addFormattedTextToToonzImage(ti);
     }
   } else if (vi) {
-    QMutexLocker lock(vi->getMutex());
+    TThread::MutexLocker lock(vi->getMutex());
     std::vector<const TVectorImage *> images;
 
     UINT j;

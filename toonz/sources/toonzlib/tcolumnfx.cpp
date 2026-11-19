@@ -1042,7 +1042,7 @@ void TLevelColumnFx::doCompute(TTile &tile, double frame,
       // Deal separately
       applyTzpFxsOnVector(vectorImage, tile, frame, info);
     } else {
-      QMutexLocker m(&m_mutex);
+      TThread::MutexLocker m(&m_mutex);
       bBox = info.m_affine * vectorImage->getBBox();
       TDimension size(tile.getRaster()->getSize());
 
