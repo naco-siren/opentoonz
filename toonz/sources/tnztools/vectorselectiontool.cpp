@@ -23,6 +23,7 @@
 
 // TnzCore includes
 #include "drawutil.h"
+#include "tgl.h"  // drawutil.h no longer brings it (8d)
 
 // Qt includes
 #include <QApplication>

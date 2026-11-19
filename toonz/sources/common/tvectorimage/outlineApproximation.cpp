@@ -8,7 +8,6 @@
 #include "tstroke.h"
 #include "tcurves.h"
 #include "tmathutil.h"
-#include "tgl.h"
 
 //#include "tcolorfunctions.h"
 

@@ -1,7 +1,6 @@
 
 
 #include "tsegmentadjuster.h"
-#include "tgl.h"
 
 
 TSegmentAdjuster::TSegmentAdjuster() : m_traceEnabled(false) {}

@@ -64,13 +64,32 @@ jobs:
           dir="$(ci-scripts/skia/skia_pack.sh x64 "$RUNNER_TEMP/skia-pack" | tail -n 1)"
           echo "SKIA_PACK_DIR=$dir" >> "$GITHUB_ENV"
 
+      # Skia for the iPad simulator: since step 8d the core draws vector
+      # images with it there too (tests/core/run_ios_noqt.sh).
+      - name: Restore Skia for the iPad simulator
+        id: skia-ios-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ runner.temp }}/skia-pack-ios/*.zip
+          key: skia-pack-iosSim-x64-${{ hashFiles('ci-scripts/skia/skia_pack.sh') }}
+      - name: Fetch Skia for the iPad simulator
+        run: |
+          dir="$(ci-scripts/skia/skia_pack.sh iosSim-x64 "$RUNNER_TEMP/skia-pack-ios" | tail -n 1)"
+          echo "IOS_SKIA_PACK_DIR=$dir" >> "$GITHUB_ENV"
+      - name: Save Skia for the iPad simulator
+        if: steps.skia-ios-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ runner.temp }}/skia-pack-ios/*.zip
+          key: skia-pack-iosSim-x64-${{ hashFiles('ci-scripts/skia/skia_pack.sh') }}
+
       - name: GoogleTest sources for the iPad simulator
         run: git clone --quiet --depth 1 --branch v1.17.0 https://github.com/google/googletest.git "$RUNNER_TEMP/googletest"
 
       - name: Build and test without Qt
         run: |
           export PKG_CONFIG_PATH="$(brew --prefix jpeg-turbo)/lib/pkgconfig:$PKG_CONFIG_PATH"
-          ci-scripts/noqt/noqt_test.sh toonz/build-noqt "$RUNNER_TEMP/googletest" \
+          ci-scripts/noqt/noqt_test.sh toonz/build-noqt "$RUNNER_TEMP/googletest" "$IOS_SKIA_PACK_DIR" \
             -DCMAKE_PREFIX_PATH="$(brew --prefix googletest)" \
             -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4 \
             -DWITH_SKIA=ON -DNEXTTOONZ_SKIA_PACK_DIR="$SKIA_PACK_DIR"

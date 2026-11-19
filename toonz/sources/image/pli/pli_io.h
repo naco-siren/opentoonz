@@ -15,7 +15,9 @@
 #include "tvectorimage.h"
 #include "tstroke.h"
 
-#include <QString>
+#include <string>
+
+class QString;
 
 /*=====================================================================
 
@@ -465,8 +467,10 @@ public:
             double autocloseTolerance);
   ~ParsedPli();
 
-  QString getCreator() const;
-  void setCreator(const QString &creator);
+  QString getCreator() const;               // pli_io_qt.cpp
+  void setCreator(const QString &creator);  // pli_io_qt.cpp
+  std::wstring getCreatorW() const;
+  void setCreatorW(const std::wstring &creator);
 
   void getVersion(UINT &majorVersionNumber, UINT &minorVersionNumber) const;
   void setVersion(UINT majorVersionNumber, UINT minorVersionNumber);

@@ -101,8 +101,11 @@
 #include <pwd.h>
 #include <dlfcn.h>
 
-// macOS-specific headers
+// macOS-specific headers (the recycle bin; iOS has neither)
+#include <TargetConditionals.h>
+#if !TARGET_OS_IPHONE
 #include "Carbon/Carbon.h"
+#endif
 #endif
 
 #ifdef __sgi
@@ -567,6 +570,8 @@ void TSystem::moveFileToRecycleBin(const TFilePath &fp) {
   data.fFlags |= FOF_ALLOWUNDO;       // ..send to Recycle Bin
   int ret = SHFileOperationW(&data);  // do it!
 
+#elif defined(MACOSX) && TARGET_OS_IPHONE
+  outputDebug("There is no trash to move files to on iOS.");
 #elif defined(MACOSX)
   FSRef foundRef;
   OSErr err = FSFindFolder(kOnSystemDisk, kTrashFolderType, kDontCreateFolder,

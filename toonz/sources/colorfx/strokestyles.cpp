@@ -13,10 +13,6 @@
 // tcg includes
 #include "tcg/tcg_misc.h"
 
-// Qt includes
-#include <QCoreApplication>
-#include <QStringList>
-
 #include "strokestyles.h"
 
 using namespace std;

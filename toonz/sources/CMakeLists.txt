@@ -783,17 +783,24 @@ set(CMAKE_C_FLAGS "${C_WARNINGS} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CXX_WARNINGS} ${CMAKE_CXX_FLAGS}")
 
 if(NOT WITH_QT)
-    # Without Qt: the canvas libraries, and tnzcore made of its sources that
-    # are off Qt already (TNZCORE_NOQT_SOURCES in tnzcore/CMakeLists.txt). In
-    # that form tnzcore draws nothing, so it links neither canvas library.
-    # The list grows with the migration in doc/nexttoonz_core_noqt.md.
-    set(NEXTTOONZ_CANVAS_LIBS "")
+    # Without Qt: the canvas libraries, tnzcore made of its sources that are
+    # off Qt already (TNZCORE_NOQT_SOURCES in tnzcore/CMakeLists.txt),
+    # colorfx, and the image library's pli reader and writer
+    # (IMAGE_NOQT_SOURCES). Since step 8d tnzcore draws vector images on the
+    # canvas, rasterised by Skia; the OpenGL canvas is not built. The lists
+    # grow with the migration in doc/nexttoonz_core_noqt.md.
+    set(NEXTTOONZ_CANVAS_LIBS tnzcanvas)
+    if(WITH_SKIA)
+        list(APPEND NEXTTOONZ_CANVAS_LIBS tnzskia)
+    endif()
     set(NEXTTOONZ_CANVAS_LIB_FILES "")
     add_subdirectory(tnzcanvas)
     if(WITH_SKIA)
         add_subdirectory(tnzskia)
     endif()
     add_subdirectory(tnzcore)
+    add_subdirectory(colorfx)
+    add_subdirectory(image)
 
     if(WITH_TESTS)
         enable_testing()

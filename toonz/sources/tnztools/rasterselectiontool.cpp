@@ -3,6 +3,7 @@
 #include "rasterselectiontool.h"
 #include "vectorselectiontool.h"
 #include "drawutil.h"
+#include "tgl.h"  // drawutil.h no longer brings it (8d)
 #include "tenv.h"
 #include "tools/toolhandle.h"
 #include "toonz/tdistort.h"

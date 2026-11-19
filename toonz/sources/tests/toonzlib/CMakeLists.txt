@@ -17,6 +17,8 @@ add_executable(nexttoonz_toonzlib_tests
     toonzlib_test_main.cpp
     toonzlib_test_env.h
     ${NEXTTOONZ_TOONZLIB_TEST_SOURCES}
+    # the same checks as the core tests without Qt (see ../CMakeLists.txt)
+    ${NEXTTOONZ_VECTOR_NOQT_TEST}
 )
 
 target_compile_definitions(nexttoonz_toonzlib_tests

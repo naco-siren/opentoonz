@@ -287,8 +287,10 @@ endif()
 # 6c tenv.cpp and tfilepath_io.cpp, as the process information left Qt; step 7
 # the translatable text (the vector image and style sources compile without
 # Qt since then, but link only once their GL has moved out, in step 8); step
-# 8b the seams to OpenGL, tglentries.cpp, with nothing installed in them. The
-# others never needed Qt.
+# 8b the seams to OpenGL, tglentries.cpp, with nothing installed in them;
+# step 8d the vector images, the styles and what they need (rasters, images
+# and their I/O, the image cache, the raster operations), once 8d-0 had
+# taken the Qt out of the last of them. The others never needed Qt.
 set(TNZCORE_NOQT_SOURCES
     ../common/tcore/tdata.cpp
     ../common/tcore/tdebugmessage.cpp
@@ -318,6 +320,55 @@ set(TNZCORE_NOQT_SOURCES
     ../common/tsystem/tfilepath_io.cpp
     ../common/tcore/ttranslatabletext.cpp
     ../common/tvrender/tglentries.cpp
+    ../common/tcache/timagecache.cpp
+    ../common/tcontenthistory.cpp
+    ../common/tiio/tiio.cpp
+    ../common/timage/timage.cpp
+    ../common/timage/tlevel.cpp
+    ../common/timage_io/timage_io.cpp
+    ../common/timage_io/tlevel_io.cpp
+    ../common/tmeshimage/tmeshimage.cpp
+    ../common/tproperty.cpp
+    ../common/traster/traster.cpp
+    ../common/trasterimage/tcodec.cpp
+    ../common/trasterimage/trasterimage.cpp
+    ../common/trop/quickput.cpp
+    ../common/trop/tblur.cpp
+    ../common/trop/tcheckboard.cpp
+    ../common/trop/tconvert.cpp
+    ../common/trop/toperators.cpp
+    ../common/trop/tover.cpp
+    ../common/trop/tresample.cpp
+    ../common/trop/trop.cpp
+    ../common/trop/tropcm.cpp
+    ../common/tstream/tstream.cpp
+    ../common/tstringid.cpp
+    ../common/tsystem/tbigmemorymanager.cpp
+    ../common/tsystem/tsystempd.cpp
+    ../common/ttoonzimage/ttonzimage.cpp
+    ../common/tvectorimage/drawutil.cpp
+    ../common/tvectorimage/outlineApproximation.cpp
+    ../common/tvectorimage/tcomputeregions.cpp
+    ../common/tvectorimage/tl2lautocloser.cpp
+    ../common/tvectorimage/tregion.cpp
+    ../common/tvectorimage/tsegmentadjuster.cpp
+    ../common/tvectorimage/tstroke.cpp
+    ../common/tvectorimage/tsweepboundary.cpp
+    ../common/tvectorimage/tvectorimage.cpp
+    ../common/tvrender/tcolorstyles.cpp
+    ../common/tvrender/tellipticbrush.cpp
+    ../common/tvrender/tinbetween.cpp
+    ../common/tvrender/tpalette.cpp
+    ../common/tvrender/tpaletteutil.cpp
+    ../common/tvrender/tregionprop.cpp
+    ../common/tvrender/tsimplecolorstyles.cpp
+    ../common/tvrender/tstrokedeformations.cpp
+    ../common/tvrender/tstrokeprop.cpp
+    ../common/tvrender/tstrokeutil.cpp
+    ../common/tvrender/tvectorbrush.cpp
+    ../common/tvrender/tvectorbrushstyle.cpp
+    ../common/tvrender/tvectorcanvas.cpp
+    ../common/tvrender/tvectorrasterizer.cpp
 )
 foreach(_source ${TNZCORE_NOQT_SOURCES})
     if(NOT _source IN_LIST SOURCES)
@@ -427,10 +478,21 @@ elseif(BUILD_ENV_UNIXLIKE)
 endif()
 
 if(NOT WITH_QT)
-    # What TNZCORE_NOQT_SOURCES need: the C++ library, and on Apple
-    # CoreFoundation (the order of frame letters, tfilepath.cpp).
+    # What TNZCORE_NOQT_SOURCES need: the C++ library, on Apple
+    # CoreFoundation (the order of frame letters, tfilepath.cpp), the
+    # compression libraries of the rasters and the image cache, and since
+    # step 8d the canvas the vector images draw on, and Skia to rasterise
+    # them (tvectorrasterizer.cpp, as in the build with Qt).
     if(APPLE)
-        target_link_libraries(tnzcore "-framework CoreFoundation")
+        # CoreServices: the macOS recycle bin (tsystempd.cpp)
+        target_link_libraries(tnzcore "-framework CoreFoundation"
+            "-framework CoreServices")
+    endif()
+    target_link_libraries(tnzcore ${Z_LIB} ${LZ4_LIB} tnzcanvas)
+    if(WITH_SKIA)
+        target_link_libraries(tnzcore tnzskia)
+        set_source_files_properties(../common/tvrender/tvectorrasterizer.cpp
+            PROPERTIES COMPILE_DEFINITIONS NEXTTOONZ_WITH_SKIA)
     endif()
     return()
 endif()

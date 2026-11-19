@@ -8,6 +8,7 @@
 #include "tmathutil.h"
 #include "tools/cursors.h"
 #include "drawutil.h"
+#include "tgl.h"  // drawutil.h no longer brings it (8d)
 
 #include "toonz/tobjecthandle.h"
 #include "toonz/txshlevelhandle.h"

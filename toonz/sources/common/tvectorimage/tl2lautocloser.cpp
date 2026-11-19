@@ -2,7 +2,6 @@
 
 #include "tl2lautocloser.h"
 
-#include "tgl.h"
 #include "tenv.h"
 #include "tvectorimage.h"
 #include "tstroke.h"

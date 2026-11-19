@@ -5,7 +5,6 @@
 #include <set>
 #include <map>
 
-#include "tgl.h"
 #include "tstroke.h"
 //#include "tstrokeoutline.h"
 #include "tcurveutil.h"

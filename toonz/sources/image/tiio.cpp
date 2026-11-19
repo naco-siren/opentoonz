@@ -95,9 +95,7 @@
 // TLIBMAIN
 void initImageIo(bool lightVersion) {
   if (!lightVersion) {
-    TLevelWriter::define("pli", TLevelWriterPli::create, false);
-    TLevelReader::define("pli", TLevelReaderPli::create);
-    TFileType::declare("pli", TFileType::VECTOR_LEVEL);
+    initPliIo();  // first, as before (pli/tiio_pli.cpp)
 
     TLevelReader::define("svg", 0, TLevelReaderSvg::create);
     TFileType::declare("svg", TFileType::VECTOR_IMAGE);

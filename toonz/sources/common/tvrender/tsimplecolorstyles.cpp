@@ -4,10 +4,8 @@
 
 // TnzCore includes
 #include "tsystem.h"
-#include "tthread.h"
 #include "tstopwatch.h"
 
-#include "tvectorgl.h"
 #include "tvectorrenderdata.h"
 #include "tvectorimage.h"
 #include "trasterimage.h"

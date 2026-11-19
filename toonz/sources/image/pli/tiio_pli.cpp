@@ -1,7 +1,10 @@
 
 
 #include "tiio_pli.h"
+#include "tnzimage.h"
+#include "tfiletype.h"
 #include <cmath>
+#include <cstring>  // Qt brought it before step 8d (Linux)
 //#include "tstrokeoutline.h"
 #include "tsystem.h"
 #include "pli_io.h"
@@ -127,13 +130,12 @@ public:
         // PLI numeric style parameters have only a 16-bit integer part.
         // A tagged decimal string preserves the full source-frame ID range.
         bool ok         = false;
-        const int frame = QString::fromStdString(value.m_string).toInt(&ok);
+        const int frame = toIntAsQString(value.m_string, &ok);
         if (ok && frame >= 0) TrailStyles::setFrameOffset(style, frame);
       } else {
         if (value.m_type != TStyleParam::SP_STRING) return;
         bool ok = false;
-        const double multiplier =
-            QString::fromStdString(value.m_string).toDouble(&ok);
+        const double multiplier = toDoubleAsQString(value.m_string, &ok);
         if (ok) TrailStyles::setSizeMultiplier(style, multiplier);
       }
       m_count += 2;
@@ -155,7 +157,7 @@ void saveStyleWithTrailCycle(const TColorStyle *style,
   const double multiplier = TrailStyles::getSizeMultiplier(style);
   if (multiplier != 1.0)
     stream << std::string("trail-size-multiplier-v1")
-           << QString::number(multiplier, 'g', 17).toStdString();
+           << toStringAsQString(multiplier);
 }
 
 //---------------------------------------------------------------------------
@@ -598,7 +600,7 @@ void TImageWriterPli::save(const TImageP &img) {
   if (!m_lwp->m_pli) {
     m_lwp->m_pli.reset(new ParsedPli(m_lwp->m_frameNumber, m_precision, 40,
                                      tempVecImg->getAutocloseTolerance()));
-    m_lwp->m_pli->setCreator(m_lwp->creator());
+    m_lwp->m_pli->setCreatorW(m_lwp->m_creatorW);
   }
 
   buildPalette(m_lwp->m_pli.get(), img);
@@ -687,8 +689,10 @@ TLevelWriterPli::~TLevelWriterPli() {
                      m_pli->m_palette_tags.data()));
     m_pli->addTag(groupTag.release(), true);
     if (m_contentHistory) {
-      QString his = m_contentHistory->serialize();
-      std::unique_ptr<TextTag> textTag(new TextTag(his.toStdString()));
+      // QString::toStdString() of the history (::to_string encodes as it
+      // did; the history has no NUL)
+      std::unique_ptr<TextTag> textTag(
+          new TextTag(::to_string(m_contentHistory->serializeW())));
       m_pli->addTag(textTag.release(), true);
     }
     m_pli->writePli(m_path);
@@ -855,7 +859,7 @@ void TLevelReaderPli::doReadPalette(bool doReadIt) { m_readPalette = doReadIt; }
 std::wstring TLevelReaderPli::getCreatorW() {
   loadInfo();
 
-  if (m_pli) return m_pli->getCreator().toStdWString();
+  if (m_pli) return m_pli->getCreatorW();
 
   return std::wstring();
 }
@@ -884,8 +888,8 @@ TLevelP TLevelReaderPli::loadInfo() {
         try {
       m_pli->loadInfo(m_readPalette, palette, m_contentHistory);
     } catch (TException &e) {
-      QString msg = QString::fromStdString(::to_string(e.getMessage()));
-      if (msg.contains("Not all frames loaded"))
+      const std::string msg = ::to_string(e.getMessage());
+      if (msg.find("Not all frames loaded") != std::string::npos)
         m_level->setPartialLoad(true);
       else
         throw e;
@@ -934,3 +938,11 @@ GroupTag *makeGroup(TVectorImageP &vi, int &currStyleId, int &index,
 }
 
 //=============================================================================
+
+//=============================================================================
+
+void initPliIo() {
+  TLevelWriter::define("pli", TLevelWriterPli::create, false);
+  TLevelReader::define("pli", TLevelReaderPli::create);
+  TFileType::declare("pli", TFileType::VECTOR_LEVEL);
+}

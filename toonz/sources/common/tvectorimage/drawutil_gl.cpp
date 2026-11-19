@@ -3,6 +3,14 @@
 // doc/nexttoonz_core_noqt.md.
 
 #include "drawutil.h"
+#include "tgl.h"
+
+#include <type_traits>
+
+// drawutil.h spells TextureInfoForGL's OpenGL types without OpenGL
+static_assert(std::is_same<GLint, int>::value, "GLint");
+static_assert(std::is_same<GLsizei, int>::value, "GLsizei");
+static_assert(std::is_same<GLenum, unsigned int>::value, "GLenum");
 #include "tstroke.h"
 #include "tmathutil.h"
 #include "tcurveutil.h"

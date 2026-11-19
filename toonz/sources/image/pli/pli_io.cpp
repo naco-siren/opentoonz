@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>  // Qt brought it before step 8d (Linux)
 #include <memory>
 
 #include "tmachine.h"
@@ -9,6 +10,7 @@
 //#include "tstrokeoutline.h"
 #include "tsimplecolorstyles.h"
 #include "tcontenthistory.h"
+#include "tconvert.h"
 #include "tfilepath_io.h"
 //#include <fstream.h>
 #include "../compatibility/tfile_io.h"
@@ -672,23 +674,24 @@ void ParsedPliImp::loadInfo(bool readPlt, TPalette *&palette,
       USHORT frame;
       m_iChan >> frame;
 
-      QByteArray suffix;
+      std::string suffix;  // UTF-8, as the QByteArray was read
       if (m_majorVersionNumber >= 150) {
         TUINT32 suffixLength;
         m_iChan >> suffixLength;
         if ((int)suffixLength > 0) {
           suffix.resize(suffixLength);
-          m_iChan.read(suffix.data(), suffixLength);
+          m_iChan.read(&suffix[0], suffixLength);
         }
       } else {
         char letter = 0;
         if (m_majorVersionNumber > 6 ||
             (m_majorVersionNumber == 6 && m_minorVersionNumber >= 6))
           m_iChan >> letter;
-        if (letter > 0) suffix = QByteArray(&letter, 1);
+        if (letter > 0) suffix = std::string(1, letter);
       }
 
-      m_frameOffsInFile[TFrameId(frame, QString::fromUtf8(suffix))] =
+      // ::to_wstring decodes UTF-8 as QString::fromUtf8 did
+      m_frameOffsInFile[TFrameId(frame, ::to_wstring(suffix))] =
           m_iChan.tellg();
 
       // m_iChan.seekg(m_tagLength, ios::cur);
@@ -704,7 +707,7 @@ void ParsedPliImp::loadInfo(bool readPlt, TPalette *&palette,
       TagElem *tagElem = readTag();
       TextTag *textTag = (TextTag *)tagElem->m_tag;
       history          = new TContentHistory(true);
-      history->deserialize(QString::fromStdString(textTag->m_text));
+      history->deserializeW(::to_wstring(textTag->m_text));
       delete tagElem;
     }
 
@@ -821,7 +824,7 @@ ImageTag *ParsedPliImp::loadFrame(const TFrameId &frameNumber) {
   // PliTag *tag;
   USHORT type = PliTag::IMAGE_BEGIN_GOBJ;
   USHORT frame;
-  QByteArray suffix;
+  std::string suffix;
   TFrameId frameId;
 
   // cerco il frame
@@ -841,17 +844,17 @@ ImageTag *ParsedPliImp::loadFrame(const TFrameId &frameNumber) {
           TUINT32 suffixLength;
           m_iChan >> suffixLength;
           suffix.resize(suffixLength);
-          m_iChan.read(suffix.data(), suffixLength);
+          if (suffixLength > 0) m_iChan.read(&suffix[0], suffixLength);
         } else {
           char letter = 0;
           if (m_majorVersionNumber > 6 ||
               (m_majorVersionNumber == 6 && m_minorVersionNumber >= 6)) {
             m_iChan >> letter;
-            if (letter > 0) suffix = QByteArray(&letter, 1);
+            if (letter > 0) suffix = std::string(1, letter);
           }
         }
 
-        frameId                    = TFrameId(frame, QString::fromUtf8(suffix));
+        frameId                    = TFrameId(frame, ::to_wstring(suffix));
         m_frameOffsInFile[frameId] = m_iChan.tellg();
         if (frameId == frameNumber) break;
       } else
@@ -1681,13 +1684,13 @@ PliTag *ParsedPliImp::readImageTag() {
 
   int headerLength = 2;
 
-  QByteArray suffix;
+  std::string suffix;
   if (m_majorVersionNumber >= 150) {
     TUINT32 suffixLength;
     readTUINT32Data(suffixLength, bufOffs);
     headerLength += 4;
     if (suffixLength > 0) {
-      suffix = QByteArray((char *)m_buf.get() + bufOffs, suffixLength);
+      suffix = std::string((char *)m_buf.get() + bufOffs, suffixLength);
       bufOffs += suffixLength;
       headerLength += suffixLength;
     }
@@ -1697,7 +1700,7 @@ PliTag *ParsedPliImp::readImageTag() {
         (m_majorVersionNumber == 6 && m_minorVersionNumber >= 6)) {
       letter = (char)m_buf[bufOffs++];
       ++headerLength;
-      if (letter > 0) suffix = QByteArray(&letter, 1);
+      if (letter > 0) suffix = std::string(1, letter);
     }
   }
 
@@ -1718,7 +1721,7 @@ PliTag *ParsedPliImp::readImageTag() {
         assert(false);
 
   std::unique_ptr<ImageTag[]> tag(
-      new ImageTag(TFrameId(frame, QString::fromUtf8(suffix)), numObjects,
+      new ImageTag(TFrameId(frame, ::to_wstring(suffix)), numObjects,
                    std::move(object)));
   return tag.release();
 }
@@ -2209,7 +2212,8 @@ TUINT32 ParsedPliImp::writeImageTag(ImageTag *tag) {
   TUINT32 *objectOffset, offset, tagLength;
   int maxval = 0, minval = 100000;
 
-  QByteArray suffix    = tag->m_numFrame.getLetter().toUtf8();
+  // QString::toUtf8() of the letter (::to_string encodes as it did)
+  std::string suffix   = ::to_string(tag->m_numFrame.getLetterW());
   TUINT32 suffixLength = suffix.size();
   UINT fIdTagLength;
   if (m_majorVersionNumber >= 150) {  // write the suffix length before data
@@ -2255,7 +2259,7 @@ TUINT32 ParsedPliImp::writeImageTag(ImageTag *tag) {
 
   offset = writeTagHeader((UCHAR)PliTag::IMAGE_GOBJ, tagLength);
 
-  suffix = tag->m_numFrame.getLetter().toUtf8();
+  suffix = ::to_string(tag->m_numFrame.getLetterW());  // as toUtf8() did
   *m_oChan << (USHORT)tag->m_numFrame.getNumber();
 
   if (m_majorVersionNumber >= 150) {  // write the suffix length before data
@@ -2727,14 +2731,17 @@ PliTag *ParsedPli::getNextTag() {
 
 /*=====================================================================*/
 
-void ParsedPli::setCreator(const QString &creator) {
-  imp->m_creator = creator.toStdString();
+// The creator is kept in UTF-8; ::to_string and ::to_wstring convert as
+// QString::toStdString and fromStdString did. The QString versions are in
+// pli_io_qt.cpp (doc/nexttoonz_core_noqt.md, 8d).
+void ParsedPli::setCreatorW(const std::wstring &creator) {
+  imp->m_creator = ::to_string(creator);
 }
 
 /*=====================================================================*/
 
-QString ParsedPli::getCreator() const {
-  return QString::fromStdString(imp->m_creator);
+std::wstring ParsedPli::getCreatorW() const {
+  return ::to_wstring(imp->m_creator);
 }
 
 /*=====================================================================*/

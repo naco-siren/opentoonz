@@ -70,7 +70,17 @@ set(NEXTTOONZ_CORE_NOQT_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tsystem.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tthreadmutex.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_ttranslatabletext.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_timagecache.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tproperty.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_vector_noqt.cpp
 )
+
+# Vector images, styles, pli files and pattern brushes drawn by Skia: in the
+# core tests without Qt, and in the toonzlib tests with Qt (which load the
+# image library and colorfx as the programs do), against the same checksums
+# (doc/nexttoonz_core_noqt.md, 8d).
+set(NEXTTOONZ_VECTOR_NOQT_TEST ${CMAKE_CURRENT_SOURCE_DIR}/core/test_vector_noqt.cpp)
+list(REMOVE_ITEM NEXTTOONZ_CORE_TEST_SOURCES ${NEXTTOONZ_VECTOR_NOQT_TEST})
 
 if(WITH_QT)
     # legacy/: the code of tnzcore before a migration step, kept for the
@@ -105,10 +115,14 @@ else()
     target_link_libraries(nexttoonz_core_tests
         PRIVATE
             tnzcore
+            colorfx
+            image
             GTest::gtest
             GTest::gtest_main
     )
-    nexttoonz_stage_runtime(nexttoonz_core_tests tnzcore)
+    target_compile_definitions(nexttoonz_core_tests PRIVATE
+        NEXTTOONZ_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/reference_project")
+    nexttoonz_stage_runtime(nexttoonz_core_tests tnzcore colorfx image)
 endif()
 
 # Registered as "core.<Suite>.<Test>" with the label "core", so that

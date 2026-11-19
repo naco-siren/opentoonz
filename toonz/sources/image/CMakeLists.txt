@@ -35,6 +35,7 @@ set(SOURCES
     pli/pli_io.cpp
     pli/tags.cpp
     pli/tiio_pli.cpp
+    pli/pli_io_qt.cpp
     tga/tiio_tga.cpp
     compatibility/inforegion.c
     compatibility/tfile_io.c
@@ -109,6 +110,33 @@ elseif(BUILD_TARGET_UNIX)
         mov/tiio_mov_proxy.cpp
         3gp/tiio_3gp_proxy.cpp
     )
+endif()
+
+# The sources that build without Qt (doc/nexttoonz_core_noqt.md, 8d): the
+# pli reader and writer, registered by initPliIo(). With WITH_QT=OFF the
+# image library is made of these alone.
+set(IMAGE_NOQT_SOURCES
+    pli/pli_io.cpp
+    pli/tags.cpp
+    pli/tiio_pli.cpp
+)
+foreach(_source ${IMAGE_NOQT_SOURCES})
+    if(NOT _source IN_LIST SOURCES)
+        message(FATAL_ERROR "IMAGE_NOQT_SOURCES: ${_source} is not in SOURCES")
+    endif()
+endforeach()
+
+if(NOT WITH_QT)
+    add_library(image SHARED ${IMAGE_NOQT_SOURCES})
+    target_compile_definitions(image PRIVATE TNZIMAGE_DLL _USRDLL IMAGE_EXPORTS)
+    if(BUILD_ENV_APPLE)
+        set_target_properties(image PROPERTIES
+            INSTALL_NAME_DIR "@executable_path"
+            BUILD_WITH_INSTALL_NAME_DIR ON
+        )
+    endif()
+    target_link_libraries(image tnzcore)
+    return()
 endif()
 
 add_library(image SHARED ${HEADERS} ${SOURCES})

@@ -31,7 +31,17 @@ add_definitions(
 
 if(BUILD_ENV_APPLE)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-install_name,@executable_path/libcolorfx.dylib")
-    add_dependencies(colorfx tnzcore tnzbase)
+    if(WITH_QT)
+        add_dependencies(colorfx tnzcore tnzbase)
+    endif()
+endif()
+
+if(NOT WITH_QT)
+    # Without Qt (doc/nexttoonz_core_noqt.md, 8d): the styles need tnzcore
+    # and the canvas only (they use nothing of tnzbase, which the build
+    # without Qt does not have).
+    target_link_libraries(colorfx tnzcore tnzcanvas)
+    return()
 endif()
 
 message("subdir: colorfx")

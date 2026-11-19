@@ -8,9 +8,7 @@
 #include "tvectorimage.h"
 #include "tstrokeprop.h"
 
-#include "toonz/imagestyles.h"
 
-#include <QImage>
 class TVectorRendeData;
 class TRandom;
 

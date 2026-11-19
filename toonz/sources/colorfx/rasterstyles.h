@@ -7,7 +7,6 @@
 
 #include "traster.h"
 
-#include <QCoreApplication>
 
 class TStroke;
 class TRegion;

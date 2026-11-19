@@ -17,4 +17,9 @@
 
 DVAPI void initImageIo(bool lightVersion = false);
 
+//! The pli reader and writer alone: what initImageIo() registers first, and
+//! all the image library of the build without Qt has
+//! (doc/nexttoonz_core_noqt.md, 8d).
+DVAPI void initPliIo();
+
 #endif

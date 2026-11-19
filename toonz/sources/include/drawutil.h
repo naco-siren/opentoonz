@@ -8,12 +8,16 @@
 #ifndef DRAWUTIL_H
 #define DRAWUTIL_H
 
-#include "tgl.h"
+#include "tcommon.h"
+#include "traster.h"
 //#include "traster.h"
 //#include "tcurves.h"
 //#include "tregion.h"
 
+#include <vector>
+
 class TRegion;
+class TStroke;
 
 #undef DVAPI
 #undef DVVAR
@@ -28,16 +32,19 @@ class TRegion;
 //=============================================================================
 
 //! structure with information about texture to create
+//! (The OpenGL types spelled as what they are, GLint and GLsizei int,
+//! GLenum unsigned int, so that the header needs no OpenGL:
+//! doc/nexttoonz_core_noqt.md, 8d. prepareTexture is in tnzglview.)
 struct TextureInfoForGL {
   //  GLenum target,
   //  GLint level,
-  GLint internalformat;
-  GLsizei width;
-  GLsizei height;
+  int internalformat;
+  int width;
+  int height;
   // GLint border,
-  GLenum format;
-  GLenum type;
-  const GLvoid *pixels;
+  unsigned int format;
+  unsigned int type;
+  const void *pixels;
 };
 
 //=============================================================================
