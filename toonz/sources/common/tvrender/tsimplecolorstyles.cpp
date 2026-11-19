@@ -1,8 +1,6 @@
 
 #include <cstring>
 #include <limits>
-#include <QStringList>
-#include <QDir>
 
 // TnzCore includes
 #include "tsystem.h"
@@ -1145,10 +1143,9 @@ void TRasterImagePatternStrokeStyle::setParamValue(int index, double value) {
 
 //-----------------------------------------------------------------------------
 
-QString TrailStyles::sourceFilters() {
-  return QStringLiteral(
-      "*.pli *.tlv *.png *.tif *.tiff *.tga *.sgi *.rgb "
-      "*.pct *.pic *.pict *.exr *.bmp *.jpg *.jpeg *.nol");
+std::string TrailStyles::sourceFilterPatterns() {
+  return "*.pli *.tlv *.png *.tif *.tiff *.tga *.sgi *.rgb "
+         "*.pct *.pic *.pict *.exr *.bmp *.jpg *.jpeg *.nol";
 }
 
 //-----------------------------------------------------------------------------
@@ -1159,10 +1156,18 @@ TFilePath TrailStyles::findSource(const TFilePath &root,
   // palette sidecar, backup, or directory shadow an actual image source.
   TFilePathSet paths;
   TSystem::readDirectory(paths, root, true, true);
-  const QStringList filters = sourceFilters().split(' ');
+  // QString::split(' ') of the patterns, QDir::match of the level name
+  std::vector<std::wstring> filters;
+  const std::wstring patterns = ::to_wstring(sourceFilterPatterns());
+  for (size_t b = 0;;) {
+    size_t e = patterns.find(L' ', b);
+    filters.push_back(patterns.substr(b, e == std::wstring::npos ? e : e - b));
+    if (e == std::wstring::npos) break;
+    b = e + 1;
+  }
   for (const TFilePath &path : paths) {
     if (path.getName() == name &&
-        QDir::match(filters, QString::fromStdWString(path.getLevelNameW())))
+        matchesWildcardsAsQDir(filters, path.getLevelNameW()))
       return path;
   }
   return TFilePath();

@@ -3,7 +3,6 @@
 #include "tsegmentadjuster.h"
 #include "tgl.h"
 
-#include <QDebug>
 
 TSegmentAdjuster::TSegmentAdjuster() : m_traceEnabled(false) {}
 

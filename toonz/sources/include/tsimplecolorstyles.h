@@ -532,7 +532,8 @@ namespace TrailStyles {
 
 // Used by both the Trail chooser and its source loader. Raster conversion keeps
 // the full canvas and returns premultiplied pixels for Toonz Raster images.
-DVAPI QString sourceFilters();
+DVAPI std::string sourceFilterPatterns();  //!< "*.pli *.tlv ..."
+DVAPI QString sourceFilters();  //!< the same, as a QString (tcolorstyles_qt.cpp)
 DVAPI TFilePath findSource(const TFilePath &root, const std::string &name);
 DVAPI TRaster32P rasterSource(const TImageP &image, TPalette *levelPalette,
                               int sourceFrame = -1);

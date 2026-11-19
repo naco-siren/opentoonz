@@ -7,12 +7,9 @@
 #include "tvectorimage.h"
 #include "tpixelutils.h"
 #include "tsystem.h"
-#include <QString>
-#include <QStringList>
 #include "tstream.h"
 
 // Qt includes
-#include <QMutexLocker>
 
 #include "tpalette.h"
 
@@ -59,49 +56,62 @@ const TColorStyle::PickedPosition stringToPoint(const std::string &string) {
 // convert refLevelFids to string for saving
 std::string fidsToString(const std::vector<TFrameId> &fids) {
   std::string str;
-  QList<int> numList;
+  std::vector<int> numList;
 
   for (const auto fid : fids) {
     int num = fid.getNumber();
-    if (numList.isEmpty() || num == numList.last() + 1) {
+    if (numList.empty() || num == numList.back() + 1) {
       numList.push_back(num);
       continue;
     }
     // print
-    if (numList.count() == 1)
+    if (numList.size() == 1)
       str += std::to_string(numList[0]) + ",";
-    else if (numList.count() == 2)
+    else if (numList.size() == 2)
       str +=
           std::to_string(numList[0]) + "," + std::to_string(numList[1]) + ",";
     else
-      str += std::to_string(numList[0]) + "-" + std::to_string(numList.last()) +
+      str += std::to_string(numList[0]) + "-" + std::to_string(numList.back()) +
              ",";
 
     numList.clear();
     numList.push_back(num);
   }
-  if (numList.count() == 1)
+  if (numList.size() == 1)
     str += std::to_string(numList[0]);
-  else if (numList.count() == 2)
+  else if (numList.size() == 2)
     str += std::to_string(numList[0]) + "," + std::to_string(numList[1]);
   else
-    str += std::to_string(numList[0]) + "-" + std::to_string(numList.last());
+    str += std::to_string(numList[0]) + "-" + std::to_string(numList.back());
   return str;
+}
+
+// QString::split(separator, Qt::SkipEmptyParts) of an ASCII separator
+std::vector<std::string> splitSkippingEmpty(const std::string &s, char sep) {
+  std::vector<std::string> out;
+  size_t b = 0;
+  while (b <= s.size()) {
+    size_t e = s.find(sep, b);
+    if (e == std::string::npos) e = s.size();
+    if (e > b) out.push_back(s.substr(b, e - b));
+    b = e + 1;
+  }
+  return out;
 }
 
 // convert loaded string to refLevelFids
 std::vector<TFrameId> strToFids(std::string fidsStr) {
   std::vector<TFrameId> ret;
-  QString str = QString::fromStdString(fidsStr);
-  QStringList chunks = str.split(',', Qt::SkipEmptyParts);
+  // as QString::split(..., Qt::SkipEmptyParts) and QString::toInt did it
+  std::vector<std::string> chunks = splitSkippingEmpty(fidsStr, ',');
   for (const auto &chunk : chunks) {
-    QStringList nums = chunk.split('-', Qt::SkipEmptyParts);
-    assert(nums.count() > 0 && nums.count() <= 2);
-    if (nums.count() == 1)
-      ret.push_back(TFrameId(nums[0].toInt()));
-    else {  // nums.count() == 2
-      assert(nums[0].toInt() < nums[1].toInt());
-      for (int i = nums[0].toInt(); i <= nums[1].toInt(); i++)
+    std::vector<std::string> nums = splitSkippingEmpty(chunk, '-');
+    assert(nums.size() > 0 && nums.size() <= 2);
+    if (nums.size() == 1)
+      ret.push_back(TFrameId(toIntAsQString(nums[0])));
+    else {  // nums.size() == 2
+      assert(toIntAsQString(nums[0]) < toIntAsQString(nums[1]));
+      for (int i = toIntAsQString(nums[0]); i <= toIntAsQString(nums[1]); i++)
         ret.push_back(TFrameId(i));
     }
   }
@@ -664,7 +674,7 @@ void TPalette::saveData(TOStream &os) {
           TrailStyles::getSizeMultiplier(style.getPointer());
       if (trailSize != 1.0)
         attr["trailSizeMultiplier"] =
-            QString::number(trailSize, 'g', 17).toStdString();
+            toStringAsQString(trailSize);
       os.openChild("style", attr);
       {
         StyleWriter w(os, i);
@@ -727,7 +737,7 @@ void TPalette::saveData(TOStream &os) {
             const double trailSize = TrailStyles::getSizeMultiplier(cs);
             if (trailSize != 1.0)
               attributes["trailSizeMultiplier"] =
-                  QString::number(trailSize, 'g', 17).toStdString();
+                  toStringAsQString(trailSize);
 
             /*os.openChild("keycolor", attributes);                       // Up
             to Toonz 7.0, animations saved os << cs->getMainColor(); // the main
@@ -801,7 +811,7 @@ void TPalette::loadData(TIStream &is) {
           if (is.getTagParam("trailSizeMultiplier", trailSize)) {
             bool ok = false;
             const double multiplier =
-                QString::fromStdString(trailSize).toDouble(&ok);
+                toDoubleAsQString(trailSize, &ok);
             if (ok) TrailStyles::setSizeMultiplier(cs, multiplier);
           }
 
@@ -896,7 +906,7 @@ void TPalette::loadData(TIStream &is) {
               if (is.getTagParam("trailSizeMultiplier", trailSize)) {
                 bool ok = false;
                 const double multiplier =
-                    QString::fromStdString(trailSize).toDouble(&ok);
+                    toDoubleAsQString(trailSize, &ok);
                 if (ok) TrailStyles::setSizeMultiplier(cs, multiplier);
               }
             } else
@@ -1203,10 +1213,15 @@ void TPalette::clearKeyframe(int styleId, int frame) {
 
 //-------------------------------------------------------------------
 
-int TPalette::getShortcutValue(int key) const {
-  assert(Qt::Key_0 <= key && key <= Qt::Key_9);
+namespace {
+// Qt::Key_0, Qt::Key_1 and Qt::Key_9, which the callers pass and get
+enum { Key_0 = 0x30, Key_1 = 0x31, Key_9 = 0x39 };
+}  // namespace
 
-  int shortcutIndex = (key == Qt::Key_0) ? 9 : key - Qt::Key_1;
+int TPalette::getShortcutValue(int key) const {
+  assert(Key_0 <= key && key <= Key_9);
+
+  int shortcutIndex = (key == Key_0) ? 9 : key - Key_1;
   int indexInPage   = m_shortcutScopeIndex * 10 + shortcutIndex;
   // shortcut is available only in the first page
   return getPage(0)->getStyleId(indexInPage);
@@ -1223,7 +1238,7 @@ int TPalette::getStyleShortcut(int styleId) const {
   int indexInPage   = page->search(styleId);
   int shortcutIndex = indexInPage - m_shortcutScopeIndex * 10;
   if (shortcutIndex < 0 || shortcutIndex > 9) return -1;
-  return (shortcutIndex == 9) ? Qt::Key_0 : Qt::Key_1 + shortcutIndex;
+  return (shortcutIndex == 9) ? Key_0 : Key_1 + shortcutIndex;
 }
 
 //-------------------------------------------------------------------

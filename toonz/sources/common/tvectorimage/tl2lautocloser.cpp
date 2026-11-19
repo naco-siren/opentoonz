@@ -7,7 +7,6 @@
 #include "tvectorimage.h"
 #include "tstroke.h"
 
-#include <QDebug>
 
 TEnv::DoubleVar VectorCloseValue("VectorCloseValue", 5);
 

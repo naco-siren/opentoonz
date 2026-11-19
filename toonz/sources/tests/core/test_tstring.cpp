@@ -5,6 +5,9 @@
 // inputs (test_tstring_qt.cpp).
 
 #include <gtest/gtest.h>
+#include <vector>
+#include <limits>
+#include <cmath>
 
 #include "tconvert.h"
 
@@ -105,4 +108,46 @@ TEST(TStringConvert, RoundTrip) {
   const char *samples[] = {"", "plain", "caf\xC3\xA9", "\xE6\x97\xA5\xE6\x9C\xAC",
                            "\xF0\x9F\x98\x80 x", "tab\tnew\nline"};
   for (const char *s : samples) EXPECT_EQ(to_string(to_wstring(s)), s);
+}
+
+// Numbers and wildcards as Qt 5.15 wrote and read them (step 8a), in both
+// builds: samples measured with Qt 5.15.19 (test_tstring_qt.cpp compares
+// with Qt itself, at length).
+TEST(TStringAsQt, NumbersAsQtWroteAndReadThem) {
+  EXPECT_EQ(toStringAsQString(0.0), "0");
+  EXPECT_EQ(toStringAsQString(-0.0), "0");
+  EXPECT_EQ(toStringAsQString(0.1), "0.10000000000000001");
+  EXPECT_EQ(toStringAsQString(1e20), "1e+20");
+  EXPECT_EQ(toStringAsQString(1e-5), "1.0000000000000001e-05");
+  EXPECT_EQ(toStringAsQString(1e16), "10000000000000000");
+  EXPECT_EQ(toStringAsQString(1e17), "1e+17");
+  EXPECT_EQ(toStringAsQString(-121544296184850.125), "-121544296184850.13");
+  EXPECT_EQ(toStringAsQString(std::numeric_limits<double>::infinity()), "inf");
+  EXPECT_EQ(toStringAsQString(-std::numeric_limits<double>::infinity()), "-inf");
+  EXPECT_EQ(toStringAsQString(-std::numeric_limits<double>::quiet_NaN()), "nan");
+  EXPECT_EQ(toStringAsQString(std::numeric_limits<double>::denorm_min()),
+            "4.9406564584124654e-324");
+
+  bool ok = false;
+  EXPECT_EQ(toDoubleAsQString(" 1.5 ", &ok), 1.5);
+  EXPECT_TRUE(ok);
+  EXPECT_EQ(toDoubleAsQString("\xe2\x88\x92" "2.5", &ok), -2.5);
+  EXPECT_TRUE(ok);
+  EXPECT_TRUE(std::isnan(toDoubleAsQString("NaN", &ok)));
+  EXPECT_TRUE(ok);
+  for (const char *rejected : {"1e-400", "1e400", "+nan", "infinity", "1,5",
+                               "0x10", "", "1.5e", "5\xef\xbb\xbf"}) {
+    toDoubleAsQString(rejected, &ok);
+    EXPECT_FALSE(ok) << rejected;
+  }
+  EXPECT_EQ(toIntAsQString(" -12 ", &ok), -12);
+  EXPECT_TRUE(ok);
+  EXPECT_EQ(toIntAsQString("2147483648", &ok), 0);
+  EXPECT_FALSE(ok);
+
+  std::vector<std::wstring> filters = {L"*.pli", L"*.png"};
+  EXPECT_TRUE(matchesWildcardsAsQDir(filters, L"a.PLI"));
+  EXPECT_TRUE(matchesWildcardsAsQDir(filters, L"ſ.png"));
+  EXPECT_FALSE(matchesWildcardsAsQDir(filters, L"a.pngx"));
+  EXPECT_FALSE(matchesWildcardsAsQDir(filters, L"a/b.png"));
 }

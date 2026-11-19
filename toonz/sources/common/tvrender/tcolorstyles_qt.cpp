@@ -4,6 +4,7 @@
 // Qt leaves this file out.
 
 #include "tcolorstyles.h"
+#include "tsimplecolorstyles.h"
 
 #include <QCoreApplication>
 #include <QString>
@@ -32,4 +33,8 @@ void TColorStyle::getParamRange(int pIndex, QStringList& stringItems) const {
   std::vector<TTranslatableText> items;
   getParamRangeText(pIndex, items);
   for (const TTranslatableText& item : items) stringItems << toQString(item);
+}
+
+QString TrailStyles::sourceFilters() {
+  return QString::fromStdString(sourceFilterPatterns());
 }

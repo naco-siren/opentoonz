@@ -4,6 +4,9 @@
 #define TCONVERT_INCLUDED
 
 #include "tcommon.h"
+
+#include <string>
+#include <vector>
 class TFilePath;
 
 //
@@ -51,6 +54,17 @@ DVAPI bool isValidAsQString(const std::wstring &s);
 DVAPI std::string toUtf8AsQString(const std::wstring &s);
 DVAPI bool equalsIgnoringCaseAsQString(const std::wstring &a,
                                        const std::wstring &b);
+
+// Numbers and wildcards as Qt 5.15 wrote and read them (step 8a):
+//   toStringAsQString(v)          QString::number(v, 'g', 17), in UTF-8
+//   toDoubleAsQString(s, ok)      QString::fromStdString(s).toDouble(ok)
+//   toIntAsQString(s, ok)         QString::fromStdString(s).toInt(ok)
+//   matchesWildcardsAsQDir(f, n)  QDir::match(f, n)
+DVAPI std::string toStringAsQString(double v);
+DVAPI double toDoubleAsQString(const std::string &s, bool *ok = nullptr);
+DVAPI int toIntAsQString(const std::string &s, bool *ok = nullptr);
+DVAPI bool matchesWildcardsAsQDir(const std::vector<std::wstring> &filters,
+                                  const std::wstring &name);
 
 inline bool fromStr(int &v, std::string s) {
   if (isInt(s)) {
