@@ -9,6 +9,7 @@
 #include "tpalette.h"
 #include "tpixelutils.h"
 
+#include <cstring>
 #include <vector>
 #include <memory>
 

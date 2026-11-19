@@ -108,11 +108,12 @@ public:
 
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
 
-  void getParamRange(int index, QStringList &enumItems) const override;
+  void getParamRangeText(
+      int index, std::vector<TTranslatableText>& enumItems) const override;
   bool getParamValue(TColorStyle::bool_tag, int index) const override;
   int getParamValue(TColorStyle::int_tag, int index) const override;
   TFilePath getParamValue(TColorStyle::TFilePath_tag, int index) const override;
@@ -133,7 +134,7 @@ public:
   TColorStyle *clone() const override;
   TColorStyle *clone(std::string brushIdName) const override;
 
-  QString getDescription() const override;
+  TTranslatableText getDescriptionText() const override;
   std::string getBrushIdName() const override;
   static std::string staticBrushIdName(std::wstring texturePath);
 

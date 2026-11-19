@@ -38,7 +38,7 @@ public:
   TColorStyle *clone() const override;
   TColorStyle *clone(std::string brushIdName) const override;
 
-  QString getDescription() const override;
+  TTranslatableText getDescriptionText() const override;
   std::string getBrushIdName() const override;
 
   static TFilePath getRootDir() { return m_rootDir; }

@@ -2,6 +2,7 @@
 
 #include "tsystem.h"
 
+#include <cstring>
 #include <set>
 
 #include "tropcm.h"

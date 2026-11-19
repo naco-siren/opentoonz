@@ -10,8 +10,7 @@
 #include "tstrokeoutline.h"
 #include "trailcycle.h"
 
-// Qt includes
-#include <QCoreApplication>
+class QString;
 
 #undef DVAPI
 #undef DVVAR
@@ -175,7 +174,7 @@ public:
 
   TColorStyle *clone() const override;
 
-  QString getDescription() const override;
+  TTranslatableText getDescriptionText() const override;
   std::string getBrushIdName() const override;
   static std::size_t staticBrushIdHash();
 
@@ -248,7 +247,7 @@ public:
 
   TColorStyle *clone() const override;
 
-  QString getDescription() const override;
+  TTranslatableText getDescriptionText() const override;
   std::string getBrushIdName() const override;
 
   TPixel32 getColor() const { return m_color; }
@@ -270,7 +269,7 @@ public:
 
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -337,7 +336,7 @@ public:
   TColorStyle &copy(const TColorStyle &other) override;
   TColorStyle *clone(std::string brushIdName) const override;
 
-  QString getDescription() const override;
+  TTranslatableText getDescriptionText() const override;
   std::string getBrushIdName() const override;
 
   bool hasMainColor() const override { return false; }
@@ -380,11 +379,12 @@ public:
   TColorStyle::ParamType getParamType(int index) const override;
   void getParamRange(int index, int &min, int &max) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
-  void getParamRange(int index, QStringList &items) const override;
+  void getParamRangeText(int index,
+                         std::vector<TTranslatableText>& items) const override;
   int getParamValue(TColorStyle::int_tag, int index) const override;
   void setParamValue(int index, int value) override;
 
@@ -457,7 +457,7 @@ public:
   TColorStyle &copy(const TColorStyle &other) override;
   TColorStyle *clone(std::string brushIdName) const override;
 
-  QString getDescription() const override;
+  TTranslatableText getDescriptionText() const override;
   std::string getBrushIdName() const override;
 
   bool hasMainColor() const override { return false; }
@@ -500,11 +500,12 @@ public:
   TColorStyle::ParamType getParamType(int index) const override;
   void getParamRange(int index, int &min, int &max) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
-  void getParamRange(int index, QStringList &items) const override;
+  void getParamRangeText(int index,
+                         std::vector<TTranslatableText>& items) const override;
   int getParamValue(TColorStyle::int_tag, int index) const override;
   void setParamValue(int index, int value) override;
 

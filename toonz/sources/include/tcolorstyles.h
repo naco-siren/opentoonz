@@ -7,8 +7,9 @@
 #include "tfilepath.h"
 #include "traster.h"
 
-// Qt includes
-#include <QString>
+#include "ttranslatabletext.h"
+
+#include <vector>
 
 #undef DVAPI
 #undef DVVAR
@@ -33,6 +34,7 @@ class TVectorRenderData;
 class TInputStreamInterface;
 class TOutputStreamInterface;
 class TRasterStyleFx;
+class QString;
 class QStringList;
 
 //=================================================
@@ -338,10 +340,13 @@ Returns the main color by default.
     assert(false);
   }  //!< Retrieves the specified \p int parameter range.
 
-  virtual void getParamRange(int pIndex, QStringList &stringItems) const {
+  virtual void getParamRangeText(
+      int pIndex, std::vector<TTranslatableText>& stringItems) const {
     assert(false);
   }  //!< Returns a description of each supported enum or file
   //!  extension value in text form.
+  void getParamRange(int pIndex, QStringList& stringItems)
+      const;  //!< getParamRangeText, translated (tcolorstyles_qt.cpp)
   virtual void setParamValue(int index, double value) {
     assert(false);
   }  //!< Assigns a value to the specified \p double parameter.
@@ -380,10 +385,15 @@ styles</I> \p a and \p b, it calculates their linear interpolation at parameter
 For example for a stroke style we have "Constant", "Chain", "Rope", "Tulle",
 etc...
 */
-  virtual QString getDescription()
+  virtual TTranslatableText getDescriptionText()
       const;  //!< Return a brief description of the style.
-  virtual QString getParamNames(int index)
+  virtual TTranslatableText getParamNameText(int index)
       const;  //!< Return the string that identifies the \a index-th parameter.
+
+  // The two above, translated for the interface (tcolorstyles_qt.cpp; step 7
+  // of doc/nexttoonz_core_noqt.md).
+  QString getDescription() const;
+  QString getParamNames(int index) const;
 
   virtual std::string getBrushIdName()
       const;  //!< Return a name identifying the brush.

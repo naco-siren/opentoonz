@@ -30,6 +30,7 @@ set(HEADERS ${MOC_HEADERS}
     ../include/tatomicvar.h
     ../include/tcommon.h
     ../include/tconvert.h
+    ../include/ttranslatabletext.h
     ../include/tdata.h
     ../include/tdebugmessage.h
     ../include/texception.h
@@ -140,6 +141,8 @@ set(SOURCES
     ../common/tcore/tsmartpointer.cpp
     ../common/tcore/tstopwatch.cpp
     ../common/tcore/tstring.cpp
+    ../common/tcore/ttranslatabletext.cpp
+    ../common/tcore/ttranslatabletext_qt.cpp
     ../common/tcore/tthread.cpp
     ../common/tcore/tundo.cpp
     ../common/tcore/tfunctorinvoker.cpp
@@ -188,6 +191,7 @@ set(SOURCES
     ../common/trasterimage/tcodec.cpp
     ../common/trasterimage/trasterimage.cpp
     ../common/tvrender/tcolorstyles.cpp
+    ../common/tvrender/tcolorstyles_qt.cpp
     ../common/tvrender/tellipticbrush.cpp
     ../common/tvrender/qtofflinegl.cpp
     ../common/tvrender/tglregions.cpp
@@ -286,7 +290,9 @@ endif()
 # the stream, image cache and image I/O headers lost Qt; step 6a the file
 # system part of tsystem.cpp, whose Qt members are in tsystem_qt.cpp; step 6b
 # the key-value store, whose QSettings store is in tkeyvaluestore_qt.cpp; step
-# 6c tenv.cpp and tfilepath_io.cpp, as the process information left Qt. The
+# 6c tenv.cpp and tfilepath_io.cpp, as the process information left Qt; step 7
+# the translatable text (the vector image and style sources compile without
+# Qt since then, but link only once their GL has moved out, in step 8). The
 # others never needed Qt.
 set(TNZCORE_NOQT_SOURCES
     ../common/tcore/tdata.cpp
@@ -315,6 +321,7 @@ set(TNZCORE_NOQT_SOURCES
     ../common/tapptools/tkeyvaluestore.cpp
     ../common/tapptools/tenv.cpp
     ../common/tsystem/tfilepath_io.cpp
+    ../common/tcore/ttranslatabletext.cpp
 )
 foreach(_source ${TNZCORE_NOQT_SOURCES})
     if(NOT _source IN_LIST SOURCES)

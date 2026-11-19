@@ -48,6 +48,7 @@
 
 // Qt includes
 #include <QMutex>
+#include <QString>
 #include <QThreadStorage>
 
 //------------------------------------------------------------------------------

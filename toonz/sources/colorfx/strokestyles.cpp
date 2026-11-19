@@ -201,10 +201,13 @@ TColorStyle::ParamType TFurStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TFurStrokeStyle::getParamNames(int index) const {
+TTranslatableText TFurStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < getParamCount());
-  return index == 0 ? QCoreApplication::translate("TFurStrokeStyle", "Angle")
-                    : QCoreApplication::translate("TFurStrokeStyle", "Size");
+  return index == 0
+             ? TTranslatableText("TFurStrokeStyle",
+                                 QT_TRANSLATE_NOOP("TFurStrokeStyle", "Angle"))
+             : TTranslatableText("TFurStrokeStyle",
+                                 QT_TRANSLATE_NOOP("TFurStrokeStyle", "Size"));
 }
 
 //-----------------------------------------------------------------------------
@@ -472,18 +475,22 @@ TColorStyle::ParamType TSprayStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TSprayStrokeStyle::getParamNames(int index) const {
+TTranslatableText TSprayStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 3);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TSprayStrokeStyle", "Border Fade");
+    value = TTranslatableText(
+        "TSprayStrokeStyle",
+        QT_TRANSLATE_NOOP("TSprayStrokeStyle", "Border Fade"));
     break;
   case 1:
-    value = QCoreApplication::translate("TSprayStrokeStyle", "Density");
+    value = TTranslatableText(
+        "TSprayStrokeStyle", QT_TRANSLATE_NOOP("TSprayStrokeStyle", "Density"));
     break;
   case 2:
-    value = QCoreApplication::translate("TSprayStrokeStyle", "Size");
+    value = TTranslatableText("TSprayStrokeStyle",
+                              QT_TRANSLATE_NOOP("TSprayStrokeStyle", "Size"));
     break;
   }
   return value;
@@ -646,10 +653,12 @@ TColorStyle::ParamType TGraphicPenStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TGraphicPenStrokeStyle::getParamNames(int index) const {
+TTranslatableText TGraphicPenStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 1);
 
-  return QCoreApplication::translate("TGraphicPenStrokeStyle", "Density");
+  return TTranslatableText(
+      "TGraphicPenStrokeStyle",
+      QT_TRANSLATE_NOOP("TGraphicPenStrokeStyle", "Density"));
 }
 
 //-----------------------------------------------------------------------------
@@ -816,21 +825,29 @@ TColorStyle::ParamType TDottedLineStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TDottedLineStrokeStyle::getParamNames(int index) const {
+TTranslatableText TDottedLineStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 4);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TDottedLineStrokeStyle", "Fade In");
+    value = TTranslatableText(
+        "TDottedLineStrokeStyle",
+        QT_TRANSLATE_NOOP("TDottedLineStrokeStyle", "Fade In"));
     break;
   case 1:
-    value = QCoreApplication::translate("TDottedLineStrokeStyle", "Dash");
+    value =
+        TTranslatableText("TDottedLineStrokeStyle",
+                          QT_TRANSLATE_NOOP("TDottedLineStrokeStyle", "Dash"));
     break;
   case 2:
-    value = QCoreApplication::translate("TDottedLineStrokeStyle", "Fade Out");
+    value = TTranslatableText(
+        "TDottedLineStrokeStyle",
+        QT_TRANSLATE_NOOP("TDottedLineStrokeStyle", "Fade Out"));
     break;
   case 3:
-    value = QCoreApplication::translate("TDottedLineStrokeStyle", "Gap");
+    value =
+        TTranslatableText("TDottedLineStrokeStyle",
+                          QT_TRANSLATE_NOOP("TDottedLineStrokeStyle", "Gap"));
     break;
   }
   return value;
@@ -1054,9 +1071,10 @@ TColorStyle::ParamType TRopeStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TRopeStrokeStyle::getParamNames(int index) const {
+TTranslatableText TRopeStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 1);
-  return QCoreApplication::translate("TRopeStrokeStyle", "Tilt");
+  return TTranslatableText("TRopeStrokeStyle",
+                           QT_TRANSLATE_NOOP("TRopeStrokeStyle", "Tilt"));
 }
 
 //-----------------------------------------------------------------------------
@@ -1205,12 +1223,15 @@ TColorStyle::ParamType TCrystallizeStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TCrystallizeStrokeStyle::getParamNames(int index) const {
+TTranslatableText TCrystallizeStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 2);
   return index == 0
-             ? QCoreApplication::translate("TCrystallizeStrokeStyle", "Crease")
-             : QCoreApplication::translate("TCrystallizeStrokeStyle",
-                                           "Opacity");
+             ? TTranslatableText(
+                   "TCrystallizeStrokeStyle",
+                   QT_TRANSLATE_NOOP("TCrystallizeStrokeStyle", "Crease"))
+             : TTranslatableText(
+                   "TCrystallizeStrokeStyle",
+                   QT_TRANSLATE_NOOP("TCrystallizeStrokeStyle", "Opacity"));
 }
 
 //-----------------------------------------------------------------------------
@@ -1424,10 +1445,11 @@ TColorStyle::ParamType TBraidStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TBraidStrokeStyle::getParamNames(int index) const {
+TTranslatableText TBraidStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 1);
 
-  return QCoreApplication::translate("TBraidStrokeStyle", "Twirl");
+  return TTranslatableText("TBraidStrokeStyle",
+                           QT_TRANSLATE_NOOP("TBraidStrokeStyle", "Twirl"));
 }
 
 //-----------------------------------------------------------------------------
@@ -1623,10 +1645,11 @@ TColorStyle::ParamType TSketchStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TSketchStrokeStyle::getParamNames(int index) const {
+TTranslatableText TSketchStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 1);
 
-  return QCoreApplication::translate("TSketchStrokeStyle", "Density");
+  return TTranslatableText("TSketchStrokeStyle",
+                           QT_TRANSLATE_NOOP("TSketchStrokeStyle", "Density"));
 }
 
 //-----------------------------------------------------------------------------
@@ -1839,11 +1862,14 @@ TColorStyle::ParamType TTissueStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TTissueStrokeStyle::getParamNames(int index) const {
+TTranslatableText TTissueStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 2);
-  return index == 0
-             ? QCoreApplication::translate("TTissueStrokeStyle", "Density")
-             : QCoreApplication::translate("TTissueStrokeStyle", "Border Size");
+  return index == 0 ? TTranslatableText(
+                          "TTissueStrokeStyle",
+                          QT_TRANSLATE_NOOP("TTissueStrokeStyle", "Density"))
+                    : TTranslatableText("TTissueStrokeStyle",
+                                        QT_TRANSLATE_NOOP("TTissueStrokeStyle",
+                                                          "Border Size"));
 }
 
 //-----------------------------------------------------------------------------
@@ -2098,24 +2124,33 @@ TColorStyle::ParamType TNormal2StrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TNormal2StrokeStyle::getParamNames(int index) const {
+TTranslatableText TNormal2StrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 5);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TNormal2StrokeStyle", "Light X Pos");
+    value = TTranslatableText(
+        "TNormal2StrokeStyle",
+        QT_TRANSLATE_NOOP("TNormal2StrokeStyle", "Light X Pos"));
     break;
   case 1:
-    value = QCoreApplication::translate("TNormal2StrokeStyle", "Light Y Pos");
+    value = TTranslatableText(
+        "TNormal2StrokeStyle",
+        QT_TRANSLATE_NOOP("TNormal2StrokeStyle", "Light Y Pos"));
     break;
   case 2:
-    value = QCoreApplication::translate("TNormal2StrokeStyle", "Shininess");
+    value = TTranslatableText(
+        "TNormal2StrokeStyle",
+        QT_TRANSLATE_NOOP("TNormal2StrokeStyle", "Shininess"));
     break;
   case 3:
-    value = QCoreApplication::translate("TNormal2StrokeStyle", "Plastic");
+    value =
+        TTranslatableText("TNormal2StrokeStyle",
+                          QT_TRANSLATE_NOOP("TNormal2StrokeStyle", "Plastic"));
     break;
   case 4:
-    value = QCoreApplication::translate("TNormal2StrokeStyle", "Bump");
+    value = TTranslatableText("TNormal2StrokeStyle",
+                              QT_TRANSLATE_NOOP("TNormal2StrokeStyle", "Bump"));
     break;
   }
   return value;
@@ -2479,24 +2514,33 @@ TColorStyle::ParamType TChalkStrokeStyle2::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TChalkStrokeStyle2::getParamNames(int index) const {
+TTranslatableText TChalkStrokeStyle2::getParamNameText(int index) const {
   assert(0 <= index && index < 5);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TChalkStrokeStyle2", "Border Fade");
+    value = TTranslatableText(
+        "TChalkStrokeStyle2",
+        QT_TRANSLATE_NOOP("TChalkStrokeStyle2", "Border Fade"));
     break;
   case 1:
-    value = QCoreApplication::translate("TChalkStrokeStyle2", "Density");
+    value =
+        TTranslatableText("TChalkStrokeStyle2",
+                          QT_TRANSLATE_NOOP("TChalkStrokeStyle2", "Density"));
     break;
   case 2:
-    value = QCoreApplication::translate("TChalkStrokeStyle2", "Fade In");
+    value =
+        TTranslatableText("TChalkStrokeStyle2",
+                          QT_TRANSLATE_NOOP("TChalkStrokeStyle2", "Fade In"));
     break;
   case 3:
-    value = QCoreApplication::translate("TChalkStrokeStyle2", "Fade Out");
+    value =
+        TTranslatableText("TChalkStrokeStyle2",
+                          QT_TRANSLATE_NOOP("TChalkStrokeStyle2", "Fade Out"));
     break;
   case 4:
-    value = QCoreApplication::translate("TChalkStrokeStyle2", "Noise");
+    value = TTranslatableText("TChalkStrokeStyle2",
+                              QT_TRANSLATE_NOOP("TChalkStrokeStyle2", "Noise"));
     break;
   }
   return value;
@@ -2736,18 +2780,24 @@ TColorStyle::ParamType TBlendStrokeStyle2::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TBlendStrokeStyle2::getParamNames(int index) const {
+TTranslatableText TBlendStrokeStyle2::getParamNameText(int index) const {
   assert(0 <= index && index < 3);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TBlendStrokeStyle2", "Border Fade");
+    value = TTranslatableText(
+        "TBlendStrokeStyle2",
+        QT_TRANSLATE_NOOP("TBlendStrokeStyle2", "Border Fade"));
     break;
   case 1:
-    value = QCoreApplication::translate("TBlendStrokeStyle2", "Fade In");
+    value =
+        TTranslatableText("TBlendStrokeStyle2",
+                          QT_TRANSLATE_NOOP("TBlendStrokeStyle2", "Fade In"));
     break;
   case 2:
-    value = QCoreApplication::translate("TBlendStrokeStyle2", "Fade Out");
+    value =
+        TTranslatableText("TBlendStrokeStyle2",
+                          QT_TRANSLATE_NOOP("TBlendStrokeStyle2", "Fade Out"));
     break;
   }
   return value;
@@ -2957,10 +3007,14 @@ TColorStyle::ParamType TTwirlStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TTwirlStrokeStyle::getParamNames(int index) const {
+TTranslatableText TTwirlStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 2);
-  return index == 0 ? QCoreApplication::translate("TTwirlStrokeStyle", "Twirl")
-                    : QCoreApplication::translate("TTwirlStrokeStyle", "Shade");
+  return index == 0 ? TTranslatableText(
+                          "TTwirlStrokeStyle",
+                          QT_TRANSLATE_NOOP("TTwirlStrokeStyle", "Twirl"))
+                    : TTranslatableText(
+                          "TTwirlStrokeStyle",
+                          QT_TRANSLATE_NOOP("TTwirlStrokeStyle", "Shade"));
 }
 
 //-----------------------------------------------------------------------------
@@ -3180,10 +3234,12 @@ TColorStyle::ParamType TSawToothStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TSawToothStrokeStyle::getParamNames(int index) const {
+TTranslatableText TSawToothStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 1);
 
-  return QCoreApplication::translate("TSawToothStrokeStyle", "Distance");
+  return TTranslatableText(
+      "TSawToothStrokeStyle",
+      QT_TRANSLATE_NOOP("TSawToothStrokeStyle", "Distance"));
 }
 
 //-----------------------------------------------------------------------------
@@ -3251,21 +3307,29 @@ TColorStyle::ParamType TMultiLineStrokeStyle2::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TMultiLineStrokeStyle2::getParamNames(int index) const {
+TTranslatableText TMultiLineStrokeStyle2::getParamNameText(int index) const {
   assert(0 <= index && index < 4);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TMultiLineStrokeStyle2", "Density");
+    value = TTranslatableText(
+        "TMultiLineStrokeStyle2",
+        QT_TRANSLATE_NOOP("TMultiLineStrokeStyle2", "Density"));
     break;
   case 1:
-    value = QCoreApplication::translate("TMultiLineStrokeStyle2", "Size");
+    value =
+        TTranslatableText("TMultiLineStrokeStyle2",
+                          QT_TRANSLATE_NOOP("TMultiLineStrokeStyle2", "Size"));
     break;
   case 2:
-    value = QCoreApplication::translate("TMultiLineStrokeStyle2", "Thickness");
+    value = TTranslatableText(
+        "TMultiLineStrokeStyle2",
+        QT_TRANSLATE_NOOP("TMultiLineStrokeStyle2", "Thickness"));
     break;
   case 3:
-    value = QCoreApplication::translate("TMultiLineStrokeStyle2", "Noise");
+    value =
+        TTranslatableText("TMultiLineStrokeStyle2",
+                          QT_TRANSLATE_NOOP("TMultiLineStrokeStyle2", "Noise"));
     break;
   }
   return value;
@@ -3499,24 +3563,34 @@ TColorStyle::ParamType TZigzagStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TZigzagStrokeStyle::getParamNames(int index) const {
+TTranslatableText TZigzagStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 5);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TZigzagStrokeStyle", "Min Distance");
+    value = TTranslatableText(
+        "TZigzagStrokeStyle",
+        QT_TRANSLATE_NOOP("TZigzagStrokeStyle", "Min Distance"));
     break;
   case 1:
-    value = QCoreApplication::translate("TZigzagStrokeStyle", "Max Distance");
+    value = TTranslatableText(
+        "TZigzagStrokeStyle",
+        QT_TRANSLATE_NOOP("TZigzagStrokeStyle", "Max Distance"));
     break;
   case 2:
-    value = QCoreApplication::translate("TZigzagStrokeStyle", "Min Angle");
+    value =
+        TTranslatableText("TZigzagStrokeStyle",
+                          QT_TRANSLATE_NOOP("TZigzagStrokeStyle", "Min Angle"));
     break;
   case 3:
-    value = QCoreApplication::translate("TZigzagStrokeStyle", "Max Angle");
+    value =
+        TTranslatableText("TZigzagStrokeStyle",
+                          QT_TRANSLATE_NOOP("TZigzagStrokeStyle", "Max Angle"));
     break;
   case 4:
-    value = QCoreApplication::translate("TZigzagStrokeStyle", "Thickness");
+    value =
+        TTranslatableText("TZigzagStrokeStyle",
+                          QT_TRANSLATE_NOOP("TZigzagStrokeStyle", "Thickness"));
     break;
   }
   return value;
@@ -3747,12 +3821,15 @@ TColorStyle::ParamType TSinStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TSinStrokeStyle::getParamNames(int index) const {
+TTranslatableText TSinStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 2);
-  return index == 0
-             ? QCoreApplication::translate("TSinStrokeStyle", "Frequency")
-             : QCoreApplication::translate("TZigzTSinStrokeStyleagStrokeStyle",
-                                           "Thickness");
+  return index == 0 ? TTranslatableText(
+                          "TSinStrokeStyle",
+                          QT_TRANSLATE_NOOP("TSinStrokeStyle", "Frequency"))
+                    : TTranslatableText(
+                          "TZigzTSinStrokeStyleagStrokeStyle",
+                          QT_TRANSLATE_NOOP("TZigzTSinStrokeStyleagStrokeStyle",
+                                            "Thickness"));
 }
 
 //-----------------------------------------------------------------------------
@@ -3888,12 +3965,15 @@ TColorStyle::ParamType TFriezeStrokeStyle2::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TFriezeStrokeStyle2::getParamNames(int index) const {
+TTranslatableText TFriezeStrokeStyle2::getParamNameText(int index) const {
   assert(0 <= index && index < 2);
   if (index == 0)
-    return QCoreApplication::translate("TFriezeStrokeStyle2", "Twirl");
+    return TTranslatableText("TFriezeStrokeStyle2",
+                             QT_TRANSLATE_NOOP("TFriezeStrokeStyle2", "Twirl"));
   else
-    return QCoreApplication::translate("TFriezeStrokeStyle2", "Thickness");
+    return TTranslatableText(
+        "TFriezeStrokeStyle2",
+        QT_TRANSLATE_NOOP("TFriezeStrokeStyle2", "Thickness"));
 }
 
 //-----------------------------------------------------------------------------
@@ -4138,10 +4218,12 @@ TColorStyle::ParamType TDualColorStrokeStyle2::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TDualColorStrokeStyle2::getParamNames(int index) const {
+TTranslatableText TDualColorStrokeStyle2::getParamNameText(int index) const {
   assert(0 <= index && index < 1);
 
-  return QCoreApplication::translate("TDualColorStrokeStyle2", "Distance");
+  return TTranslatableText(
+      "TDualColorStrokeStyle2",
+      QT_TRANSLATE_NOOP("TDualColorStrokeStyle2", "Distance"));
 }
 
 //-----------------------------------------------------------------------------
@@ -4266,11 +4348,13 @@ TColorStyle::ParamType TLongBlendStrokeStyle2::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TLongBlendStrokeStyle2::getParamNames(int index) const {
+TTranslatableText TLongBlendStrokeStyle2::getParamNameText(int index) const {
   assert(0 <= index && index < 1);
 
-  return QCoreApplication::translate("TLongBlendStrokeStyle2",
-                                     "Distance");  // W_Watercolor_Distance
+  return TTranslatableText(
+      "TLongBlendStrokeStyle2",
+      QT_TRANSLATE_NOOP("TLongBlendStrokeStyle2",
+                        "Distance"));  // W_Watercolor_Distance
 }
 
 //-----------------------------------------------------------------------------
@@ -4341,30 +4425,39 @@ TColorStyle::ParamType OutlineViewerStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString OutlineViewerStyle::getParamNames(int index) const {
+TTranslatableText OutlineViewerStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 8);
 
   switch (index) {
   case 0:
-    return QCoreApplication::translate("OutlineViewerStyle", "Control Point");
+    return TTranslatableText(
+        "OutlineViewerStyle",
+        QT_TRANSLATE_NOOP("OutlineViewerStyle", "Control Point"));
   case 1:
-    return QCoreApplication::translate("OutlineViewerStyle", "Center Line");
+    return TTranslatableText(
+        "OutlineViewerStyle",
+        QT_TRANSLATE_NOOP("OutlineViewerStyle", "Center Line"));
   case 2:
-    return QCoreApplication::translate("OutlineViewerStyle", "Outline Mode");
+    return TTranslatableText(
+        "OutlineViewerStyle",
+        QT_TRANSLATE_NOOP("OutlineViewerStyle", "Outline Mode"));
   case 3:
-    return QCoreApplication::translate("OutlineViewerStyle", "Distance");
+    return TTranslatableText(
+        "OutlineViewerStyle",
+        QT_TRANSLATE_NOOP("OutlineViewerStyle", "Distance"));
   case 4:
-    return "Bool";
+    return TTranslatableText::untranslated("Bool");
   case 5:
-    return "Int";
+    return TTranslatableText::untranslated("Int");
   case 6:
-    return "Enum";
+    return TTranslatableText::untranslated("Enum");
   case 7:
-    return "Path";
+    return TTranslatableText::untranslated("Path");
   }
 
   assert(0);
-  return QCoreApplication::translate("OutlineViewerStyle", "distance");
+  return TTranslatableText("OutlineViewerStyle",
+                           QT_TRANSLATE_NOOP("OutlineViewerStyle", "distance"));
 }
 
 //-----------------------------------------------------------------------------
@@ -4408,12 +4501,12 @@ void OutlineViewerStyle::getParamRange(int index, int &min, int &max) const {
 
 //-----------------------------------------------------------------------------
 
-void OutlineViewerStyle::getParamRange(int index,
-                                       QStringList &enumItems) const {
-  enumItems << "Prova 1"
-            << "Prova 2"
-            << "Prova 3"
-            << "Prova 4";
+void OutlineViewerStyle::getParamRangeText(
+    int index, std::vector<TTranslatableText>& enumItems) const {
+  enumItems.push_back(TTranslatableText::untranslated("Prova 1"));
+  enumItems.push_back(TTranslatableText::untranslated("Prova 2"));
+  enumItems.push_back(TTranslatableText::untranslated("Prova 3"));
+  enumItems.push_back(TTranslatableText::untranslated("Prova 4"));
 }
 
 //-----------------------------------------------------------------------------
@@ -4852,14 +4945,16 @@ TColorStyle::ParamType TMatrioskaStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TMatrioskaStrokeStyle::getParamNames(int index) const {
+TTranslatableText TMatrioskaStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 1);
 
   //  if(index)
-  //    return "alter/gradual";
+  //    return TTranslatableText::untranslated("alter/gradual");
   //  else
 
-  return QCoreApplication::translate("TMatrioskaStrokeStyle", "Stripes");
+  return TTranslatableText(
+      "TMatrioskaStrokeStyle",
+      QT_TRANSLATE_NOOP("TMatrioskaStrokeStyle", "Stripes"));
 }
 
 //-----------------------------------------------------------------------------

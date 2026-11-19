@@ -87,14 +87,16 @@ void TCleanupStyle::setColorParamValue(int index, const TPixel32 &color) {
 
 //-------------------------------------------------------------------
 
-QString TCleanupStyle::getParamNames(int index) const {
+TTranslatableText TCleanupStyle::getParamNameText(int index) const {
   switch (index) {
   case 0:
-    return QObject::tr("Brightness");
+    return TTranslatableText("QObject",
+                             QT_TRANSLATE_NOOP("QObject", "Brightness"));
   case 1:
-    return QObject::tr("Contrast");
+    return TTranslatableText("QObject",
+                             QT_TRANSLATE_NOOP("QObject", "Contrast"));
   default:
-    return QString("");
+    return TTranslatableText();
   }
 }
 
@@ -216,7 +218,9 @@ TColorStyle *TColorCleanupStyle::clone() const {
 
 //-------------------------------------------------------------------
 
-QString TColorCleanupStyle::getDescription() const { return "CleanupColor"; }
+TTranslatableText TColorCleanupStyle::getDescriptionText() const {
+  return TTranslatableText::untranslated("CleanupColor");
+}
 
 //-------------------------------------------------------------------
 
@@ -224,10 +228,12 @@ int TColorCleanupStyle::getTagId() const { return 2001; }
 
 //-------------------------------------------------------------------
 
-QString TColorCleanupStyle::getParamNames(int index) const {
-  if (index == 2) QObject::tr("HRange");
-  if (index == 3) QObject::tr("Line Width");
-  return TCleanupStyle::getParamNames(index);
+TTranslatableText TColorCleanupStyle::getParamNameText(int index) const {
+  if (index == 2)  // the result was always thrown away
+    (void)QT_TRANSLATE_NOOP("QObject", "HRange");
+  if (index == 3)  // the result was always thrown away
+    (void)QT_TRANSLATE_NOOP("QObject", "Line Width");
+  return TCleanupStyle::getParamNameText(index);
 }
 
 //-------------------------------------------------------------------
@@ -298,7 +304,9 @@ void TBlackCleanupStyle::saveData(TOutputStreamInterface &os) const {
 
 //-------------------------------------------------------------------
 
-QString TBlackCleanupStyle::getDescription() const { return "CleanupBlack"; }
+TTranslatableText TBlackCleanupStyle::getDescriptionText() const {
+  return TTranslatableText::untranslated("CleanupBlack");
+}
 
 //-------------------------------------------------------------------
 
@@ -306,14 +314,16 @@ int TBlackCleanupStyle::getTagId() const { return 2002; }
 
 //-------------------------------------------------------------------
 
-QString TBlackCleanupStyle::getParamNames(int index) const {
+TTranslatableText TBlackCleanupStyle::getParamNameText(int index) const {
   switch (index) {
   case 2:
-    return QObject::tr("ColorThres");
+    return TTranslatableText("QObject",
+                             QT_TRANSLATE_NOOP("QObject", "ColorThres"));
   case 3:
-    return QObject::tr("WhiteThres");
+    return TTranslatableText("QObject",
+                             QT_TRANSLATE_NOOP("QObject", "WhiteThres"));
   default:
-    return TCleanupStyle::getParamNames(index);
+    return TCleanupStyle::getParamNameText(index);
   }
 }
 

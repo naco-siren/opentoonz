@@ -1,6 +1,8 @@
 
 
 #include "tmachine.h"
+
+#include <cstring>
 #include "tpixelgr.h"
 #include "quickputP.h"
 

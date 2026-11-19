@@ -361,7 +361,7 @@ namespace {
 enum DrawOrder { OverAll = 0, UnderAll, PaletteOrder };
 
 void getAboveStyleIdSet(int styleId, TPaletteP palette,
-                        QSet<int> &aboveStyles) {
+                        std::set<int>& aboveStyles) {
   if (!palette) return;
   for (int p = 0; p < palette->getPageCount(); p++) {
     TPalette::Page *page = palette->getPage(p);
@@ -496,7 +496,7 @@ static void addStrokeWithAutoOptions(TTool::Application *application,
     pieces.push_back(new TStroke(*stroke));
 
   std::vector<int> ids;
-  QSet<int> aboveStyles;
+  std::set<int> aboveStyles;
   if (drawOrder == PaletteOrder)
     getAboveStyleIdSet(stroke->getStyle(), vi->getPalette(), aboveStyles);
   for (TStroke *piece : pieces) {
@@ -591,7 +591,7 @@ static void addStroke(TTool::Application *application, const TVectorImageP &vi,
         vi->addStroke(str, true, false);
         break;
       case PaletteOrder:
-        QSet<int> aboveStyles;
+        std::set<int> aboveStyles;
         getAboveStyleIdSet(str->getStyle(), vi->getPalette(), aboveStyles);
         vi->addStrokeBelow(str, aboveStyles);
         break;
@@ -616,7 +616,7 @@ static void addStroke(TTool::Application *application, const TVectorImageP &vi,
       vi->addStroke(str, true, true);
       break;
     case PaletteOrder:
-      QSet<int> aboveStyles;
+      std::set<int> aboveStyles;
       getAboveStyleIdSet(str->getStyle(), vi->getPalette(), aboveStyles);
       vi->addStrokeBelow(str, aboveStyles);
       break;

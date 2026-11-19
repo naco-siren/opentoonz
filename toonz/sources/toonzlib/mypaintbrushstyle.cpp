@@ -187,8 +187,8 @@ TColorStyle &TMyPaintBrushStyle::copy(const TColorStyle &other) {
 
 //-----------------------------------------------------------------------------
 
-QString TMyPaintBrushStyle::getDescription() const {
-  return "MyPaintBrushStyle";
+TTranslatableText TMyPaintBrushStyle::getDescriptionText() const {
+  return TTranslatableText::untranslated("MyPaintBrushStyle");
 }
 
 //-----------------------------------------------------------------------------
@@ -563,9 +563,10 @@ int TMyPaintBrushStyle::getParamCount() const {
 
 //-----------------------------------------------------------------------------
 
-QString TMyPaintBrushStyle::getParamNames(int index) const {
-  return QString::fromUtf8(
-      mypaint::Setting::byId((MyPaintBrushSetting)index).name.c_str());
+TTranslatableText TMyPaintBrushStyle::getParamNameText(int index) const {
+  // a name from libmypaint, not translated
+  return TTranslatableText::untranslated(std::string(
+      mypaint::Setting::byId((MyPaintBrushSetting)index).name.c_str()));
 }
 
 //-----------------------------------------------------------------------------

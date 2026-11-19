@@ -128,7 +128,9 @@ TColorStyle *TTextureStyle::clone(std::string brushIdName) const {
 
 //-----------------------------------------------------------------------------
 
-QString TTextureStyle::getDescription() const { return "TextureStyle"; }
+TTranslatableText TTextureStyle::getDescriptionText() const {
+  return TTranslatableText::untranslated("TextureStyle");
+}
 
 //-----------------------------------------------------------------------------
 
@@ -539,29 +541,29 @@ int TTextureStyle::getParamCount() const { return 8; }
 
 //-------------------------------------------------------------------
 
-QString TTextureStyle::getParamNames(int index) const {
+TTranslatableText TTextureStyle::getParamNameText(int index) const {
   switch (index) {
   case 0:
-    return "Use As Pattern";
+    return TTranslatableText::untranslated("Use As Pattern");
   case 1:
-    return "Position";
+    return TTranslatableText::untranslated("Position");
   case 2:
-    return "Scale";
+    return TTranslatableText::untranslated("Scale");
   case 3:
-    return "Rotation(degrees)";
+    return TTranslatableText::untranslated("Rotation(degrees)");
   case 4:
-    return "X displ";
+    return TTranslatableText::untranslated("X displ");
   case 5:
-    return "Y displ";
+    return TTranslatableText::untranslated("Y displ");
   case 6:
-    return "Contrast";
+    return TTranslatableText::untranslated("Contrast");
   case 7:
-    return "Load From File";
+    return TTranslatableText::untranslated("Load From File");
   default:
     assert(false);
   }
 
-  return QString("");
+  return TTranslatableText();
 }
 
 //-------------------------------------------------------------------
@@ -609,19 +611,21 @@ TColorStyle::ParamType TTextureStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-void TTextureStyle::getParamRange(int index, QStringList &enumItems) const {
+void TTextureStyle::getParamRangeText(
+    int index, std::vector<TTranslatableText>& enumItems) const {
   assert(index == 1 || index == 7);
-  if (index == 1)
-    enumItems << "FIXED"
-              << "AUTOMATIC"
-              << "RANDOM";
-  else if (index == 7)
-    enumItems << "bmp"
-              << "jpg"
-              << "png"
-              << "tif"
-              << "tiff"
-              << "gif";
+  if (index == 1) {
+    enumItems.push_back(TTranslatableText::untranslated("FIXED"));
+    enumItems.push_back(TTranslatableText::untranslated("AUTOMATIC"));
+    enumItems.push_back(TTranslatableText::untranslated("RANDOM"));
+  } else if (index == 7) {
+    enumItems.push_back(TTranslatableText::untranslated("bmp"));
+    enumItems.push_back(TTranslatableText::untranslated("jpg"));
+    enumItems.push_back(TTranslatableText::untranslated("png"));
+    enumItems.push_back(TTranslatableText::untranslated("tif"));
+    enumItems.push_back(TTranslatableText::untranslated("tiff"));
+    enumItems.push_back(TTranslatableText::untranslated("gif"));
+  }
 }
 
 //-------------------------------------------------------------------------

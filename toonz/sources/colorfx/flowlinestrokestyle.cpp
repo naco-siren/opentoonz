@@ -123,20 +123,27 @@ TColorStyle::ParamType FlowLineStrokeStyle::getParamType(int index) const {
   return TColorStyle::DOUBLE;
 }
 
-QString FlowLineStrokeStyle::getParamNames(int index) const {
+TTranslatableText FlowLineStrokeStyle::getParamNameText(int index) const {
   assert(0 <= index && index < ParamCount);
   switch (index) {
   case Density:
-    return QCoreApplication::translate("FlowLineStrokeStyle", "Density");
+    return TTranslatableText(
+        "FlowLineStrokeStyle",
+        QT_TRANSLATE_NOOP("FlowLineStrokeStyle", "Density"));
   case Extension:
-    return QCoreApplication::translate("FlowLineStrokeStyle", "Extension");
+    return TTranslatableText(
+        "FlowLineStrokeStyle",
+        QT_TRANSLATE_NOOP("FlowLineStrokeStyle", "Extension"));
   case WidthScale:
-    return QCoreApplication::translate("FlowLineStrokeStyle", "Width Scale");
+    return TTranslatableText(
+        "FlowLineStrokeStyle",
+        QT_TRANSLATE_NOOP("FlowLineStrokeStyle", "Width Scale"));
   case StraightenEnds:
-    return QCoreApplication::translate("FlowLineStrokeStyle",
-                                       "Straighten Ends");
+    return TTranslatableText(
+        "FlowLineStrokeStyle",
+        QT_TRANSLATE_NOOP("FlowLineStrokeStyle", "Straighten Ends"));
   }
-  return QString();
+  return TTranslatableText();
 }
 
 void FlowLineStrokeStyle::getParamRange(int index, double &min,

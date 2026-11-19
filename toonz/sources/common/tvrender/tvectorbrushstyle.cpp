@@ -283,7 +283,9 @@ TColorStyle *TVectorBrushStyle::clone(std::string brushIdName) const {
 
 //-----------------------------------------------------------------
 
-QString TVectorBrushStyle::getDescription() const { return "VectorBrushStyle"; }
+TTranslatableText TVectorBrushStyle::getDescriptionText() const {
+  return TTranslatableText::untranslated("VectorBrushStyle");
+}
 
 //-----------------------------------------------------------------
 

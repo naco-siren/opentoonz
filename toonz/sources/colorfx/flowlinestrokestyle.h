@@ -54,8 +54,10 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("FlowLineStrokeStyle", "Flow Line");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "FlowLineStrokeStyle",
+        QT_TRANSLATE_NOOP("FlowLineStrokeStyle", "Flow Line"));
   }
   std::string getBrushIdName() const override { return "FlowLineStrokeStyle"; }
 
@@ -66,7 +68,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
 
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;

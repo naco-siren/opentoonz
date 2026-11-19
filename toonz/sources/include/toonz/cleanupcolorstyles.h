@@ -44,7 +44,7 @@ public:
   void setColorParamValue(int index, const TPixel32 &color) override;
 
   int getParamCount() const override { return 2; }
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -82,11 +82,11 @@ public:
   TColorCleanupStyle(const TPixel32 &color = TPixel32::Black);
 
   TColorStyle *clone() const override;
-  QString getDescription() const override;
+  TTranslatableText getDescriptionText() const override;
   int getTagId() const override;
 
   int getParamCount() const override { return 4; }
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -115,11 +115,11 @@ public:
   TBlackCleanupStyle(const TPixel32 &color = TPixel32::Black);
 
   TColorStyle *clone() const override;
-  QString getDescription() const override;
+  TTranslatableText getDescriptionText() const override;
   int getTagId() const override;
 
   int getParamCount() const override { return 4; }
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;

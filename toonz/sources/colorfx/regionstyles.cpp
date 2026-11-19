@@ -157,12 +157,15 @@ TColorStyle::ParamType MovingSolidColor::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString MovingSolidColor::getParamNames(int index) const {
+TTranslatableText MovingSolidColor::getParamNameText(int index) const {
   assert(0 <= index && index < 2);
 
-  return index == 0
-             ? QCoreApplication::translate("MovingSolidColor", "Horiz Offset")
-             : QCoreApplication::translate("MovingSolidColor", "Vert Offset");
+  return index == 0 ? TTranslatableText(
+                          "MovingSolidColor",
+                          QT_TRANSLATE_NOOP("MovingSolidColor", "Horiz Offset"))
+                    : TTranslatableText(
+                          "MovingSolidColor",
+                          QT_TRANSLATE_NOOP("MovingSolidColor", "Vert Offset"));
 }
 
 //-----------------------------------------------------------------------------
@@ -275,23 +278,26 @@ TColorStyle::ParamType ShadowStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString ShadowStyle::getParamNames(int index) const {
+TTranslatableText ShadowStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 3);
 
   switch (index) {
   case 0:
-    return QCoreApplication::translate("ShadowStyle", "Angle");
+    return TTranslatableText("ShadowStyle",
+                             QT_TRANSLATE_NOOP("ShadowStyle", "Angle"));
   case 1:
-    return QCoreApplication::translate("ShadowStyle", "Density");
+    return TTranslatableText("ShadowStyle",
+                             QT_TRANSLATE_NOOP("ShadowStyle", "Density"));
   case 2:
-    return QCoreApplication::translate("ShadowStyle", "Length");
+    return TTranslatableText("ShadowStyle",
+                             QT_TRANSLATE_NOOP("ShadowStyle", "Length"));
 
   default:
-    return QString();
+    return TTranslatableText();
   }
 
   assert(0);
-  return QString();
+  return TTranslatableText();
 }
 
 //-----------------------------------------------------------------------------
@@ -558,11 +564,14 @@ TColorStyle::ParamType ShadowStyle2::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString ShadowStyle2::getParamNames(int index) const {
+TTranslatableText ShadowStyle2::getParamNameText(int index) const {
   assert(0 <= index && index < 2);
 
-  return index == 0 ? QCoreApplication::translate("ShadowStyle2", "Angle")
-                    : QCoreApplication::translate("ShadowStyle2", "Size");
+  return index == 0
+             ? TTranslatableText("ShadowStyle2",
+                                 QT_TRANSLATE_NOOP("ShadowStyle2", "Angle"))
+             : TTranslatableText("ShadowStyle2",
+                                 QT_TRANSLATE_NOOP("ShadowStyle2", "Size"));
 }
 
 //-----------------------------------------------------------------------------
@@ -851,10 +860,11 @@ TColorStyle::ParamType TRubberFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TRubberFillStyle::getParamNames(int index) const {
+TTranslatableText TRubberFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 1);
 
-  return QCoreApplication::translate("TRubberFillStyle", "Intensity");
+  return TTranslatableText("TRubberFillStyle",
+                           QT_TRANSLATE_NOOP("TRubberFillStyle", "Intensity"));
 }
 
 //-----------------------------------------------------------------------------
@@ -957,22 +967,30 @@ TColorStyle::ParamType TPointShadowFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TPointShadowFillStyle::getParamNames(int index) const {
+TTranslatableText TPointShadowFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 4);
 
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TPointShadowFillStyle", "Angle");
+    value =
+        TTranslatableText("TPointShadowFillStyle",
+                          QT_TRANSLATE_NOOP("TPointShadowFillStyle", "Angle"));
     break;
   case 1:
-    value = QCoreApplication::translate("TPointShadowFillStyle", "Density");
+    value = TTranslatableText(
+        "TPointShadowFillStyle",
+        QT_TRANSLATE_NOOP("TPointShadowFillStyle", "Density"));
     break;
   case 2:
-    value = QCoreApplication::translate("TPointShadowFillStyle", "Size");
+    value =
+        TTranslatableText("TPointShadowFillStyle",
+                          QT_TRANSLATE_NOOP("TPointShadowFillStyle", "Size"));
     break;
   case 3:
-    value = QCoreApplication::translate("TPointShadowFillStyle", "Point Size");
+    value = TTranslatableText(
+        "TPointShadowFillStyle",
+        QT_TRANSLATE_NOOP("TPointShadowFillStyle", "Point Size"));
     break;
   }
 
@@ -1286,12 +1304,15 @@ TColorStyle::ParamType TDottedFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TDottedFillStyle::getParamNames(int index) const {
+TTranslatableText TDottedFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 2);
 
-  return index == 0
-             ? QCoreApplication::translate("TDottedFillStyle", "Dot Size")
-             : QCoreApplication::translate("TDottedFillStyle", "Dot Distance");
+  return index == 0 ? TTranslatableText(
+                          "TDottedFillStyle",
+                          QT_TRANSLATE_NOOP("TDottedFillStyle", "Dot Size"))
+                    : TTranslatableText("TDottedFillStyle",
+                                        QT_TRANSLATE_NOOP("TDottedFillStyle",
+                                                          "Dot Distance"));
 }
 
 //-----------------------------------------------------------------------------
@@ -1469,25 +1490,35 @@ TColorStyle::ParamType TCheckedFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TCheckedFillStyle::getParamNames(int index) const {
+TTranslatableText TCheckedFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 5);
 
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TCheckedFillStyle", "Horiz Dist");
+    value =
+        TTranslatableText("TCheckedFillStyle",
+                          QT_TRANSLATE_NOOP("TCheckedFillStyle", "Horiz Dist"));
     break;
   case 1:
-    value = QCoreApplication::translate("TCheckedFillStyle", "Horiz Angle");
+    value = TTranslatableText(
+        "TCheckedFillStyle",
+        QT_TRANSLATE_NOOP("TCheckedFillStyle", "Horiz Angle"));
     break;
   case 2:
-    value = QCoreApplication::translate("TCheckedFillStyle", "Vert Dist");
+    value =
+        TTranslatableText("TCheckedFillStyle",
+                          QT_TRANSLATE_NOOP("TCheckedFillStyle", "Vert Dist"));
     break;
   case 3:
-    value = QCoreApplication::translate("TCheckedFillStyle", "Vert Angle");
+    value =
+        TTranslatableText("TCheckedFillStyle",
+                          QT_TRANSLATE_NOOP("TCheckedFillStyle", "Vert Angle"));
     break;
   case 4:
-    value = QCoreApplication::translate("TCheckedFillStyle", "Thickness");
+    value =
+        TTranslatableText("TCheckedFillStyle",
+                          QT_TRANSLATE_NOOP("TCheckedFillStyle", "Thickness"));
     break;
   }
 
@@ -1825,18 +1856,23 @@ TColorStyle::ParamType ArtisticSolidColor::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString ArtisticSolidColor::getParamNames(int index) const {
+TTranslatableText ArtisticSolidColor::getParamNameText(int index) const {
   assert(0 <= index && index < 3);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("ArtisticSolidColor", "Horiz Offset");
+    value = TTranslatableText(
+        "ArtisticSolidColor",
+        QT_TRANSLATE_NOOP("ArtisticSolidColor", "Horiz Offset"));
     break;
   case 1:
-    value = QCoreApplication::translate("ArtisticSolidColor", "Vert Offset");
+    value = TTranslatableText(
+        "ArtisticSolidColor",
+        QT_TRANSLATE_NOOP("ArtisticSolidColor", "Vert Offset"));
     break;
   case 2:
-    value = QCoreApplication::translate("ArtisticSolidColor", "Noise");
+    value = TTranslatableText("ArtisticSolidColor",
+                              QT_TRANSLATE_NOOP("ArtisticSolidColor", "Noise"));
     break;
   }
   return value;
@@ -1973,15 +2009,17 @@ TColorStyle::ParamType TChalkFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TChalkFillStyle::getParamNames(int index) const {
+TTranslatableText TChalkFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 2);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TChalkFillStyle", "Density");
+    value = TTranslatableText("TChalkFillStyle",
+                              QT_TRANSLATE_NOOP("TChalkFillStyle", "Density"));
     break;
   case 1:
-    value = QCoreApplication::translate("TChalkFillStyle", "Dot Size");
+    value = TTranslatableText("TChalkFillStyle",
+                              QT_TRANSLATE_NOOP("TChalkFillStyle", "Dot Size"));
     break;
   }
 
@@ -2170,19 +2208,22 @@ TColorStyle::ParamType TChessFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TChessFillStyle::getParamNames(int index) const {
+TTranslatableText TChessFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 3);
 
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TChessFillStyle", "Horiz Size");
+    value = TTranslatableText(
+        "TChessFillStyle", QT_TRANSLATE_NOOP("TChessFillStyle", "Horiz Size"));
     break;
   case 1:
-    value = QCoreApplication::translate("TChessFillStyle", "Vert Size");
+    value = TTranslatableText(
+        "TChessFillStyle", QT_TRANSLATE_NOOP("TChessFillStyle", "Vert Size"));
     break;
   case 2:
-    value = QCoreApplication::translate("TChessFillStyle", "Angle");
+    value = TTranslatableText("TChessFillStyle",
+                              QT_TRANSLATE_NOOP("TChessFillStyle", "Angle"));
     break;
   }
 
@@ -2401,19 +2442,22 @@ TColorStyle::ParamType TStripeFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TStripeFillStyle::getParamNames(int index) const {
+TTranslatableText TStripeFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 3);
 
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TStripeFillStyle", "Distance");
+    value = TTranslatableText(
+        "TStripeFillStyle", QT_TRANSLATE_NOOP("TStripeFillStyle", "Distance"));
     break;
   case 1:
-    value = QCoreApplication::translate("TStripeFillStyle", "Angle");
+    value = TTranslatableText("TStripeFillStyle",
+                              QT_TRANSLATE_NOOP("TStripeFillStyle", "Angle"));
     break;
   case 2:
-    value = QCoreApplication::translate("TStripeFillStyle", "Thickness");
+    value = TTranslatableText(
+        "TStripeFillStyle", QT_TRANSLATE_NOOP("TStripeFillStyle", "Thickness"));
     break;
   }
 
@@ -2731,22 +2775,29 @@ TColorStyle::ParamType TLinGradFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TLinGradFillStyle::getParamNames(int index) const {
+TTranslatableText TLinGradFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 4);
 
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TLinGradFillStyle", "Angle");
+    value = TTranslatableText("TLinGradFillStyle",
+                              QT_TRANSLATE_NOOP("TLinGradFillStyle", "Angle"));
     break;
   case 1:
-    value = QCoreApplication::translate("TLinGradFillStyle", "X Position");
+    value =
+        TTranslatableText("TLinGradFillStyle",
+                          QT_TRANSLATE_NOOP("TLinGradFillStyle", "X Position"));
     break;
   case 2:
-    value = QCoreApplication::translate("TLinGradFillStyle", "Y Position");
+    value =
+        TTranslatableText("TLinGradFillStyle",
+                          QT_TRANSLATE_NOOP("TLinGradFillStyle", "Y Position"));
     break;
   case 3:
-    value = QCoreApplication::translate("TLinGradFillStyle", "Smoothness");
+    value =
+        TTranslatableText("TLinGradFillStyle",
+                          QT_TRANSLATE_NOOP("TLinGradFillStyle", "Smoothness"));
     break;
   }
 
@@ -2991,22 +3042,29 @@ TColorStyle::ParamType TRadGradFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TRadGradFillStyle::getParamNames(int index) const {
+TTranslatableText TRadGradFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 4);
 
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TRadGradFillStyle", "X Position");
+    value =
+        TTranslatableText("TRadGradFillStyle",
+                          QT_TRANSLATE_NOOP("TRadGradFillStyle", "X Position"));
     break;
   case 1:
-    value = QCoreApplication::translate("TRadGradFillStyle", "Y Position");
+    value =
+        TTranslatableText("TRadGradFillStyle",
+                          QT_TRANSLATE_NOOP("TRadGradFillStyle", "Y Position"));
     break;
   case 2:
-    value = QCoreApplication::translate("TRadGradFillStyle", "Radius");
+    value = TTranslatableText("TRadGradFillStyle",
+                              QT_TRANSLATE_NOOP("TRadGradFillStyle", "Radius"));
     break;
   case 3:
-    value = QCoreApplication::translate("TRadGradFillStyle", "Smoothness");
+    value =
+        TTranslatableText("TRadGradFillStyle",
+                          QT_TRANSLATE_NOOP("TRadGradFillStyle", "Smoothness"));
     break;
   }
 
@@ -3236,22 +3294,30 @@ TColorStyle::ParamType TCircleStripeFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TCircleStripeFillStyle::getParamNames(int index) const {
+TTranslatableText TCircleStripeFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 4);
 
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TCircleStripeFillStyle", "X Position");
+    value = TTranslatableText(
+        "TCircleStripeFillStyle",
+        QT_TRANSLATE_NOOP("TCircleStripeFillStyle", "X Position"));
     break;
   case 1:
-    value = QCoreApplication::translate("TCircleStripeFillStyle", "Y Position");
+    value = TTranslatableText(
+        "TCircleStripeFillStyle",
+        QT_TRANSLATE_NOOP("TCircleStripeFillStyle", "Y Position"));
     break;
   case 2:
-    value = QCoreApplication::translate("TCircleStripeFillStyle", "Distance");
+    value = TTranslatableText(
+        "TCircleStripeFillStyle",
+        QT_TRANSLATE_NOOP("TCircleStripeFillStyle", "Distance"));
     break;
   case 3:
-    value = QCoreApplication::translate("TCircleStripeFillStyle", "Thickness");
+    value = TTranslatableText(
+        "TCircleStripeFillStyle",
+        QT_TRANSLATE_NOOP("TCircleStripeFillStyle", "Thickness"));
     break;
   }
 
@@ -3519,21 +3585,26 @@ TColorStyle::ParamType TMosaicFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TMosaicFillStyle::getParamNames(int index) const {
+TTranslatableText TMosaicFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 4);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TMosaicFillStyle", "Size");
+    value = TTranslatableText("TMosaicFillStyle",
+                              QT_TRANSLATE_NOOP("TMosaicFillStyle", "Size"));
     break;
   case 1:
-    value = QCoreApplication::translate("TMosaicFillStyle", "Distortion");
+    value =
+        TTranslatableText("TMosaicFillStyle",
+                          QT_TRANSLATE_NOOP("TMosaicFillStyle", "Distortion"));
     break;
   case 2:
-    value = QCoreApplication::translate("TMosaicFillStyle", "Min Thick");
+    value = TTranslatableText(
+        "TMosaicFillStyle", QT_TRANSLATE_NOOP("TMosaicFillStyle", "Min Thick"));
     break;
   case 3:
-    value = QCoreApplication::translate("TMosaicFillStyle", "Max Thick");
+    value = TTranslatableText(
+        "TMosaicFillStyle", QT_TRANSLATE_NOOP("TMosaicFillStyle", "Max Thick"));
     break;
   }
 
@@ -3788,18 +3859,21 @@ TColorStyle::ParamType TPatchFillStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TPatchFillStyle::getParamNames(int index) const {
+TTranslatableText TPatchFillStyle::getParamNameText(int index) const {
   assert(0 <= index && index < 3);
-  QString value;
+  TTranslatableText value;
   switch (index) {
   case 0:
-    value = QCoreApplication::translate("TPatchFillStyle", "Size");
+    value = TTranslatableText("TPatchFillStyle",
+                              QT_TRANSLATE_NOOP("TPatchFillStyle", "Size"));
     break;
   case 1:
-    value = QCoreApplication::translate("TPatchFillStyle", "Distortion");
+    value = TTranslatableText(
+        "TPatchFillStyle", QT_TRANSLATE_NOOP("TPatchFillStyle", "Distortion"));
     break;
   case 2:
-    value = QCoreApplication::translate("TPatchFillStyle", "Thickness");
+    value = TTranslatableText(
+        "TPatchFillStyle", QT_TRANSLATE_NOOP("TPatchFillStyle", "Thickness"));
     break;
   }
 

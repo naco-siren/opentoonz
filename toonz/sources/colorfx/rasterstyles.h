@@ -54,8 +54,10 @@ public:
     m_color = color;
   }
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TAirbrushRasterStyle", "Airbrush");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TAirbrushRasterStyle",
+        QT_TRANSLATE_NOOP("TAirbrushRasterStyle", "Airbrush"));
   }
   std::string getBrushIdName() const override { return "AirbrushRasterStyle"; }
 
@@ -65,9 +67,11 @@ public:
     return TColorStyle::DOUBLE;
   }
 
-  QString getParamNames(int index) const override {
+  TTranslatableText getParamNameText(int index) const override {
     assert(index == 0);
-    return QCoreApplication::translate("TAirbrushRasterStyle", "Blur value");
+    return TTranslatableText(
+        "TAirbrushRasterStyle",
+        QT_TRANSLATE_NOOP("TAirbrushRasterStyle", "Blur value"));
   }
   void getParamRange(int index, double &min, double &max) const override {
     assert(index == 0);
@@ -119,8 +123,9 @@ public:
 
   int getTagId() const override { return 1160; }
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TBlendRasterStyle", "Blend");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TBlendRasterStyle",
+                             QT_TRANSLATE_NOOP("TBlendRasterStyle", "Blend"));
   }
   std::string getBrushIdName() const override { return "BlendRasterStyle"; }
 
@@ -149,8 +154,10 @@ public:
   bool isStrokeStyle() const override { return false; }
   bool isRasterStyle() const override { return true; }
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TNoColorRasterStyle", "Markup");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TNoColorRasterStyle",
+        QT_TRANSLATE_NOOP("TNoColorRasterStyle", "Markup"));
   }
   std::string getBrushIdName() const override { return "NoColorRasterStyle"; }
 

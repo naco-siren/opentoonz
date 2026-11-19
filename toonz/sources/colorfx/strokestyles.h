@@ -102,8 +102,9 @@ public:
   void drawStrokeOnCanvas(TCanvas &canvas, const TColorFunction *cf, Points &positions,
                   const TStroke *stroke, bool antialias) const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TFurStrokeStyle", "Herringbone");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TFurStrokeStyle", QT_TRANSLATE_NOOP("TFurStrokeStyle", "Herringbone"));
   }
   std::string getBrushIdName() const override { return "FurStrokeStyle"; }
 
@@ -114,7 +115,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -145,8 +146,9 @@ public:
 
   TColorStyle *clone() const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TChainStrokeStyle", "Chain");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TChainStrokeStyle",
+                             QT_TRANSLATE_NOOP("TChainStrokeStyle", "Chain"));
   }
   std::string getBrushIdName() const override { return "ChainStrokeStyle"; }
 
@@ -182,8 +184,10 @@ public:
 
   TColorStyle *clone() const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TSprayStrokeStyle", "Circlets");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TSprayStrokeStyle",
+        QT_TRANSLATE_NOOP("TSprayStrokeStyle", "Circlets"));
   }
   std::string getBrushIdName() const override { return "SprayStrokeStyle"; }
 
@@ -194,7 +198,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -229,8 +233,10 @@ public:
 
   TColorStyle *clone() const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TGraphicPenStrokeStyle", "Dashes");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TGraphicPenStrokeStyle",
+        QT_TRANSLATE_NOOP("TGraphicPenStrokeStyle", "Dashes"));
   }
   std::string getBrushIdName() const override {
     return "GraphicPenStrokeStyle";
@@ -243,7 +249,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -290,8 +296,10 @@ public:
 
   TColorStyle *clone() const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TDottedLineStrokeStyle", "Vanishing");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TDottedLineStrokeStyle",
+        QT_TRANSLATE_NOOP("TDottedLineStrokeStyle", "Vanishing"));
   }
   std::string getBrushIdName() const override {
     return "DottedLineStrokeStyle";
@@ -304,7 +312,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -343,8 +351,9 @@ public:
 
   TColorStyle *clone() const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TRopeStrokeStyle", "Rope");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TRopeStrokeStyle",
+                             QT_TRANSLATE_NOOP("TRopeStrokeStyle", "Rope"));
   }
   std::string getBrushIdName() const override { return "RopeStrokeStyle"; }
 
@@ -355,7 +364,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -392,8 +401,10 @@ public:
 
   TColorStyle *clone() const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TCrystallizeStrokeStyle", "Tulle");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TCrystallizeStrokeStyle",
+        QT_TRANSLATE_NOOP("TCrystallizeStrokeStyle", "Tulle"));
   }
   std::string getBrushIdName() const override {
     return "CrystallizeStrokeStyle";
@@ -406,7 +417,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -442,8 +453,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TBraidStrokeStyle", "Plait");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TBraidStrokeStyle",
+                             QT_TRANSLATE_NOOP("TBraidStrokeStyle", "Plait"));
   }
   std::string getBrushIdName() const override { return "BraidStrokeStyle"; }
 
@@ -458,7 +470,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -491,8 +503,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TSketchStrokeStyle", "Fuzz");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TSketchStrokeStyle",
+                             QT_TRANSLATE_NOOP("TSketchStrokeStyle", "Fuzz"));
   }
   std::string getBrushIdName() const override { return "SketchStrokeStyle"; }
 
@@ -503,7 +516,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -538,8 +551,10 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TBubbleStrokeStyle", "Bubbles");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TBubbleStrokeStyle",
+        QT_TRANSLATE_NOOP("TBubbleStrokeStyle", "Bubbles"));
   }
   std::string getBrushIdName() const override { return "BubbleStrokeStyle"; }
 
@@ -603,8 +618,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TTissueStrokeStyle", "Gauze");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TTissueStrokeStyle",
+                             QT_TRANSLATE_NOOP("TTissueStrokeStyle", "Gauze"));
   }
   std::string getBrushIdName() const override { return "TissueStrokeStyle"; }
 
@@ -615,7 +631,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -655,8 +671,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TBiColorStrokeStyle", "Shade");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TBiColorStrokeStyle",
+                             QT_TRANSLATE_NOOP("TBiColorStrokeStyle", "Shade"));
   }
   std::string getBrushIdName() const override { return "BiColorStrokeStyle"; }
 
@@ -712,8 +729,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TNormal2StrokeStyle", "Bump");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TNormal2StrokeStyle",
+                             QT_TRANSLATE_NOOP("TNormal2StrokeStyle", "Bump"));
   }
   std::string getBrushIdName() const override { return "Normal2StrokeStyle"; }
 
@@ -724,7 +742,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -756,8 +774,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TChalkStrokeStyle2", "Chalk");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TChalkStrokeStyle2",
+                             QT_TRANSLATE_NOOP("TChalkStrokeStyle2", "Chalk"));
   }
   std::string getBrushIdName() const override { return "ChalkStrokeStyle2"; }
 
@@ -768,7 +787,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -820,8 +839,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TBlendStrokeStyle2", "Fade");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TBlendStrokeStyle2",
+                             QT_TRANSLATE_NOOP("TBlendStrokeStyle2", "Fade"));
   }
   std::string getBrushIdName() const override { return "BlendStrokeStyle2"; }
 
@@ -832,7 +852,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -876,8 +896,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TTwirlStrokeStyle", "Ribbon");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TTwirlStrokeStyle",
+                             QT_TRANSLATE_NOOP("TTwirlStrokeStyle", "Ribbon"));
   }
   std::string getBrushIdName() const override { return "TwirlStrokeStyle"; }
 
@@ -888,7 +909,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -933,8 +954,10 @@ public:
   void computeOutline(const TStroke *stroke, TStrokeOutline &outline,
                       TOutlineUtil::OutlineParameter param) const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TSawToothStrokeStyle", "Jagged");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TSawToothStrokeStyle",
+        QT_TRANSLATE_NOOP("TSawToothStrokeStyle", "Jagged"));
   }
   std::string getBrushIdName() const override { return "SawToothStrokeStyle"; }
 
@@ -945,7 +968,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -984,8 +1007,10 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TMultiLineStrokeStyle2", "Gouache");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TMultiLineStrokeStyle2",
+        QT_TRANSLATE_NOOP("TMultiLineStrokeStyle2", "Gouache"));
   }
   std::string getBrushIdName() const override {
     return "MultiLineStrokeStyle2";
@@ -1009,7 +1034,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -1062,8 +1087,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TZigzagStrokeStyle", "Zigzag");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TZigzagStrokeStyle",
+                             QT_TRANSLATE_NOOP("TZigzagStrokeStyle", "Zigzag"));
   }
   std::string getBrushIdName() const override { return "ZigzagStrokeStyle"; }
 
@@ -1074,7 +1100,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -1116,8 +1142,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TSinStrokeStyle", "Wave");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TSinStrokeStyle",
+                             QT_TRANSLATE_NOOP("TSinStrokeStyle", "Wave"));
   }
   std::string getBrushIdName() const override { return "SinStrokeStyle"; }
 
@@ -1128,7 +1155,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -1156,8 +1183,9 @@ public:
 
   void invalidate() {}
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TFriezeStrokeStyle2", "Curl");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText("TFriezeStrokeStyle2",
+                             QT_TRANSLATE_NOOP("TFriezeStrokeStyle2", "Curl"));
   }
   std::string getBrushIdName() const override { return "FriezeStrokeStyle2"; }
 
@@ -1168,7 +1196,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -1227,8 +1255,10 @@ public:
   void computeOutline(const TStroke *stroke, TStrokeOutline &outline,
                       TOutlineUtil::OutlineParameter param) const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TDualColorStrokeStyle2", "Striped");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TDualColorStrokeStyle2",
+        QT_TRANSLATE_NOOP("TDualColorStrokeStyle2", "Striped"));
   }
   std::string getBrushIdName() const override {
     return "DualColorStrokeStyle2";
@@ -1252,7 +1282,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -1296,8 +1326,10 @@ public:
   void computeOutline(const TStroke *stroke, TStrokeOutline &outline,
                       TOutlineUtil::OutlineParameter param) const override;
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TLongBlendStrokeStyle2", "Watercolor");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TLongBlendStrokeStyle2",
+        QT_TRANSLATE_NOOP("TLongBlendStrokeStyle2", "Watercolor"));
   }
   std::string getBrushIdName() const override {
     return "LongBlendStrokeStyle2";
@@ -1321,7 +1353,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -1361,7 +1393,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
 
   bool getParamValue(TColorStyle::bool_tag, int index) const override;
   void setParamValue(int index, bool value) override;
@@ -1370,7 +1402,8 @@ public:
   int getParamValue(TColorStyle::int_tag, int index) const override;
   void setParamValue(int index, int value) override;
 
-  void getParamRange(int index, QStringList &enumItems) const override;
+  void getParamRangeText(
+      int index, std::vector<TTranslatableText>& enumItems) const override;
 
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
@@ -1387,9 +1420,10 @@ public:
 
   void drawStroke(const TColorFunction *cf, TStrokeOutline *outline,
                   const TStroke *stroke) const override;
-  QString getDescription() const override {
-    return QCoreApplication::translate("OutlineViewerStyle",
-                                       "OutlineViewer(OnlyDebug)");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "OutlineViewerStyle",
+        QT_TRANSLATE_NOOP("OutlineViewerStyle", "OutlineViewer(OnlyDebug)"));
   }
   std::string getBrushIdName() const override { return "OutlineViewerStyle"; }
   int getTagId() const override { return 99; };
@@ -1443,7 +1477,7 @@ public:
   int getParamCount() const override;
   TColorStyle::ParamType getParamType(int index) const override;
 
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   void getParamRange(int index, double &min, double &max) const override;
   double getParamValue(TColorStyle::double_tag, int index) const override;
   void setParamValue(int index, double value) override;
@@ -1456,8 +1490,10 @@ public:
   int canvasSupport() const override { return StrokesOnCanvas; }
   bool isStrokeStyle() const override { return true; }
 
-  QString getDescription() const override {
-    return QCoreApplication::translate("TMatrioskaStrokeStyle", "Toothpaste");
+  TTranslatableText getDescriptionText() const override {
+    return TTranslatableText(
+        "TMatrioskaStrokeStyle",
+        QT_TRANSLATE_NOOP("TMatrioskaStrokeStyle", "Toothpaste"));
   }
   std::string getBrushIdName() const override { return "MatrioskaStrokeStyle"; }
 

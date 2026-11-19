@@ -7,6 +7,8 @@
 #include "tvectorimage.h"
 #include "tpixelutils.h"
 #include "tsystem.h"
+#include <QString>
+#include <QStringList>
 #include "tstream.h"
 
 // Qt includes
@@ -246,8 +248,9 @@ TPalette::TPalette()
     , m_askOverwriteFlag(false)
     , m_shortcutScopeIndex(0)
     , m_currentStyleId(1) {
-  QString tempName(QObject::tr("colors"));
-  std::wstring pageName = tempName.toStdWString();
+  // translated to be stored: the page's name is saved with the palette
+  std::wstring pageName = translateForData(
+      TTranslatableText("QObject", QT_TRANSLATE_NOOP("QObject", "colors")));
   Page *page            = addPage(pageName);
   page->addStyle(TPixel32(255, 255, 255, 0));
   page->addStyle(TPixel32(0, 0, 0, 255));

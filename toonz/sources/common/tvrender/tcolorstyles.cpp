@@ -142,16 +142,16 @@ bool TColorStyle::operator==(const TColorStyle &cs) const {
 
 //-------------------------------------------------------------------
 
-QString TColorStyle::getDescription() const {
+TTranslatableText TColorStyle::getDescriptionText() const {
   assert(false);
-  return QString("");
+  return TTranslatableText();
 }
 
 //-------------------------------------------------------------------
 
-QString TColorStyle::getParamNames(int index) const {
+TTranslatableText TColorStyle::getParamNameText(int index) const {
   assert(false);
-  return QString("");
+  return TTranslatableText();
 }
 
 //-------------------------------------------------------------------
@@ -528,7 +528,7 @@ void TColorStyle::save(TOutputStreamInterface &os) const {
       !name.empty() && (('0' <= name[0] && name[0] <= '9') || name[0] == '_');
 
   if (m_flags > 0 || (name.length() == 1 && numberedName))
-    os << ("_" + QString::number(m_flags)).toStdString();
+    os << ("_" + std::to_string(m_flags));
   std::wstring gname    = getGlobalName();
   std::wstring origName = getOriginalName();
 
@@ -560,7 +560,7 @@ TColorStyle *TColorStyle::load(TInputStreamInterface &is) {
   unsigned int flags = 0;
   if (name.length() == 2 && name[0] == '_' && '0' <= name[1] &&
       name[1] <= '9') {
-    flags = QString::fromStdString(name.substr(1)).toUInt();
+    flags = unsigned(name[1] - '0');  // one digit
     is >> name;
   }
   if (name.length() > 0 && name[0] == '|') {

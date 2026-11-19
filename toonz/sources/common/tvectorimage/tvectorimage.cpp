@@ -18,7 +18,6 @@
 #include "tcomputeregions.h"
 
 #include <memory>
-#include <QSet>
 
 //=============================================================================
 typedef TVectorImage::IntersectionBranch IntersectionBranch;
@@ -194,10 +193,10 @@ int TVectorImage::addStroke(TStroke *stroke, bool discardPoints, bool underAll) 
   }
 }
 
-int TVectorImage::addStrokeBelow(TStroke *stroke, const QSet<int> &aboveStyles,
+int TVectorImage::addStrokeBelow(TStroke* stroke,
+                                 const std::set<int>& aboveStyles,
                                  bool discardPoints) {
-  if (aboveStyles.isEmpty())
-    return addStroke(stroke, discardPoints);
+  if (aboveStyles.empty()) return addStroke(stroke, discardPoints);
   if (discardPoints) {
     TRectD bBox = stroke->getBBox();
     if (bBox.x0 == bBox.x1 && bBox.y0 == bBox.y1)  // empty stroke: discard
@@ -212,7 +211,7 @@ int TVectorImage::addStrokeBelow(TStroke *stroke, const QSet<int> &aboveStyles,
         for (j = i - 1;
              j >= 0 &&
              m_imp->m_insideGroup.isParentOf(m_imp->m_strokes[j]->m_groupId) &&
-             aboveStyles.contains(m_imp->m_strokes[j]->m_s->getStyle());
+             aboveStyles.count(m_imp->m_strokes[j]->m_s->getStyle()) != 0;
              j--);
         m_imp->insertStrokeAt(
             new VIStroke(stroke, m_imp->m_strokes[j + 1]->m_groupId), j + 1);
@@ -230,7 +229,7 @@ int TVectorImage::addStrokeBelow(TStroke *stroke, const QSet<int> &aboveStyles,
   int i;
   for (i = m_imp->m_strokes.size() - 1;
        i >= 0 && !isStrokeGrouped(i) &&
-       aboveStyles.contains(m_imp->m_strokes[i]->m_s->getStyle());
+       aboveStyles.count(m_imp->m_strokes[i]->m_s->getStyle()) != 0;
        i--);
   m_imp->insertStrokeAt(new VIStroke(stroke, gid), i + 1);
   m_imp->m_areValidRegions = false;

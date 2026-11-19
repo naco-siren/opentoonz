@@ -99,7 +99,7 @@ public:
   //! On a vector level a MyPaint brush is drawn as a stroke of its colour.
   int canvasSupport() const override { return StrokesOnCanvas; }
 
-  QString getDescription() const override;
+  TTranslatableText getDescriptionText() const override;
   std::string getBrushIdName() const override;
 
   void setBaseValue(MyPaintBrushSetting id, bool enable, float value);
@@ -132,7 +132,7 @@ public:
   }
 
   int getParamCount() const override;
-  QString getParamNames(int index) const override;
+  TTranslatableText getParamNameText(int index) const override;
   ParamType getParamType(int index) const override;
   bool hasParamDefault(int index) const override;
   void setParamDefault(int index) override;

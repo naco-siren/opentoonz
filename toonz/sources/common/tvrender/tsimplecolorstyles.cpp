@@ -571,7 +571,9 @@ void TSolidColorStyle::drawStrokeOnCanvas(TCanvas &canvas,
 
 //-----------------------------------------------------------------------------
 
-QString TSolidColorStyle::getDescription() const { return "SolidColorStyle"; }
+TTranslatableText TSolidColorStyle::getDescriptionText() const {
+  return TTranslatableText::untranslated("SolidColorStyle");
+}
 
 //-----------------------------------------------------------------------------
 
@@ -814,8 +816,10 @@ void TCenterLineStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas,
 
 //-----------------------------------------------------------------------------
 
-QString TCenterLineStrokeStyle::getDescription() const {
-  return QCoreApplication::translate("TCenterLineStrokeStyle", "Constant");
+TTranslatableText TCenterLineStrokeStyle::getDescriptionText() const {
+  return TTranslatableText(
+      "TCenterLineStrokeStyle",
+      QT_TRANSLATE_NOOP("TCenterLineStrokeStyle", "Constant"));
 }
 
 //-----------------------------------------------------------------------------
@@ -853,8 +857,10 @@ TColorStyle::ParamType TCenterLineStrokeStyle::getParamType(int index) const {
 
 //-----------------------------------------------------------------------------
 
-QString TCenterLineStrokeStyle::getParamNames(int index) const {
-  return QCoreApplication::translate("TCenterLineStrokeStyle", "Thickness");
+TTranslatableText TCenterLineStrokeStyle::getParamNameText(int index) const {
+  return TTranslatableText(
+      "TCenterLineStrokeStyle",
+      QT_TRANSLATE_NOOP("TCenterLineStrokeStyle", "Thickness"));
 }
 
 //-----------------------------------------------------------------------------
@@ -920,16 +926,21 @@ TColorStyle &TRasterImagePatternStrokeStyle::copy(const TColorStyle &other) {
 
 //-----------------------------------------------------------------------------
 
-void TRasterImagePatternStrokeStyle::getParamRange(int index,
-                                                   QStringList &items) const {
+void TRasterImagePatternStrokeStyle::getParamRangeText(
+    int index, std::vector<TTranslatableText>& items) const {
   assert(index == TrailStyles::cycleParam);
-  items << QCoreApplication::translate("TRasterImagePatternStrokeStyle", "Off")
-        << QCoreApplication::translate("TRasterImagePatternStrokeStyle",
-                                       "Forward")
-        << QCoreApplication::translate("TRasterImagePatternStrokeStyle",
-                                       "Backward")
-        << QCoreApplication::translate("TRasterImagePatternStrokeStyle",
-                                       "Repeat");
+  items.push_back(TTranslatableText(
+      "TRasterImagePatternStrokeStyle",
+      QT_TRANSLATE_NOOP("TRasterImagePatternStrokeStyle", "Off")));
+  items.push_back(TTranslatableText(
+      "TRasterImagePatternStrokeStyle",
+      QT_TRANSLATE_NOOP("TRasterImagePatternStrokeStyle", "Forward")));
+  items.push_back(TTranslatableText(
+      "TRasterImagePatternStrokeStyle",
+      QT_TRANSLATE_NOOP("TRasterImagePatternStrokeStyle", "Backward")));
+  items.push_back(TTranslatableText(
+      "TRasterImagePatternStrokeStyle",
+      QT_TRANSLATE_NOOP("TRasterImagePatternStrokeStyle", "Repeat")));
 }
 
 //-----------------------------------------------------------------------------
@@ -966,8 +977,8 @@ TColorStyle *TRasterImagePatternStrokeStyle::clone(
 
 //-----------------------------------------------------------------------------
 
-QString TRasterImagePatternStrokeStyle::getDescription() const {
-  return "TRasterImagePatternStrokeStyle";
+TTranslatableText TRasterImagePatternStrokeStyle::getDescriptionText() const {
+  return TTranslatableText::untranslated("TRasterImagePatternStrokeStyle");
 }
 
 //-----------------------------------------------------------------------------
@@ -1056,21 +1067,29 @@ TColorStyle::ParamType TRasterImagePatternStrokeStyle::getParamType(
 
 //-----------------------------------------------------------------------------
 
-QString TRasterImagePatternStrokeStyle::getParamNames(int index) const {
+TTranslatableText TRasterImagePatternStrokeStyle::getParamNameText(
+    int index) const {
   assert(0 <= index && index < getParamCount());
   if (index == TrailStyles::sizeMultiplierParam)
-    return QCoreApplication::translate("TRasterImagePatternStrokeStyle",
-                                       "Size Multiplier");
+    return TTranslatableText(
+        "TRasterImagePatternStrokeStyle",
+        QT_TRANSLATE_NOOP("TRasterImagePatternStrokeStyle", "Size Multiplier"));
   if (index == TrailStyles::cycleParam)
-    return QCoreApplication::translate("TRasterImagePatternStrokeStyle",
-                                       "Trail Cycle");
+    return TTranslatableText(
+        "TRasterImagePatternStrokeStyle",
+        QT_TRANSLATE_NOOP("TRasterImagePatternStrokeStyle", "Trail Cycle"));
   if (index == TrailStyles::frameOffsetParam)
-    return QCoreApplication::translate("TRasterImagePatternStrokeStyle",
-                                       "Frame Offset");
-  return (index == 0) ? QCoreApplication::translate(
-                            "TRasterImagePatternStrokeStyle", "Distance")
-                      : QCoreApplication::translate(
-                            "TRasterImagePatternStrokeStyle", "Rotation");
+    return TTranslatableText(
+        "TRasterImagePatternStrokeStyle",
+        QT_TRANSLATE_NOOP("TRasterImagePatternStrokeStyle", "Frame Offset"));
+  return (index == 0) ? TTranslatableText(
+                            "TRasterImagePatternStrokeStyle",
+                            QT_TRANSLATE_NOOP("TRasterImagePatternStrokeStyle",
+                                              "Distance"))
+                      : TTranslatableText(
+                            "TRasterImagePatternStrokeStyle",
+                            QT_TRANSLATE_NOOP("TRasterImagePatternStrokeStyle",
+                                              "Rotation"));
 }
 
 //-----------------------------------------------------------------------------
@@ -1546,16 +1565,21 @@ TColorStyle &TVectorImagePatternStrokeStyle::copy(const TColorStyle &other) {
 
 //-----------------------------------------------------------------------------
 
-void TVectorImagePatternStrokeStyle::getParamRange(int index,
-                                                   QStringList &items) const {
+void TVectorImagePatternStrokeStyle::getParamRangeText(
+    int index, std::vector<TTranslatableText>& items) const {
   assert(index == TrailStyles::cycleParam);
-  items << QCoreApplication::translate("TVectorImagePatternStrokeStyle", "Off")
-        << QCoreApplication::translate("TVectorImagePatternStrokeStyle",
-                                       "Forward")
-        << QCoreApplication::translate("TVectorImagePatternStrokeStyle",
-                                       "Backward")
-        << QCoreApplication::translate("TVectorImagePatternStrokeStyle",
-                                       "Repeat");
+  items.push_back(TTranslatableText(
+      "TVectorImagePatternStrokeStyle",
+      QT_TRANSLATE_NOOP("TVectorImagePatternStrokeStyle", "Off")));
+  items.push_back(TTranslatableText(
+      "TVectorImagePatternStrokeStyle",
+      QT_TRANSLATE_NOOP("TVectorImagePatternStrokeStyle", "Forward")));
+  items.push_back(TTranslatableText(
+      "TVectorImagePatternStrokeStyle",
+      QT_TRANSLATE_NOOP("TVectorImagePatternStrokeStyle", "Backward")));
+  items.push_back(TTranslatableText(
+      "TVectorImagePatternStrokeStyle",
+      QT_TRANSLATE_NOOP("TVectorImagePatternStrokeStyle", "Repeat")));
 }
 
 //-----------------------------------------------------------------------------
@@ -1592,8 +1616,8 @@ TColorStyle *TVectorImagePatternStrokeStyle::clone(
 
 //-----------------------------------------------------------------------------
 
-QString TVectorImagePatternStrokeStyle::getDescription() const {
-  return "TVectorImagePatternStrokeStyle";
+TTranslatableText TVectorImagePatternStrokeStyle::getDescriptionText() const {
+  return TTranslatableText::untranslated("TVectorImagePatternStrokeStyle");
 }
 
 //-----------------------------------------------------------------------------
@@ -1707,21 +1731,29 @@ TColorStyle::ParamType TVectorImagePatternStrokeStyle::getParamType(
 
 //-----------------------------------------------------------------------------
 
-QString TVectorImagePatternStrokeStyle::getParamNames(int index) const {
+TTranslatableText TVectorImagePatternStrokeStyle::getParamNameText(
+    int index) const {
   assert(0 <= index && index < getParamCount());
   if (index == TrailStyles::sizeMultiplierParam)
-    return QCoreApplication::translate("TVectorImagePatternStrokeStyle",
-                                       "Size Multiplier");
+    return TTranslatableText(
+        "TVectorImagePatternStrokeStyle",
+        QT_TRANSLATE_NOOP("TVectorImagePatternStrokeStyle", "Size Multiplier"));
   if (index == TrailStyles::cycleParam)
-    return QCoreApplication::translate("TVectorImagePatternStrokeStyle",
-                                       "Trail Cycle");
+    return TTranslatableText(
+        "TVectorImagePatternStrokeStyle",
+        QT_TRANSLATE_NOOP("TVectorImagePatternStrokeStyle", "Trail Cycle"));
   if (index == TrailStyles::frameOffsetParam)
-    return QCoreApplication::translate("TVectorImagePatternStrokeStyle",
-                                       "Frame Offset");
-  return (index == 0) ? QCoreApplication::translate(
-                            "TVectorImagePatternStrokeStyle", "Distance")
-                      : QCoreApplication::translate(
-                            "TVectorImagePatternStrokeStyle", "Rotation");
+    return TTranslatableText(
+        "TVectorImagePatternStrokeStyle",
+        QT_TRANSLATE_NOOP("TVectorImagePatternStrokeStyle", "Frame Offset"));
+  return (index == 0) ? TTranslatableText(
+                            "TVectorImagePatternStrokeStyle",
+                            QT_TRANSLATE_NOOP("TVectorImagePatternStrokeStyle",
+                                              "Distance"))
+                      : TTranslatableText(
+                            "TVectorImagePatternStrokeStyle",
+                            QT_TRANSLATE_NOOP("TVectorImagePatternStrokeStyle",
+                                              "Rotation"));
 }
 
 //-----------------------------------------------------------------------------
