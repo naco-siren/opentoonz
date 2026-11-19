@@ -1,8 +1,8 @@
 # NextToonz 核心去 Qt 设计草案
 
-版本 0.4，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
+版本 0.5，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
-迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）和第 4 步（TFilePath 与 TFrameId）已经实现（第 7 节，做成的样子在 8.1 到 8.4 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
+迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）和第 5 步（流、图像缓存与图像读写框架的头）已经实现（第 7 节，做成的样子在 8.1 到 8.5 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`（Phase 1 合并之后）。所有路径相对于 `toonz/sources/`。标着"实测"的数字来自编译器和链接器，不是读代码：预处理器的包含树（`-E -H`，用构建目录里 `compile_commands.json` 的原样参数）、已构建的 dylib 的未定义符号（`nm -m`）和链接的框架（`otool -L`）。按类分的行数来自正则统计，有噪声，只当量级看。测量脚本不在版本库里，做法记在 2.1 节。
 
@@ -264,7 +264,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 2（已完成，未推送） | 无 Qt 构建进 CI（Q8）：macOS x86_64 上一个不装 Qt 的 job，构建、检查没有任何东西碰到 Qt、跑单测，再在 iPad 模拟器里跑核心单测 | | 8.2 节；推送后 CI 的新 job 绿，要所有者同意推送 |
 | 3（已完成） | 字符串转换：`tstring.cpp` 不用 QString，`tconvert.h` 的 QString 重载改成第 6 节的适配 | tnzcore 8 个：`tstring`、`tmathutil`、`texception`、`tcurves`、`tcurveutil`、`tstrokeoutline`、`cornerdetector`、`tsound`（`tstroke` 要等第 8 步，见 8.3 节） | 8.3 节 |
 | 4（已完成） | `TFilePath`、`TFrameId` 不用 QString、QChar、QRegularExpression；带 Qt 类型的成员留给 Qt 一侧（8.4 节） | `tfilepath.cpp`、`tfiletype.cpp` | 8.4 节 |
-| 5 | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList | 栅格（`traster.cpp`）、trop 全部、图像读写框架、`tstream.cpp` | 现有 tstream、traster 的单测进入无 Qt 构建；round-trip 测试 |
+| 5（已完成） | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList（8.5 节） | `tsound_io.cpp`、`tdata.cpp`；栅格和 trop 要等第 6 步（`TBigMemoryManager`）和第 9 步（`TImageCache` 的 `QThreadStorage`） | 8.5 节 |
 | 6 | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
 | 7 | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名改成源文本加上下文（Q2）；`tsimplecolorstyles`、`tpalette`、colorfx 的 `translate` 一并改 | 矢量图（`tvectorimage`、`tregion`、`tcomputeregions`…）、样式；colorfx 的非 GL 部分（GL 入口在第 8 步移出） | 每个注册样式的名字在界面里显示的译文与改动前相同（一个测试：遍历注册表，经 Qt 翻译后与旧实现逐字比较） |
 | 8 | tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzqt、tnztools、toonz 链接它，也由它链接 `tnzglcanvas`）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收 |
@@ -403,6 +403,32 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 - 无 Qt 构建：三道检查通过，133 个测试通过，iPad 模拟器里 45 个通过。
 
 **结果（Linux 虚拟机）。** 这一步 Linux 上没有查出缺包含的文件，全部目标编译通过。清洁剂构建里差分测试先失败了：旧的和新的 `parseFrame` 在十位以上的帧号上都会让 `int` 溢出，UBSan 遇到就停（这是原有的问题，记为已知问题第 27 条，第 4 步原样保留）。把十位以上的帧号只留给项目设置下的比较（那条路照 `QString::toInt()` 溢出时给 0，没有未定义行为）以后：430 个测试里 429 个通过，失败的仍是虚拟机里一直失败的 `golden_fx_sweep_font_a`；差分测试在 Linux 的 Qt 5.15.13 上也全部通过（那里帧字母的顺序仍由 Qt 的 ICU 决定）；GL 画布 32 个、无 Qt 构建 135 个通过。
+
+### 8.5 第 5 步实际做成的样子（2026-11-18）
+
+**代码。** 五个头都改成第 6 节补充里的做法：不再包含 `<QString>`、`<QStringList>`，前置声明 `class QString; class QStringList;`，带 Qt 类型的成员照样声明，定义放进只在 Qt 构建里编译的新文件 `tstream_qt.cpp`、`timage_io_qt.cpp`（含 `tiio.h` 那一个）、`tsound_io_qt.cpp`；`timagecache.h` 的三个 QString 重载本来就定义在 `timagecache.cpp` 里，那个文件还有别的 Qt（`QThreadStorage`），留在原处。核心要用的地方有了 std 的对应：
+
+- `TImageReader`、`TImageWriter`、`TSoundTrackReader`、`TSoundTrackWriter` 的 `define` 多了 `const std::string &` 和 `const char *` 两个重载（后者是为了让 `define("png", ...)` 这种字面量调用不在 QString 和 std::string 之间产生二义），`getSupportedFormats` 多了填 `std::vector<std::string>` 的版本；`Tiio::Writer::getSupportedFormats` 同样。注册表的键从 QString 换成 std::string：键都是 ASCII 的扩展名，`std::map` 的顺序与 QString 的顺序相同。QString 版本转成 std 版本再调用。
+- 声音读写器原来用 `QString::fromStdString(toLower(getType()))` 查表，现在直接用 `toLower(getType())`。
+- `TImageReader` 里"Old 4.1 Palette"那处异常消息的比较原来经过 QString，改成比较 `roundTripAsQString` 之后的宽字符串。
+- `TOStream::operator<<(QString)` 原来和 `operator<<(std::string)` 一行一行相同，只多一次 `toStdString()`，现在就是这样转发。`TIStream::operator>>(QString &)` 原来和 `operator>>(std::string &)` 读同样的字节，区别只在每个字节怎样加进 QString。我先以为那是 Latin-1，前后对照证明不是：`QString::append(char)` 走的是 `QChar` 的整数构造函数，0x80 以上的字节变成 0xFF00 加该字节（`\xC3` 读回成 U+FFC3）。新代码照这个做，记为已知问题第 28 条：非 ASCII 的 QString 存进流读不回来。
+
+`tstream.h`、`timagecache.h` 原来用 `#ifndef TNZCORE_LIGHT` 包着 Qt 的部分，这个宏没有人定义，一并去掉。去掉包含之后本机有 3 个文件原来是经这几个头拿到 Qt 类的：`psd.cpp`（QString、QStringList）、`tdoublekeyframe.cpp`、`tvectorimage.h`（`QSet`），补了包含；`tvectorimage.h` 本来就在接口里用 `QSet`，是第 7 步要处理的泄漏者。
+
+**进入无 Qt 构建的。** 按包含树，核心库里碰到 Qt 的编译单元从第 3 步之后的 503 降到 481（toonzlib 从 178 降到 164，tnzbase 从 43 降到 39，tnzcore 降到 78）；tnzcore 里 `traster.cpp`、`trasterimage.cpp`、trop 的大部分、`tsound_io.cpp`、`tmeshimage.cpp` 都不再碰 Qt。但链接闭合的只有 `tsound_io.cpp` 和 `tdata.cpp`，`TNZCORE_NOQT_SOURCES` 从 20 个变成 22 个：`traster.cpp` 要 `TBigMemoryManager`（`tbigmemorymanager.cpp`，经 `tsystem.h` 碰到 Qt，第 6 步），trop 要 `TImageCache`（`timagecache.cpp` 用 `QThreadStorage`，第 9 步），`TIStream` 的实现 `tstream.cpp` 也经 `tsystem.h` 碰到 Qt（第 6 步）。所以栅格要到第 6 步之后、栅格运算要到第 9 步之后才能进无 Qt 构建；迁移表的顺序不用改，但这两步之后无 Qt 构建会一下子大很多。
+
+**新测试。** `test_tsound_io.cpp`（3 个，不需要 Qt）：注册、按序列出、未知类型抛异常。`test_tstream.cpp` 加了一个，固化 QString 写成 UTF-8、读回按带符号字节的行为。
+
+**前后对照。** 这一步的头没有改任何类的布局，符号也都还在，所以同一个对照程序（`toonz/build-phase1/ab/phase2/qtadapters/`，不进版本库）可以原样分别链接改动前（Phase 2 之前的应用包里的 dylib）和改动后的 tnzcore：用 QString 写 2,016 个字符串（含引号、反斜杠、NUL、换行、Latin-1、CJK、表情符号和随机串）再读回，并列出四个注册表、查两个未注册的类型。写出的文件逐字节相同，读回的每个 QString 逐码元相同，注册表的列表和查找结果相同。正是这个对照查出了上面那个 0xFF00 的问题，第一版实现在这里有 1,394 行不同。
+
+**结果（x86_64 macOS）。**
+
+- 默认构建的编译命令：已有的编译单元一个都没变，多了三个 `_qt.cpp` 和 `test_tsound_io.cpp`。
+- 全部测试：459 个通过。
+- golden 266 帧、28 个场景单线程和 8 线程的 554 帧、OpenGL 退路单线程 277 帧，都与 Phase 2 之前的构建同一天渲的逐字节相同。
+- 无 Qt 构建：三道检查通过，137 个测试通过，iPad 模拟器里 49 个通过。
+
+**结果（Linux 虚拟机）。** 又是那一类问题：这一步之后不再包含任何 Qt 头的编译单元，在 Linux 上失去了 Qt 头间接带来的 `<cstring>`。按 8.3 节的经验先把这批文件挑出来查了一遍（`traster.cpp`、`trop.cpp`、`EraseContour.cpp`），其余的由虚拟机的构建逐轮查出（`tfx.h`、`STPic.h`、toonzqt 的 `plugin_tile_interface.cpp`：它们是头文件，或者经头文件拿到的，单看编译单元列表查不到），一共 6 个文件补了 `#include <cstring>`。之后：全部目标编译通过；433 个测试里 432 个通过，失败的仍是 `golden_fx_sweep_font_a`；GL 画布 32 个、无 Qt 构建 137 个通过。
 
 ---
 
