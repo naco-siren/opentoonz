@@ -10,7 +10,9 @@
 #include "tfilepath.h"
 #include "tfiletype.h"
 
+#include <algorithm>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -205,5 +207,46 @@ TEST(TFrameId, LettersOrderAsQtDid) {
                TFrameId(1, std::wstring(L"é")));
   EXPECT_FALSE(TFrameId(1, std::wstring(L"é")) <
                TFrameId(1, std::wstring(L"é")));
+#endif
+}
+
+// The order of frame letters, pinned (doc/nexttoonz_core_noqt.md, Q9): on
+// Apple CoreFoundation's, which is what Qt gave; elsewhere the platform's
+// (Qt's ICU while the core links Qt, then the C library's on Linux and
+// CompareStringEx on Windows). What every platform agrees on is checked
+// everywhere; the whole Apple order, mixed case included, on Apple only. On
+// Linux the order of letters that differ in case or are not ASCII may
+// change once the core stops linking Qt: an accepted difference.
+TEST(TFrameId, LetterOrderIsPinned) {
+  auto before = [](const wchar_t *a, const wchar_t *b) {
+    return TFrameId(1, std::wstring(a)) < TFrameId(1, std::wstring(b));
+  };
+  // Everywhere: no letter first, then by letter within one case, a prefix
+  // before what extends it, and the frame number before any letter.
+  const wchar_t *lower[] = {L"", L"a", L"aa", L"ab", L"abc", L"b", L"ba",
+                            L"z"};
+  for (size_t i = 0; i + 1 < sizeof(lower) / sizeof(*lower); ++i) {
+    EXPECT_TRUE(before(lower[i], lower[i + 1])) << i;
+    EXPECT_FALSE(before(lower[i + 1], lower[i])) << i;
+  }
+  EXPECT_TRUE(before(L"A", L"B"));
+  EXPECT_TRUE(before(L"AB", L"AC"));
+  EXPECT_FALSE(before(L"ab", L"ab"));
+  EXPECT_TRUE(TFrameId(1, std::wstring(L"z")) < TFrameId(2, std::wstring()));
+  EXPECT_TRUE(TFrameId(1, std::wstring(L"Z")) < TFrameId(2, std::wstring(L"a")));
+#ifdef __APPLE__
+  // The whole order, mixed case included: a letter's two cases together,
+  // lower case first.
+  std::vector<std::wstring> letters = {
+      L"z", L"Ab", L"", L"bA", L"B",  L"aA", L"ab", L"A",
+      L"ba", L"Z", L"aa", L"abc", L"b", L"aB", L"Aa", L"a"};
+  std::sort(letters.begin(), letters.end(),
+            [](const std::wstring &a, const std::wstring &b) {
+              return TFrameId(1, a) < TFrameId(1, b);
+            });
+  const std::vector<std::wstring> expected = {
+      L"",   L"a",  L"A",   L"aa", L"aA", L"Aa", L"ab", L"aB",
+      L"Ab", L"abc", L"b", L"B",  L"ba", L"bA", L"z",  L"Z"};
+  EXPECT_EQ(letters, expected);
 #endif
 }
