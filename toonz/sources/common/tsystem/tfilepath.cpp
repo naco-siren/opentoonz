@@ -29,6 +29,11 @@ const wchar_t wauxslash = L'\\';
 #include <QObject>
 #include <QRegularExpression>
 
+// Declared in tconvert.h; defined here so that tstring.cpp needs no TFilePath.
+std::string to_string(const TFilePath &fp) {
+  return ::to_string(fp.getWideString());
+}
+
 bool TFilePath::m_underscoreFormatAllowed  = true;
 bool TFilePath::m_noSeparatorFormatAllowed = false;
 

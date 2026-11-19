@@ -272,18 +272,27 @@ endif()
 # WITH_QT=OFF tnzcore is made of these alone; each migration step that moves
 # a source off Qt adds it here, until the list is all of SOURCES. Step 1 (the
 # mutexes) took Qt out of tthreadmessage.h, which is what kept
-# tsmartpointer.cpp on it; the others never needed Qt.
+# tsmartpointer.cpp on it; step 3 (the string conversions) freed tconvert.h
+# and with it the next eight. The others never needed Qt.
 set(TNZCORE_NOQT_SOURCES
     ../common/tcore/tdebugmessage.cpp
+    ../common/tcore/texception.cpp
+    ../common/tcore/tmathutil.cpp
     ../common/tcore/trandom.cpp
     ../common/tcore/tsmartpointer.cpp
     ../common/tcore/tstopwatch.cpp
+    ../common/tcore/tstring.cpp
     ../common/tcolor/tcolorfunctions.cpp
     ../common/tcolor/tcolorvalue.cpp
     ../common/tcolor/tpixel.cpp
     ../common/tcolor/tpixelutils.cpp
     ../common/tcolor/tspectrum.cpp
     ../common/tgeometry/tgeometry.cpp
+    ../common/tgeometry/tcurves.cpp
+    ../common/tgeometry/tcurveutil.cpp
+    ../common/tvectorimage/tstrokeoutline.cpp
+    ../common/tvectorimage/cornerdetector.cpp
+    ../common/tsound/tsound.cpp
 )
 foreach(_source ${TNZCORE_NOQT_SOURCES})
     if(NOT _source IN_LIST SOURCES)

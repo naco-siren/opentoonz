@@ -360,6 +360,12 @@ if(PLATFORM EQUAL 64)
 endif()
 
 if(WITH_QT)
+    # The Qt conveniences of the core headers (doc/nexttoonz_core_noqt.md,
+    # section 6): targets on the Qt side that use them link this.
+    add_library(nexttoonz_qt_interop INTERFACE)
+    target_compile_definitions(nexttoonz_qt_interop INTERFACE NEXTTOONZ_QT_INTEROP)
+    target_link_libraries(nexttoonz_qt_interop INTERFACE Qt5::Core)
+
     get_target_property(QtCore_location Qt5::Core LOCATION)
     get_target_property(QtWidget_location Qt5::Widgets LOCATION)
     message(STATUS "Qt Core Location:" ${QtCore_location})

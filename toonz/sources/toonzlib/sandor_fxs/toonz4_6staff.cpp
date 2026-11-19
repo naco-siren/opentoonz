@@ -5,6 +5,8 @@
 #include "tconvert.h"
 #include "toonz4.6/toonz.h"
 
+#include <cstring>
+
 #ifdef _MSC_VER
 #pragma warning(disable : 4996)
 #endif

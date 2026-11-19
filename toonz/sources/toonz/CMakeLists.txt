@@ -606,6 +606,9 @@ elseif(BUILD_ENV_UNIXLIKE)
     )
 endif()
 
+# The Qt conveniences of the core headers (tconvert.h's fromStr on a QString).
+target_link_libraries(OpenToonz nexttoonz_qt_interop)
+
 if(BUILD_ENV_APPLE)
     # CMAKE_RUNTIME_OUTPUT_DIRECTORY should be equivalent to usage on windows despite empty
     # On OSX, CMAKE_RUNTIME_OUTPUT_DIRECTORY is empty; ensuring it can be used the same way as the Windows version.

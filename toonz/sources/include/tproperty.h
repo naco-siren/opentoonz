@@ -8,6 +8,9 @@
 
 #include <cstdint>
 
+// Qt includes
+#include <QString>
+
 #undef DVAPI
 #undef DVVAR
 

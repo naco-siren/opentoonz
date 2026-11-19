@@ -58,7 +58,10 @@ DVAPI std::string toLower(std::string a);
 DVAPI std::wstring toUpper(std::wstring a);
 DVAPI std::wstring toLower(std::wstring a);
 
-#ifndef TNZCORE_LIGHT
+#ifdef NEXTTOONZ_QT_INTEROP
+// Conveniences for the code on the Qt side; the target nexttoonz_qt_interop
+// turns them on (doc/nexttoonz_core_noqt.md, section 6). The core libraries
+// themselves must not use them.
 #include <QString>
 
 inline bool fromStr(int &v, QString s) {

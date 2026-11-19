@@ -9,4 +9,6 @@ add_executable(tfarmserver
 target_link_libraries(tfarmserver
     Qt5::Core
     tfarm
+    # fromStr() on a QString (tconvert.h)
+    nexttoonz_qt_interop
 )

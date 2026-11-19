@@ -4,6 +4,8 @@
 #include "tsound_t.h"
 #include "tconvert.h"
 
+#include <cstring>
+
 #define TRK_M8 9
 #define TRK_S8 10
 #define TRK_M16 17

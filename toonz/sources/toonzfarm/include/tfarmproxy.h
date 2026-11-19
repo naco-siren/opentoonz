@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "texception.h"
+#include <QString>
 
 #ifdef _WIN32
 #ifdef TFARM_EXPORTS
