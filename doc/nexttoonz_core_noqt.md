@@ -2,7 +2,7 @@
 
 版本 0.7，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
-迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）和第 6b 步（`SystemVar.ini` 经键值存储）已经实现（第 7 节，做成的样子在 8.1 到 8.7 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
+迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）、第 6b 步（`SystemVar.ini` 经键值存储）和第 6c 步（应用与进程信息，`tenv` 进无 Qt 构建）已经实现（第 7 节，做成的样子在 8.1 到 8.8 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`（Phase 1 合并之后）。所有路径相对于 `toonz/sources/`。标着"实测"的数字来自编译器和链接器，不是读代码：预处理器的包含树（`-E -H`，用构建目录里 `compile_commands.json` 的原样参数）、已构建的 dylib 的未定义符号（`nm -m`）和链接的框架（`otool -L`）。按类分的行数来自正则统计，有噪声，只当量级看。测量脚本不在版本库里，做法记在 2.1 节。
 
@@ -265,7 +265,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 3（已完成） | 字符串转换：`tstring.cpp` 不用 QString，`tconvert.h` 的 QString 重载改成第 6 节的适配 | tnzcore 8 个：`tstring`、`tmathutil`、`texception`、`tcurves`、`tcurveutil`、`tstrokeoutline`、`cornerdetector`、`tsound`（`tstroke` 要等第 8 步，见 8.3 节） | 8.3 节 |
 | 4（已完成） | `TFilePath`、`TFrameId` 不用 QString、QChar、QRegularExpression；带 Qt 类型的成员留给 Qt 一侧（8.4 节） | `tfilepath.cpp`、`tfiletype.cpp` | 8.4 节 |
 | 5（已完成） | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList（8.5 节） | `tsound_io.cpp`、`tdata.cpp`；栅格和 trop 要等第 6 步（`TBigMemoryManager`）和第 9 步（`TImageCache` 的 `QThreadStorage`） | 8.5 节 |
-| 6（拆成 6a、6b、6c，见第 10 节；6a、6b 已完成，8.6、8.7 节） | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
+| 6（拆成 6a、6b、6c，见第 10 节；都已完成，8.6 到 8.8 节） | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
 | 7 | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名改成源文本加上下文（Q2）；`tsimplecolorstyles`、`tpalette`、colorfx 的 `translate` 一并改 | 矢量图（`tvectorimage`、`tregion`、`tcomputeregions`…）、样式；colorfx 的非 GL 部分（GL 入口在第 8 步移出） | 每个注册样式的名字在界面里显示的译文与改动前相同（一个测试：遍历注册表，经 Qt 翻译后与旧实现逐字比较） |
 | 8 | tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzqt、tnztools、toonz 链接它，也由它链接 `tnzglcanvas`）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收 |
 | 9 | 线程：`TThread::Executor`/`Runnable` 换成线程池，`TThread::Message` 换成派发器，`QThreadStorage`、`QReadWriteLock`、`QWaitCondition` 换成 std；toonzqt 加 Runnable 的 Qt 适配和 Qt 派发器 | `tthread.cpp`、`threadmessage.cpp`、`timagecache.cpp`… | golden 用 `-nthreads 1` 和 `-nthreads 8` 各渲一遍，与改动前逐字节相同；线程池的单测在 ThreadSanitizer 下跑；应用里人工验收（预览、渲染进度、取消） |
@@ -513,6 +513,52 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 **`SystemVar.ini` 的前后对照（Linux 虚拟机）。** 用 6a 的脚本（`toonz/build-phase1/vm/stuff_seed_6a.sh`），改动前仍是第 5 步的程序：首次运行、第二次运行、删掉 stuff 之后再运行这三种情况写出的 `SystemVar.ini` 与改动前逐字节相同；家目录的文件树、便携模式下的 `portablestuff`、渲出的帧也相同，不同的仍只有记着输出路径和耗时的日志与标准输出。
 
+### 8.8 第 6c 步实际做成的样子（2026-11-18）
+
+**内部头 `common/tsystem/tsystem_qtsemantics.h`。** 6a 在 `tsystem.cpp` 里照 Qt 写的辅助函数原来在匿名命名空间里，现在放进命名空间 `TSystemQtSemantics`，其中 `tenv.cpp` 要用的经这个头暴露。头在 `common/tsystem/` 里，不在 `include/`，注释写明照 Qt 5.15 的语义、不是公共接口。新加的有：
+
+- `cleanPath`：照 `qt_normalizePathSegments` 逐行移植。一个 `..` 退不上去时 Qt 会留着（`/..` 还是 `/..`），6a 那个简化版把它丢了，这次的对照查了出来；`rmDirTree` 用的 `absoluteFilePath` 也换成了它。
+- `absoluteFilePath`：照 `QFileSystemEngine::absoluteName`。已经干净的绝对路径原样返回；否则把当前文件夹和路径按字节拼起来，解码（Apple 上因此变成 NFC），清理，保留末尾的斜杠。`absolutePath` 是它的上一级。
+- `canonicalFilePath`：照 `canonicalName`。根原样返回；Apple 上先确认存在；`realpath` 成功就解码再清理；不存在给空串；别的失败给路径本身。
+- `currentPath`（`getcwd` 解码）、`homePath`（`$HOME`，空时是根，再清理）、`tempPath`。`tempPath` 先取 `$TMPDIR`，没有时在 Apple 上取 `confstr(_CS_DARWIN_USER_TEMP_DIR)`，也就是 `NSTemporaryDirectory` 给的那个，再没有就用 `/tmp/`；最后像 Qt 那样清理并取规范路径，所以 macOS 上 `TMPDIR=/tmp/` 给的是 `/private/tmp`。
+- `applicationFilePath`、`applicationDirPath`：Apple 上是主 bundle 的可执行文件（`CFBundleCopyExecutableURL`），存在时取规范路径；Linux 上是 `/proc/<pid>/exe` 的规范路径，与 Qt 相同。Qt 在这些都失败时还会按 `argv[0]` 和 `PATH` 去找，核心拿不到 `argv`，没有这一步。照决定，没有 `QCoreApplication` 时也给真实路径。
+- `toLatin1`、`environmentVariable`（`QString::fromLocal8Bit(qgetenv(...))`）、`mkpath`、`rename`（`QDir().rename` 就是两个 `QFile::rename`）、`removeRecursively`（照 Qt：先列出包括隐藏和系统条目在内的全部，指向文件夹的链接当文件删，删不掉而没有写权限时先加写权限再删一次，全部成功才删文件夹本身）、`copyDirTree`（就是 `tenv` 原来的 `copyDirOrFail`）。列目录多了 `QDir::System` 过滤器，条目多了 `isSymLink`。
+
+在 Windows 上，`tenv.cpp` 要的那几个由 `tsystem_qt.cpp` 用 Qt 本身实现。没有应用对象时，可执行文件的路径改用 `GetModuleFileNameW`，这一段本机编译不到。
+
+**`TSystem`。** 新的 `getHostNameW`（Linux 上是 `uname` 的 nodename，其他是 `gethostname`，与 `QSysInfo::machineHostName` 相同）、`getUserNameW`（按环境变量的顺序找第一个非空的 `USER=`，否则是 `none`）、`getUniqueFileW`（临时文件夹、一个反斜杠、field、32 个小写十六进制的 v4 UUID，随机数来自 `std::random_device`）。`getTempDir`、`getBinDir`、`sleep`（`std::this_thread::sleep_for`）、`getProcessorCount`（Apple 上 `sysctl(HW_NCPU)`，Linux 上 `sched_getaffinity`，与 `QThread::idealThreadCount` 相同）改成平台调用。返回 QString 的 `getHostName`、`getUserName`、`getUniqueFile(QString)` 留在 `tsystem_qt.cpp` 当包装，调用点一个都没改；`getSystemValue`（Windows 注册表）和 `isDLLBlackListed` 原样留在那里，`tenv` 的 Windows 分支改调新的 `getSystemValueUtf8`。Windows 上这些仍是原来的 Qt 代码。
+
+`showDocument` 成了注入的服务：唯一的切换点是 `TSystem::setShowDocumentService`，用法与 6b 的存储一样。Qt 构建内置的是原来的代码（`QDesktopServices`，Windows 上是 `ShellExecute`），无 Qt 构建内置的不打开任何东西、返回 false。
+
+**`tenv.cpp`** 不再包含 Qt 的头，只有 Haiku 分支还在 `#ifdef HAIKU` 里用 `QStandardPaths`，所以无 Qt 构建不支持 Haiku。`SystemVar.ini` 的位置改成宽字符串拼接。工作目录照旧先转 Latin-1：那是一个缺陷，记为已知问题第 31 条，原样保留。便携检查和首次运行都改用上面的辅助函数，`tfilepath_io.cpp` 打开文件用的 UTF-8 也去掉了 QString。
+
+**行为的变化（照决定）。** 只在没有应用对象的时候：可执行文件旁边的那一处便携检查以前因为路径是空的所以从来不看，现在会看。实测只影响 macOS 和 Windows 上的 tconverter，发布说明的 tconverter 条目要写上。macOS 上 tconverter 转 pli 和 png 序列的结果与 6a 之后逐字节相同。核心里另外还有两处直接问 `QCoreApplication::applicationDirPath`：`tcodec.cpp`（找 LZO 的辅助程序）和 toonzlib 的 `thirdparty.cpp`（找 ffmpeg）。它们属于第 13 步，tconverter 运行时仍会打两行 Qt 的警告。
+
+**进入无 Qt 构建的。** `tenv.cpp`、`tfilepath_io.cpp`，`TNZCORE_NOQT_SOURCES` 从 24 个变成 26 个，不需要别的改动就链接通了。
+
+**新测试。**
+
+- `test_tsystem_qt.cpp` 加了 6 个（Qt 构建）：
+  - 进程信息与 Qt 逐字相同：可执行文件的路径和文件夹、`getBinDir`、主机名、用户名（`USER` 为普通值、空、非 ASCII、带 `=`、未设）、临时文件夹（8 种 `TMPDIR`：带末尾斜杠、带 `//` 和 `..`、带 `.`、相对路径、根、NFD、空、未设）、家目录（6 种 `HOME`）、环境变量、当前文件夹（含 NFD 和中文名的文件夹、经链接进入）及其 Latin-1、处理器数；`getUniqueFile` 只比格式。
+  - `cleanPath` 与 `QDir::cleanPath` 对照：由 `a`、`/`、`.` 组成的长度 7 以内的全部字符串（3,279 个），外加几个特例。
+  - 树里每条路径的 `absoluteFilePath`、`absolutePath`、`canonicalFilePath` 与 `QFileInfo` 对照。
+  - 启动形态：新的小程序 `nexttoonz_appinfo_probe` 在应用对象建立前后各报一次核心和 Qt 的可执行文件路径。测试用 8 种方式启动它：绝对路径、相对路径、经 `PATH`、经符号链接（绝对、相对）、拷进一个名字带非 ASCII 的 `.app` 包里（绝对、相对），以及经指向包内的符号链接。每一种里核心的结果在应用对象前后都与 Qt 逐字相同。
+  - `removeRecursively` 与 `QDir::removeRecursively`：在两份一样的树上比（嵌套文件夹、隐藏条目、只读文件、只读文件夹、指向树外文件夹和文件的链接、NFD 名字；另一组加断链接、读不了的文件夹和 fifo），比返回值和留下的整棵树，链接指向的树外文件夹必须还在。
+  - 首次运行的复制与 `tenv` 原来的 `copyDirOrFail`（照抄进测试）：新复制、复制进已有的文件夹、复制到还不存在的多级文件夹，再接 `rename` 和 `mkpath`，比返回值和整棵树。树里放了一个按名字排在最后的断链接，所以第一次复制在最后一项失败。这里不放 fifo：`QFile::copy` 遇到它会一直等，新旧都一样。
+- `test_tsystem.cpp` 加了 2 个（两个构建都有，也在 iPad 模拟器里跑）：不带 Qt 时这些函数照样给出合理的值；`showDocument` 走注入的服务，`nullptr` 恢复内置的那个，无 Qt 构建里内置的那个返回 false。
+- `test_tkeyvaluestore.cpp` 加了 1 个（两个构建都有）：`TEnv` 经注入的存储读系统变量。它在无 Qt 构建和 iPad 模拟器里跑，证明 `tenv` 不带 Qt 能用。
+
+**结果（x86_64 macOS）。**
+
+- 默认构建的编译命令：库和程序的编译单元一个都没变；核心测试的编译单元多了一个宏（探测程序的路径）；多了探测程序本身。
+- 全部测试：482 个通过。
+- golden、单线程和 8 线程的帧、OpenGL 退路单线程的帧：554 帧和 277 帧都与 Phase 2 之前的构建同一天渲的逐字节相同，golden 也通过。
+- 无 Qt 构建：三道检查通过，147 个测试通过，iPad 模拟器里 59 个通过。
+
+**结果（Linux 虚拟机）。** 全部目标编译通过，没有新的 `<cstring>` 问题；456 个测试里 455 个通过，失败的仍是 `golden_fx_sweep_font_a`。差分测试在 Linux 上也全部通过，包括 5 种启动形态（`/proc/self/exe`）和 `removeRecursively`、复制的对照。GL 画布 32 个、无 Qt 构建 147 个通过。
+
+**首次运行的四种情形（Linux 虚拟机）。** 用 6a 的脚本，改动前仍是第 5 步的程序。首次运行、第二次运行、删掉 stuff 之后、便携模式四种情形下，`SystemVar.ini`、家目录的文件树、`portablestuff`、渲出的帧都与改动前逐字节相同；不同的仍只有记着输出路径和耗时的日志与标准输出。
+
 ---
 
 ## 9. 引擎 API 的第一版
@@ -576,6 +622,14 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 3. **范围**：6b 只换 `SystemVar.ini` 的两处；`tenv` 其余的 Qt（当前目录、家目录、标准目录、可执行文件的目录、环境变量、首次运行时复制 stuff）放到 6c，Windows 注册表的 `getSystemValue` 也在 6c；`tenv.cpp` 等 6c 之后再进无 Qt 构建。
 
 验证：Linux 首次运行写出的 `SystemVar.ini` 与改动前逐字节相同；读同一份含逗号、非 ASCII、引号的 ini，新旧取到的值逐字相同。
+
+**6c 开工时的决定（2026-11-18，所有者委托主会话拍板）。** 6c 开工前报告了三个取舍，主会话都按建议定了：
+
+1. **没有 Qt 应用对象时，可执行文件的路径给真实路径**（Q-A 取 (a)），与 6a 同一个思路；有应用对象时与 `applicationFilePath`、`applicationDirPath` 逐字相同。macOS 上 .app 包内、裸可执行文件、经符号链接启动三种形态都要对照（规范化、符号链接解析与否都照 Qt）。由此 tconverter 在 macOS 和 Windows 上的便携检查多看一处（可执行文件旁边的 `portablestuff`），并进发布说明的 tconverter 条目。
+2. **首次运行复制 stuff 那段照 Qt 的语义改写**（Q-B 取 (a)）：6a 在 `tsystem.cpp` 里照 Qt 写的那些操作，加上照 Qt 写的 `removeRecursively`，经一个只给核心内部用的头 `tsystem_qtsemantics.h` 暴露（不进 `toonz/sources/include`，头注释写明"照 Qt 5.15 语义，不是公共接口"）；`removeRecursively` 和复制目录树进 6a 那套差分测试（至少嵌套目录、隐藏文件、指向目录的符号链接、只读文件）。
+3. **返回 Qt 类型的函数照第 4 步的先例加 std 版本**（Q-C）：`getHostNameW`、`getUserNameW`、`getUniqueFileW`，原来的 Qt 版本留在 `tsystem_qt.cpp` 当包装，调用点不改；`getSystemValue`（Windows 注册表）和 `isDLLBlackListed` 留在 Qt 一侧。`showDocument` 照 6b 做成注入的服务，切换点只有一处，并有测试；Qt 构建默认用 `QDesktopServices`，无 Qt 构建默认返回 false。
+
+顺带的两件事：`setWorkingDirectory` 把当前目录转成 Latin-1 的缺陷原样保留，记为已知问题；Haiku 分支留在 `#ifdef HAIKU` 里继续用 Qt，无 Qt 构建不支持 Haiku。
 
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
