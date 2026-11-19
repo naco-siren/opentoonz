@@ -1,8 +1,8 @@
 # NextToonz 核心去 Qt 设计草案
 
-版本 0.3，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
+版本 0.4，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
-迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）和第 3 步（字符串转换）已经实现（第 7 节，做成的样子在 8.1 到 8.3 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
+迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）和第 4 步（TFilePath 与 TFrameId）已经实现（第 7 节，做成的样子在 8.1 到 8.4 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`（Phase 1 合并之后）。所有路径相对于 `toonz/sources/`。标着"实测"的数字来自编译器和链接器，不是读代码：预处理器的包含树（`-E -H`，用构建目录里 `compile_commands.json` 的原样参数）、已构建的 dylib 的未定义符号（`nm -m`）和链接的框架（`otool -L`）。按类分的行数来自正则统计，有噪声，只当量级看。测量脚本不在版本库里，做法记在 2.1 节。
 
@@ -249,6 +249,8 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 - 核心库自己的源文件不链接这个目标，因此在核心库里用 QString 重载会编译失败，这正是想要的。
 - 到 Phase 3 合并 Qt6 时，适配集中在少数几个头里，改起来也集中。
 
+**第 4 步时的补充（2026-11-18）。** 上面的宏只适合自由函数。成员函数（`TFilePath::getQString()`、`TFilePath(const QString &)`、`TFrameId::getLetter()`……）不能按宏有无出现或消失：同一个类在不同编译单元里的定义就不一样了，这违反 ODR。原来的打算是把它们改成非成员函数、界面机械替换，但仅 `getQString()` 就有约 310 处调用。第 4 步改用另一种做法：成员照样在核心头里**声明**，用前置声明的 `class QString; class QChar;`（`tfiletype.h` 早就这样做了），**定义**放进一个只在 Qt 构建里编译的源文件（tnzcore 的 `tfilepath_qt.cpp`）。类的定义在所有编译单元里都一样；不带 Qt 的代码看不到完整的 QString，调用这些成员就编译失败；界面和还没迁移的库原样调用，一处都不用改。宏 `NEXTTOONZ_QT_INTEROP` 仍用于自由函数（第 3 步的 `fromStr`）。这是对 Q2 (a) 的落实方式的改动，没有改变 Q2 的目的（界面的改动最小、适配集中）；它带来一个到第 20 步才要处理的问题，见第 11 节。
+
 ---
 
 ## 7. 迁移顺序
@@ -261,7 +263,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 1（已完成） | `TThread::Mutex`/`MutexLocker` 换成 std；另外六处 `QMutex::Recursive`；`tpalette.h`、`tstroke.h`、`tgldisplaylistsmanager.h` 去掉 `<QMutex>`；`WITH_QT` 选项与无 Qt 构建的骨架 | tnzcore 10 个：tgeometry、tcolor（5）、trandom、tstopwatch、tdebugmessage、tsmartpointer | 8.1 节 |
 | 2（已完成，未推送） | 无 Qt 构建进 CI（Q8）：macOS x86_64 上一个不装 Qt 的 job，构建、检查没有任何东西碰到 Qt、跑单测，再在 iPad 模拟器里跑核心单测 | | 8.2 节；推送后 CI 的新 job 绿，要所有者同意推送 |
 | 3（已完成） | 字符串转换：`tstring.cpp` 不用 QString，`tconvert.h` 的 QString 重载改成第 6 节的适配 | tnzcore 8 个：`tstring`、`tmathutil`、`texception`、`tcurves`、`tcurveutil`、`tstrokeoutline`、`cornerdetector`、`tsound`（`tstroke` 要等第 8 步，见 8.3 节） | 8.3 节 |
-| 4 | `TFilePath`、`TFrameId` 不用 QString、QChar、QRegularExpression；QString 重载改成适配 | `tfilepath.cpp`、`tfiletype.cpp`、`tdata.cpp`… | 现有 `test_tfilepath.cpp`；加一个路径语料（参考工程、stuff 目录里的所有文件名，加构造的边界情况）的差分测试，新旧 `getName`/`getFrame`/`withFrame`/`getLevelName` 等逐字相同 |
+| 4（已完成） | `TFilePath`、`TFrameId` 不用 QString、QChar、QRegularExpression；带 Qt 类型的成员留给 Qt 一侧（8.4 节） | `tfilepath.cpp`、`tfiletype.cpp` | 8.4 节 |
 | 5 | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList | 栅格（`traster.cpp`）、trop 全部、图像读写框架、`tstream.cpp` | 现有 tstream、traster 的单测进入无 Qt 构建；round-trip 测试 |
 | 6 | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
 | 7 | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名改成源文本加上下文（Q2）；`tsimplecolorstyles`、`tpalette`、colorfx 的 `translate` 一并改 | 矢量图（`tvectorimage`、`tregion`、`tcomputeregions`…）、样式；colorfx 的非 GL 部分（GL 入口在第 8 步移出） | 每个注册样式的名字在界面里显示的译文与改动前相同（一个测试：遍历注册表，经 Qt 翻译后与旧实现逐字比较） |
@@ -376,6 +378,32 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 **结果（Linux 虚拟机）。** 又是 macOS 编得过、Linux 编不过：`tsound.cpp` 和 `toonzlib/sandor_fxs/toonz4_6staff.cpp` 用的 `memset`、`strlen`、`strcpy` 原来经 `<QString>` 间接得到，各补了 `#include <cstring>`。会出这种问题的正好是这一步之后不再包含任何 Qt 头的那几个编译单元，所以以后每步都可以先把这批文件挑出来查。改掉以后：全部目标编译通过；422 个测试里 421 个通过，失败的仍是虚拟机里一直失败的 `golden_fx_sweep_font_a`；差分测试的 6 个和固定值测试的 8 个在 Linux 的 Qt 5.15.13 加 libstdc++ 上也全部通过；GL 画布 32 个通过；无 Qt 构建 122 个通过。
 
+### 8.4 第 4 步实际做成的样子（2026-11-18）
+
+**代码。** `TFrameId` 的字母从 QString 换成 `std::wstring`。`tfilepath.cpp` 不再用 QString、QChar、QRegularExpression，`tfiletype.cpp` 不再用 QString。带 Qt 类型的成员按第 6 节的补充留在头里、定义在新文件 `common/tsystem/tfilepath_qt.cpp`：`TFilePath(const QString &)`、`getQString()`、`getSepChar()`（`QChar`）、`fidRegExpStr()`、`TFrameId(int, QString, ...)`、`getLetter()`（`QString`），以及 `TFileType::getInfoFromExtension(const QString &)`。核心要用的地方有了不带 Qt 的对应：`TFrameId(int, const std::wstring &, ...)`、`getLetterW()`、`getSepCharW()`。`TFilePathInfo`（`analyzePath()` 的结果）的成员改成 `std::wstring` 和 `wchar_t`；它只在 `tfilepath.cpp` 和 Windows 专用的 `toonzpreview` 里用（后者只取 `fId`，不受影响）。
+
+要逐字保留的 Qt 行为，先用探针程序量过：
+
+- **项目设置下的文件名解析**（`analyzePath()`，`m_useStandard` 为假时才用）原来是三个 QRegularExpression。改成手写的匹配，按 PCRE 的回溯顺序依次试各种切分（贪婪，先成功的为准），捕获的内容与原来相同；三个模式写在 `tfilepath.cpp` 的注释里。细节：`\d` 只认 ASCII 数字；`$` 也匹配结尾换行符之前的位置；帧号溢出 `int` 时 `QString::toInt()` 给 0；文件名先经过 `QString::fromStdWString` 的那些处理（开头的 BOM 丢掉、不成对的代理变成 U+FFFD），而不是合法 UTF-16 的文件名 QRegularExpression 一个都不匹配，落到"没有句点"的那一支。
+- **小写**：原来的 `QString::toLower()` 按 Unicode 规则转小写（`std::toLower` 只认 ASCII），例如开尔文符号 K（U+212A）变成 ASCII 的 `k`，于是会被当成已注册的扩展名。新增的 `toLowerAsQString()` 用一张从 Qt 5.15.19 生成的 1,393 项映射表（`common/tcore/tlowercasetable.inc`，生成程序 `tests/core/legacy/gen_lowercase_table.cpp`），加上 U+0130 变成两个字符的特例；Qt 的小写不看上下文（没有词尾 σ 的规则），表就够了。
+- **帧字母的顺序**：`QString::localeAwareCompare`。Homebrew 的 Qt 不带 ICU，在 macOS 上是"空串按码元比较，否则先规范成 NFC 再 `CFStringCompare(kCFCompareLocalized)`"；新代码在 Apple 平台上做同样的调用（tnzcore 因此在无 Qt 构建里链接 CoreFoundation，iPadOS 上也有）。Apple 以外的 Qt 构建仍然问 Qt；无 Qt 构建用 `wcscoll` 临时顶着，见 Q9。
+- `qWarning` 换成 `fprintf(stderr, ...)`（第 11 节）。
+
+**进入无 Qt 构建的。** `tfilepath.cpp` 和 `tfiletype.cpp`，`TNZCORE_NOQT_SOURCES` 从 18 个变成 20 个；原有的 `test_tfilepath.cpp` 不需要别的，也进了无 Qt 的测试清单。`tfilepath.h` 不再包含 `<QString>` 之后，本机只有 3 个文件原来是经它拿到 QString 的（`tfilepath_io.cpp`、`tdoubleparamfile.cpp`、`tcli.h`），补了包含。
+
+**新测试。** `tests/core/test_tfilepath_qt.cpp`（只在 Qt 构建里编）把改动前的 `tfilepath.h`、`tfilepath.cpp` 原样放在 `tests/core/legacy/`（类名加 `Legacy` 前缀，去掉导出宏），新旧两个类吃同样的路径，比较它们对每条路径说的每一件事：名字、各种类型、帧（号、字母、补零、分隔符、四种展开）、`getDots`、分隔符、是不是关卡名、是不是 ffmpeg 类型，以及 `withType`、`withName`（含宽字符和 BOM）、`withFrame`（七种帧和格式）、`withNoFrame`、`getParentDir` 的结果，异常也算一种结果。语料是 9,000 个由有意义的片段拼成的文件名（关卡名、分隔符、帧号与字母、大小写不同和带开尔文符号、U+0130、结尾换行的扩展名）和随机串（混入孤立代理、表情符号、BOM、禁用字符），放在几个不同的目录下，在路径设置的 28 种组合下比较（标准与项目设置、非字母后缀、字母个数 0/1/3、无分隔符格式、下划线格式）。另外比较了从字符串解析帧号、30 个字母两两的先后与相等（大小写、重音、组合与分解形式、ß、开尔文符号、表情符号）、`fidRegExpStr()`。旧代码每次调用都重新编译正则，项目设置下每条路径要约 300 微秒，所以默认只取语料的一部分（约 30 秒）；`NEXTTOONZ_FULL_DIFFERENTIAL=1` 跑全部。`test_tfilepath.cpp` 加了两个不需要 Qt 的测试：项目设置下 13 个文件名的解析结果（期望值取自旧代码），以及字母的顺序。
+
+**结果（x86_64 macOS）。**
+
+- 差分测试：默认规模 6 个全部通过（约 30 秒）。全规模（`NEXTTOONZ_FULL_DIFFERENTIAL=1`）6 个也全部通过，约 16 分钟：9,000 个生成的文件名在两个目录下、5 组主要设置下完整比较，在 28 组设置下比较名字、帧和类型；4,000 个随机名在三个目录下完整比较，8,000 个在 28 组设置下比较。
+- 速度：新代码在标准设置下每条路径约 6.1 微秒（旧 7.2），项目设置下约 6.7 微秒（旧 286，因为不再每次编译正则）。
+- 默认构建的编译命令：库的编译单元一个都没变，多了 `tfilepath_qt.cpp` 和两个测试文件，测试程序的编译单元多了一个包含目录。
+- 全部测试：456 个通过。
+- golden 266 帧、28 个场景单线程和 8 线程的 554 帧、OpenGL 退路单线程 277 帧，都与 Phase 2 之前的构建当天渲的逐字节相同（参考工程用默认的标准设置，所以渲染没有走到 `analyzePath()`；那一支靠差分测试）。
+- 无 Qt 构建：三道检查通过，133 个测试通过，iPad 模拟器里 45 个通过。
+
+**结果（Linux 虚拟机）。** 这一步 Linux 上没有查出缺包含的文件，全部目标编译通过。清洁剂构建里差分测试先失败了：旧的和新的 `parseFrame` 在十位以上的帧号上都会让 `int` 溢出，UBSan 遇到就停（这是原有的问题，记为已知问题第 27 条，第 4 步原样保留）。把十位以上的帧号只留给项目设置下的比较（那条路照 `QString::toInt()` 溢出时给 0，没有未定义行为）以后：430 个测试里 429 个通过，失败的仍是虚拟机里一直失败的 `golden_fx_sweep_font_a`；差分测试在 Linux 的 Qt 5.15.13 上也全部通过（那里帧字母的顺序仍由 Qt 的 ICU 决定）；GL 画布 32 个、无 Qt 构建 135 个通过。
+
 ---
 
 ## 9. 引擎 API 的第一版
@@ -438,6 +466,8 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 
 **Q8 无 Qt 构建的 CI job 什么时候加、加在哪。** 计划写"在 Linux 与 macOS 上编译并跑单测"。选项：(a) 下一次推送时在 macOS x86_64 的 workflow 里加一个 job（配置 `WITH_QT=OFF`，几十个编译单元，一两分钟）；Q1 选 (b) 时再加 iPad 模拟器；Linux 不加；(b) Linux 和 macOS 都加；(c) 到 Phase 2 末尾再加。倾向 (a)：符合"先做 x86_64 macOS 和 iPadOS"的平台重点；Linux 的全量构建和清洁剂 job 已经覆盖了 Linux 上的编译，无 Qt 构建在 Linux 上本机虚拟机里测过（第 8 节）。
 
+**Q9 不带 Qt 时，Apple 以外的平台上帧字母怎么排序（第 4 步发现，2026-11-18 起待定）。** `TFrameId` 的字母（`pippo.0001a.tzp` 的 `a`）原来按 `QString::localeAwareCompare` 排序，它决定同一帧号下带字母的帧在关卡里的先后。Qt 在 macOS 上调用 CoreFoundation 的 `CFStringCompare`，第 4 步在 Apple 平台上直接做同一个调用，所以 macOS 和 iPadOS 上逐位相同，也不需要 Qt。在 Linux 上 Ubuntu 的 Qt 用 ICU 的排序规则，在 Windows 上用 `CompareStringEx`；第 4 步在这两个平台的 Qt 构建里仍然问 Qt，行为不变。问题在于核心最终不链接 Qt 之后（第 20 步），这两个平台怎么办；现在只有 Linux 的无 Qt 构建（本机虚拟机，不在 CI 上）用 C 库的 `wcscoll` 临时顶着。选项：(a) Linux 链接 ICU、Windows 调用 `CompareStringEx`，与今天逐位相同；(b) Windows 调用 `CompareStringEx`（与 Qt 相同），Linux 改用 C 库的排序，只有大小写或重音不同的字母顺序可能与今天不同；(c) 所有平台都改用一个固定的、与语言环境无关的顺序，各平台一致，但 macOS 上带字母的帧顺序会变。倾向 (b)：Linux 目前只是 CI 测试床（D5），为它多一个 ICU 依赖不划算；(a) 留到 Linux 成为产品目标时再说。不影响现在的任何一步，第 20 步之前定即可。
+
 ---
 
 ## 11. 风险与未验证事项
@@ -453,6 +483,8 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 - **无 Qt 构建仍然要求全部第三方库。** 它走同一个顶层配置，OpenCV、TIFF、Boost、SuperLU 等都要找到，`superlu41` 也会编译，虽然第 1 步的那 10 个文件一个都不用。iPad 构建时第三方库的来源是另一回事（Phase 1 的 Skia 用的是预编译包），本稿没有设计。
 - **要跟进的两个决定。** Q4（设置存储收缩到哪一步、iPad 存在哪）和 Q5（各平台文字像素不一致、要不要改用 Skia 文字）是按"行为不变"先做的，所有者要求跟进，分别在第 15 步和第 18 步做完时回到所有者；计划的待定事项表里各有一行。
 - **GL 退路搬家以后的验证。** 第 8 步之后，离线渲染的 GL 退路要由 tcomposer 链接 `tnzglview` 才有；Phase 1 以来用它证明"OpenGL 路径逐位不变"的那套对照（画布文档 8.1 节）从此只在链接了它的程序里能做。
+- **定义在别的库里的成员函数**（第 6 节的补充）。`tfilepath_qt.cpp` 现在在 tnzcore 里，到第 20 步核心不链接 Qt 时，它要搬进界面一侧的库。在 macOS 和 Linux 上，一个类的成员定义在另一个动态库里没有问题；在 Windows 上 `TFilePath` 整个类是 `__declspec(dllimport)` 的，成员必须从 tnzcore 的 DLL 导出，搬走就链接不上。那时要么给这几个成员单独去掉导入标记，要么在 Windows 上把它们留在一个链接 Qt 的小库里。Windows 的地位待定，记下，不在现在处理。
+- **`qWarning` 换成了 `fprintf(stderr, ...)`**（第 4 步，`tfilepath.cpp` 的四处警告）。在默认的 Qt 消息处理下两者都写到标准错误；Qt 在 macOS 上没有控制台时会改写系统日志，这几条警告在应用里因此可能换了去处。只是警告，不是行为。
 - **工作量。** 计划给 Phase 2 估的是 6 到 9 人月；第 7 节的 21 步里，第 9、10、16、17、21 步各自可能就是几周。Q7 的选择对总量影响最大。
 
 ---
