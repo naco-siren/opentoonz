@@ -11,7 +11,9 @@
 #include "windows.h"
 #endif
 
+#include <algorithm>
 #include <cstring>
+#include <iterator>
 #include <sstream>
 
 //-----------------------------------------------------------------------------
@@ -186,7 +188,102 @@ std::u16string wideToUtf16(const std::wstring &ws) {
   return units;
 }
 
+// UTF-16 to code points, the way QString::toStdWString (toUcs4) reads it: a
+// surrogate that is not half of a pair becomes U+FFFD.
+std::u32string utf16ToCodes(const std::u16string &units) {
+  std::u32string codes;
+  codes.reserve(units.size());
+  for (size_t i = 0; i < units.size(); ++i) {
+    char16_t u = units[i];
+    if (isHighSurrogate(u) && i + 1 < units.size() &&
+        isLowSurrogate(units[i + 1])) {
+      codes.push_back(0x10000 + ((char32_t(u) - 0xd800) << 10) +
+                      (char32_t(units[i + 1]) - 0xdc00));
+      ++i;
+    } else if (isSurrogate(u))
+      codes.push_back(kReplacementCharacter);
+    else
+      codes.push_back(u);
+  }
+  return codes;
+}
+
+std::wstring codesToWide(const std::u32string &codes) {
+  std::wstring ws;
+  ws.reserve(codes.size());
+  for (char32_t c : codes) {
+    if (sizeof(wchar_t) == 4 || c < 0x10000)
+      ws.push_back(wchar_t(c));
+    else {
+      ws.push_back(wchar_t(0xd800 + ((c - 0x10000) >> 10)));
+      ws.push_back(wchar_t(0xdc00 + ((c - 0x10000) & 0x3ff)));
+    }
+  }
+  return ws;
+}
+
+// The code points of a wide string that holds valid ones.
+std::u32string wideToCodes(const std::wstring &ws) {
+  if (sizeof(wchar_t) == 4) {
+    std::u32string codes;
+    codes.reserve(ws.size());
+    for (wchar_t c : ws) codes.push_back(char32_t(c));
+    return codes;
+  }
+  std::u16string units;
+  units.reserve(ws.size());
+  for (wchar_t c : ws) units.push_back(char16_t(c));
+  return utf16ToCodes(units);
+}
+
+struct LowercaseMapping {
+  char32_t from, to;
+};
+
+const LowercaseMapping kLowercaseTable[] = {
+#include "tlowercasetable.inc"
+};
+
 }  // namespace
+
+std::wstring toLowerAsQString(const std::wstring &s) {
+  std::u32string out;
+  for (char32_t c : wideToCodes(s)) {
+    if (c == 0x130) {  // LATIN CAPITAL LETTER I WITH DOT ABOVE: i + U+0307
+      out.push_back(0x69);
+      out.push_back(0x307);
+      continue;
+    }
+    const LowercaseMapping *end = std::end(kLowercaseTable);
+    const LowercaseMapping *m   = std::lower_bound(
+        std::begin(kLowercaseTable), end, c,
+        [](const LowercaseMapping &a, char32_t b) { return a.from < b; });
+    out.push_back(m != end && m->from == c ? m->to : c);
+  }
+  return codesToWide(out);
+}
+
+std::wstring roundTripAsQString(const std::wstring &s) {
+  return codesToWide(utf16ToCodes(wideToUtf16(s)));
+}
+
+bool isValidAsQString(const std::wstring &s) {
+  std::u16string units = wideToUtf16(s);
+  for (size_t i = 0; i < units.size(); ++i) {
+    if (isHighSurrogate(units[i]) && i + 1 < units.size() &&
+        isLowSurrogate(units[i + 1]))
+      ++i;
+    else if (isSurrogate(units[i]))
+      return false;
+  }
+  return true;
+}
+
+std::string toUtf8AsQString(const std::wstring &s) {
+  std::string out;
+  for (char32_t c : wideToCodes(s)) appendUtf8(out, c);
+  return out;
+}
 
 std::wstring to_wstring(std::string s) {
   std::u32string codes = decodeUtf8(s);

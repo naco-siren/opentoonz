@@ -26,5 +26,5 @@ while read -r f; do files+=("${f/\$\{CMAKE_CURRENT_SOURCE_DIR\}/$sources/tests}"
 # tnztypes.h picks the integer types by platform macro; the Apple one fits.
 exec "$here/../ios_gtest.sh" "$1" "$2" "$3" nexttoonz_core_noqt_tests -- \
     -DMACOSX -DTNZ_LITTLE_ENDIAN=1 -Dx64 \
-    -DTNZCORE_EXPORTS -DTCOLOR_EXPORTS -DTGEOMETRY_EXPORTS -DTVECTORIMAGE_EXPORTS -DTSOUND_EXPORTS \
-    -I"$sources/include" "${files[@]}"
+    -DTNZCORE_EXPORTS -DTCOLOR_EXPORTS -DTGEOMETRY_EXPORTS -DTVECTORIMAGE_EXPORTS -DTSOUND_EXPORTS -DTSYSTEM_EXPORTS \
+    -I"$sources/include" "${files[@]}" -framework CoreFoundation

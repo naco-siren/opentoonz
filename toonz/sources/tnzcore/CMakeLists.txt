@@ -157,6 +157,7 @@ set(SOURCES
     ../common/tsystem/tbigmemorymanager.cpp
     ../common/tcontenthistory.cpp
     ../common/tsystem/tfilepath.cpp
+    ../common/tsystem/tfilepath_qt.cpp
     ../common/tsystem/tfilepath_io.cpp
     ../common/tsystem/tfiletype.cpp
     ../common/tcache/timagecache.cpp
@@ -273,7 +274,8 @@ endif()
 # a source off Qt adds it here, until the list is all of SOURCES. Step 1 (the
 # mutexes) took Qt out of tthreadmessage.h, which is what kept
 # tsmartpointer.cpp on it; step 3 (the string conversions) freed tconvert.h
-# and with it the next eight. The others never needed Qt.
+# and with it the next eight; step 4 TFilePath and TFrameId, whose Qt members
+# are in tfilepath_qt.cpp. The others never needed Qt.
 set(TNZCORE_NOQT_SOURCES
     ../common/tcore/tdebugmessage.cpp
     ../common/tcore/texception.cpp
@@ -293,6 +295,8 @@ set(TNZCORE_NOQT_SOURCES
     ../common/tvectorimage/tstrokeoutline.cpp
     ../common/tvectorimage/cornerdetector.cpp
     ../common/tsound/tsound.cpp
+    ../common/tsystem/tfilepath.cpp
+    ../common/tsystem/tfiletype.cpp
 )
 foreach(_source ${TNZCORE_NOQT_SOURCES})
     if(NOT _source IN_LIST SOURCES)
@@ -407,8 +411,18 @@ elseif(BUILD_ENV_UNIXLIKE)
 endif()
 
 if(NOT WITH_QT)
-    # What TNZCORE_NOQT_SOURCES need: the C++ library and nothing else yet.
+    # What TNZCORE_NOQT_SOURCES need: the C++ library, and on Apple
+    # CoreFoundation (the order of frame letters, tfilepath.cpp).
+    if(APPLE)
+        target_link_libraries(tnzcore "-framework CoreFoundation")
+    endif()
     return()
+endif()
+
+if(NOT APPLE)
+    # Off Apple, frame letters are still ordered by Qt (tfilepath_qt.cpp).
+    set_source_files_properties(../common/tsystem/tfilepath.cpp
+        PROPERTIES COMPILE_DEFINITIONS NEXTTOONZ_LETTER_ORDER_FROM_QT)
 endif()
 
 target_link_libraries(tnzcore

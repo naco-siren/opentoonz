@@ -9,6 +9,7 @@
 #include "tconvert.h"
 
 #include "tfilepath.h"
+#include <QString>
 
 #undef DVAPI
 #undef DVVAR

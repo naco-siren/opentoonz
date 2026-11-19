@@ -33,6 +33,12 @@ from the system when a CMake package is found (`libgtest-dev` on Debian and
 Ubuntu, `brew install googletest` on macOS) and fetched from GitHub
 otherwise.
 
+Where a migration step of `doc/nexttoonz_core_noqt.md` replaced Qt code, a
+differential test (`core/test_*_qt.cpp`, Qt build only) keeps the old code,
+verbatim or in `core/legacy/`, and compares it with the new one. The one for
+`TFilePath` samples its corpus by default, because the old code is slow;
+`NEXTTOONZ_FULL_DIFFERENTIAL=1` runs all of it (several minutes).
+
 Library behaviours and bugs that the tests pin down as-is are listed in
 `doc/nexttoonz_known_issues.md`; fix the test expectation together with the
 library when you fix one of them.

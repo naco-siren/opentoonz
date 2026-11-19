@@ -3,6 +3,7 @@
 #include "tdoubleparamfile.h"
 #include "tfilepath_io.h"
 #include "tconvert.h"
+#include <QString>
 
 namespace {
 

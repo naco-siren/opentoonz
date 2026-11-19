@@ -31,6 +31,22 @@ DVAPI bool isDouble(std::wstring s);
 
 DVAPI std::wstring to_wstring(std::string s);
 
+// What QString (Qt 5) did, for the code that used to go through it
+// (doc/nexttoonz_core_noqt.md, migration step 4):
+//   toLowerAsQString(s)      QString::toLower: full Unicode lowercase
+//   roundTripAsQString(s)    QString::fromStdWString(s).toStdWString(): a
+//                            leading byte order mark dropped, surrogates that
+//                            are not half of a pair become U+FFFD...
+//   isValidAsQString(s)      whether QString::fromStdWString(s) is valid
+//                            UTF-16 (QRegularExpression matches nothing in a
+//                            string that is not)
+//   toUtf8AsQString(s)       QString::fromStdWString(s).toStdString() for a
+//                            string roundTripAsQString leaves unchanged
+DVAPI std::wstring toLowerAsQString(const std::wstring &s);
+DVAPI std::wstring roundTripAsQString(const std::wstring &s);
+DVAPI bool isValidAsQString(const std::wstring &s);
+DVAPI std::string toUtf8AsQString(const std::wstring &s);
+
 inline bool fromStr(int &v, std::string s) {
   if (isInt(s)) {
     v = std::stoi(s);

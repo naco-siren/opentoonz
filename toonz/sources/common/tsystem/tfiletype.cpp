@@ -2,7 +2,8 @@
 
 #include "tfiletype.h"
 #include "tfilepath.h"
-#include <QString>
+
+#include <algorithm>
 
 namespace {
 
@@ -49,9 +50,7 @@ TFileType::Type TFileType::getInfoFromExtension(const std::string &extension) {
   return (TFileType::Type)type;
 }
 
-TFileType::Type TFileType::getInfoFromExtension(const QString &type) {
-  return getInfoFromExtension(type.toStdString());
-}
+// getInfoFromExtension(const QString &) is in tfilepath_qt.cpp.
 
 //--------------------------------------------------------------------------------
 

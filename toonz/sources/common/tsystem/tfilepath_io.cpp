@@ -8,6 +8,8 @@
 #include <fstream>
 #include <iostream>
 
+#include <QString>
+
 #ifdef _MSC_VER
 
 #include <io.h>

@@ -25,9 +25,13 @@ const wchar_t wauxslash = L'\\';
 #include <cctype>
 #include <sstream>
 
-// QT
-#include <QObject>
-#include <QRegularExpression>
+#include <climits>
+#include <cstdio>
+#include <cwchar>
+
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 
 // Declared in tconvert.h; defined here so that tstring.cpp needs no TFilePath.
 std::string to_string(const TFilePath &fp) {
@@ -85,7 +89,13 @@ bool isNumbers(std::wstring str, int fromSeg, int toSeg) {
   return true;  // We're good!
 }
 
-bool checkForSeqNum(QString type) {
+// The type as QString::fromStdString(type).toLower() had it: lowercased by
+// Unicode's rules (std toLower() only knows ASCII).
+std::string lowerType(const std::string &type) {
+  return toUtf8AsQString(toLowerAsQString(::to_wstring(type)));
+}
+
+bool checkForSeqNum(const std::string &type) {
   TFileType::Type typeInfo = TFileType::getInfoFromExtension(type);
   if ((typeInfo & TFileType::IMAGE) && !(typeInfo & TFileType::LEVEL))
     return true;
@@ -93,7 +103,11 @@ bool checkForSeqNum(QString type) {
     return false;
 }
 
-bool parseFrame(const std::wstring &str, int &frame, QString &letter,
+bool checkForSeqNum(const std::wstring &extension) {
+  return checkForSeqNum(toUtf8AsQString(extension));
+}
+
+bool parseFrame(const std::wstring &str, int &frame, std::wstring &letter,
                 int &padding) {
   if (str.empty()) return false;
 
@@ -107,7 +121,7 @@ bool parseFrame(const std::wstring &str, int &frame, QString &letter,
   if (digits <= 0 || i < (int)str.size()) return false;
 
   frame   = number;
-  letter  = l ? QString(1, QChar(l)) : QString();
+  letter  = l ? std::wstring(1, l) : std::wstring();
   padding = str[0] == L'0' ? digits : 0;
   return true;
 }
@@ -126,6 +140,52 @@ TFrameId::TFrameId(const std::wstring &str, char s)
   if (str.empty()) return;
   if (!parseFrame(str, m_frame, m_letter, m_zeroPadding)) m_frame = NO_FRAME;
 }
+
+// The order of frame letters ("pippo.0001a.tzp") was
+// QString::localeAwareCompare's. Qt compares an empty string with any other
+// by code units, and otherwise compares the two in their composed normal
+// form (NFC) by the platform's rules: on Apple CFStringCompare with
+// kCFCompareLocalized, which is what this does too. Elsewhere the Qt build
+// keeps asking Qt (tfilepath_qt.cpp).
+#if defined(__APPLE__)
+namespace {
+CFMutableStringRef makeNfcString(const std::wstring &s) {
+  std::u16string units;
+  for (wchar_t c : s) {
+    char32_t cp = char32_t(c);
+    if (sizeof(wchar_t) == 4 && cp >= 0x10000) {
+      units.push_back(char16_t(0xd800 + ((cp - 0x10000) >> 10)));
+      units.push_back(char16_t(0xdc00 + ((cp - 0x10000) & 0x3ff)));
+    } else
+      units.push_back(char16_t(cp));
+  }
+  CFMutableStringRef str = CFStringCreateMutable(kCFAllocatorDefault, 0);
+  CFStringAppendCharacters(str, (const UniChar *)units.data(),
+                           (CFIndex)units.size());
+  CFStringNormalize(str, kCFStringNormalizationFormC);
+  return str;
+}
+}  // namespace
+#endif
+
+#if defined(__APPLE__) || !defined(NEXTTOONZ_LETTER_ORDER_FROM_QT)
+int TFrameId::compareLetters(const std::wstring &a, const std::wstring &b) {
+  if (a.empty() || b.empty()) return int(a.size()) - int(b.size());
+#if defined(__APPLE__)
+  CFMutableStringRef ca = makeNfcString(a), cb = makeNfcString(b);
+  int result = (int)CFStringCompare(ca, cb, kCFCompareLocalized);
+  CFRelease(ca);
+  CFRelease(cb);
+  return result;
+#else
+  // Without Qt on a platform that is not Apple's: the C library's collation
+  // for the current locale, then code points. Not what Qt gave there (ICU);
+  // see doc/nexttoonz_core_noqt.md, section 10.
+  int result = std::wcscoll(a.c_str(), b.c_str());
+  return result != 0 ? result : a.compare(b);
+#endif
+}
+#endif
 
 // TFrameId::operator string() const
 std::string TFrameId::expand(FrameFormat format) const {
@@ -149,17 +209,17 @@ std::string TFrameId::expand(FrameFormat format) const {
   } else {
     o_buff << m_frame;
   }
-  if (m_letter.isEmpty())
+  if (m_letter.empty())
     return o_buff.str();
   else
-    return o_buff.str() + m_letter.toStdString();
+    return o_buff.str() + toUtf8AsQString(m_letter);
 }
 
 //-------------------------------------------------------------------
 
 const TFrameId &TFrameId::operator++() {
   ++m_frame;
-  m_letter = "";
+  m_letter.clear();
   // m_letter = 0;
   return *this;
 }
@@ -167,7 +227,7 @@ const TFrameId &TFrameId::operator++() {
 //-------------------------------------------------------------------
 
 const TFrameId &TFrameId::operator--() {
-  if (!m_letter.isEmpty()) m_letter = "";
+  if (!m_letter.empty()) m_letter.clear();
   // if (m_letter > 0)
   //  m_letter = 0;
   else
@@ -353,10 +413,6 @@ TFilePath::TFilePath(const std::wstring &path) { setPath(path); }
 
 //-----------------------------------------------------------------------------
 
-TFilePath::TFilePath(const QString &path) { setPath(path.toStdWString()); }
-
-//-----------------------------------------------------------------------------
-
 bool TFilePath::operator==(const TFilePath &fp) const {
 #ifdef _WIN32
   return _wcsicmp(m_path.c_str(), fp.m_path.c_str()) == 0;
@@ -440,7 +496,7 @@ if(i==wstring::npos) {ka = a; a = L"";}
 TFilePath &TFilePath::operator+=(const TFilePath &fp) {
   if (fp.isAbsolute()) {
     // Log error or handle appropriately
-    qWarning("Cannot append absolute path to another path");
+    fprintf(stderr, "Cannot append absolute path to another path\n");
     return *this;
   }
 
@@ -531,12 +587,6 @@ const wstring TFilePath::getWideString() const
 
 //-----------------------------------------------------------------------------
 
-QString TFilePath::getQString() const {
-  return QString::fromStdWString(getWideString());
-}
-
-//-----------------------------------------------------------------------------
-
 std::ostream &operator<<(std::ostream &out, const TFilePath &path) {
   std::wstring w = path.getWideString();
   return out << ::to_string(w) << " ";
@@ -583,14 +633,14 @@ bool TFilePath::isRoot() const {
 std::string TFilePath::getDots() const {
   if (!TFilePath::m_useStandard) {
     TFilePathInfo info = analyzePath();
-    if (info.extension.isEmpty()) return "";
-    if (info.sepChar.isNull()) return ".";
+    if (info.extension.empty()) return "";
+    if (info.sepChar == 0) return ".";
     // return ".." regardless of sepChar type (either "_" or ".")
     return "..";
   }
   //-----
 
-  QString type = QString::fromStdString(getType()).toLower();
+  std::string type = lowerType(getType());
   if (isFfmpegType()) return ".";
   int i            = getLastSlash(m_path);
   std::wstring str = m_path.substr(i + 1);
@@ -611,32 +661,32 @@ std::string TFilePath::getDots() const {
 
 //-----------------------------------------------------------------------------
 
-QChar TFilePath::getSepChar() const {
+wchar_t TFilePath::getSepCharW() const {
   if (!TFilePath::m_useStandard) return analyzePath().sepChar;
   //-----
-  QString type = QString::fromStdString(getType()).toLower();
-  if (isFfmpegType()) return QChar();
+  std::string type = lowerType(getType());
+  if (isFfmpegType()) return 0;
   int i            = getLastSlash(m_path);
   std::wstring str = m_path.substr(i + 1);
   // I could also have a.b.c.d where d is the extension
   i = str.rfind(L".");
-  if (i == (int)std::wstring::npos || str == L"..") return QChar();
+  if (i == (int)std::wstring::npos || str == L"..") return 0;
 
   int j = str.substr(0, i).rfind(L".");
 
   if (j != (int)std::wstring::npos)
     return (j == i - 1 || (checkForSeqNum(type) && isNumbers(str, j, i)))
-               ? QChar('.')
-               : QChar();
-  if (!m_underscoreFormatAllowed) return QChar();
+               ? L'.'
+               : 0;
+  if (!m_underscoreFormatAllowed) return 0;
 
   j = str.substr(0, i).rfind(L"_");
   if (j != (int)std::wstring::npos)
     return (j == i - 1 || (checkForSeqNum(type) && isNumbers(str, j, i)))
-               ? QChar('_')
-               : QChar();
+               ? L'_'
+               : 0;
   else
-    return QChar();
+    return 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -645,9 +695,9 @@ std::string TFilePath::getDottedType()
     const  // returns extension with DOT (if present)
 {
   if (!TFilePath::m_useStandard) {
-    QString ext = analyzePath().extension;
-    if (ext.isEmpty()) return "";
-    return "." + ext.toLower().toStdString();
+    std::wstring ext = analyzePath().extension;
+    if (ext.empty()) return "";
+    return "." + toUtf8AsQString(toLowerAsQString(ext));
   }
 
   int i            = getLastSlash(m_path);
@@ -663,11 +713,11 @@ std::string TFilePath::getDottedType()
 std::string TFilePath::getUndottedType() const  // returns extension without DOT
 {
   if (!TFilePath::m_useStandard) {
-    QString ext = analyzePath().extension;
-    if (ext.isEmpty())
+    std::wstring ext = analyzePath().extension;
+    if (ext.empty())
       return "";
     else
-      return ext.toLower().toStdString();
+      return toUtf8AsQString(toLowerAsQString(ext));
   }
 
   size_t i         = getLastSlash(m_path);
@@ -682,10 +732,10 @@ std::string TFilePath::getUndottedType() const  // returns extension without DOT
 std::wstring TFilePath::getWideName() const  // noDot! noSlash!
 {
   if (!TFilePath::m_useStandard) {
-    return analyzePath().levelName.toStdWString();
+    return analyzePath().levelName;
   }
 
-  QString type     = QString::fromStdString(getType()).toLower();
+  std::string type     = lowerType(getType());
   int i            = getLastSlash(m_path);  // look for the last slash
   std::wstring str = m_path.substr(i + 1);
   i                = str.rfind(L".");
@@ -721,16 +771,16 @@ std::string TFilePath::getLevelName() const {
 std::wstring TFilePath::getLevelNameW() const {
   if (!TFilePath::m_useStandard) {
     TFilePathInfo info = analyzePath();
-    if (info.extension.isEmpty()) return info.levelName.toStdWString();
-    QString name = info.levelName;
-    if (!info.sepChar.isNull()) name += info.sepChar;
-    name += "." + info.extension;
-    return name.toStdWString();
+    if (info.extension.empty()) return info.levelName;
+    std::wstring name = info.levelName;
+    if (info.sepChar != 0) name += info.sepChar;
+    name += L"." + info.extension;
+    return name;
   }
 
   int i            = getLastSlash(m_path);  // look for the last slash
   std::wstring str = m_path.substr(i + 1);  // str is m_path without directory
-  QString type     = QString::fromStdString(getType()).toLower();
+  std::string type     = lowerType(getType());
   if (isFfmpegType()) return str;
   int j = str.rfind(L".");                       // str[j..] = ".type"
   if (j == (int)std::wstring::npos) return str;  // no frame; no type
@@ -774,7 +824,7 @@ bool TFilePath::isLevelName() const {
     return analyzePath().fId.getNumber() == TFrameId::EMPTY_FRAME;
   }
 
-  QString type = QString::fromStdString(getType()).toLower();
+  std::string type = lowerType(getType());
   if (isFfmpegType() || !checkForSeqNum(type)) return false;
   try {
     return getFrame() == TFrameId(TFrameId::EMPTY_FRAME);
@@ -791,7 +841,7 @@ TFrameId TFilePath::getFrame() const {
   //-----
   int i            = getLastSlash(m_path);  // look for the last slash
   std::wstring str = m_path.substr(i + 1);  // str is the path without parentdir
-  QString type     = QString::fromStdString(getType()).toLower();
+  std::string type     = lowerType(getType());
   i                = str.rfind(L'.');
   if (i == (int)std::wstring::npos || str == L"." || str == L"..")
     return TFrameId(TFrameId::NO_FRAME);
@@ -815,21 +865,21 @@ TFrameId TFilePath::getFrame() const {
 //-----------------------------------------------------------------------------
 
 bool TFilePath::isFfmpegType() const {
-  QString type = QString::fromStdString(getType()).toLower();
+  std::string type = lowerType(getType());
   return (type == "gif" || type == "mp4" || type == "webm");
 }
 
 //-----------------------------------------------------------------------------
 
 bool TFilePath::isUneditable() const {
-  QString type = QString::fromStdString(getType()).toLower();
+  std::string type = lowerType(getType());
   return (type == "psd" || type == "gif" || type == "mp4" || type == "webm");
 }
 
 //-----------------------------------------------------------------------------
 TFilePath TFilePath::withType(const std::string &type) const {
   if (type.length() >= 2 && type.substr(0, 2) == "..") {
-    qWarning("Invalid type: %s", type.c_str());
+    fprintf(stderr, "Invalid type: %s\n", type.c_str());
     return *this;
   }
 
@@ -869,24 +919,24 @@ TFilePath TFilePath::withName(const std::wstring &name) const {
   if (!TFilePath::m_useStandard) {
     TFilePathInfo info = analyzePath();
 
-    QString ret = info.parentDir + QString::fromStdWString(name);
+    std::wstring ret = info.parentDir + roundTripAsQString(name);
     if (info.fId.getNumber() != TFrameId::NO_FRAME) {
-      QString sepChar = (info.sepChar.isNull()) ? "."
-                        : (info.sepChar == QChar('#') &&
-                           info.fId.getNumber() != TFrameId::EMPTY_FRAME)
-                            ? ""
-                            : QString(info.sepChar);
-      ret += sepChar + QString::fromStdString(
-                           info.fId.expand(info.fId.getCurrentFormat()));
+      std::wstring sepChar = (info.sepChar == 0) ? L"."
+                             : (info.sepChar == L'#' &&
+                                info.fId.getNumber() != TFrameId::EMPTY_FRAME)
+                                 ? L""
+                                 : std::wstring(1, info.sepChar);
+      ret += sepChar +
+             ::to_wstring(info.fId.expand(info.fId.getCurrentFormat()));
     }
-    if (!info.extension.isEmpty()) ret += "." + info.extension;
+    if (!info.extension.empty()) ret += L"." + info.extension;
 
     return TFilePath(ret);
   }
 
   int i            = getLastSlash(m_path);  // look for the last slash
   std::wstring str = m_path.substr(i + 1);  // str is the path without parentdir
-  QString type     = QString::fromStdString(getType()).toLower();
+  std::string type     = lowerType(getType());
   int j;
   j = str.rfind(L'.');
 
@@ -934,22 +984,24 @@ TFilePath TFilePath::withFrame(const TFrameId &frame,
     else if (info.fId.getNumber() != TFrameId::NO_FRAME)
       format = info.fId.getCurrentFormat();
 
-    if (info.extension.isEmpty()) {
+    if (info.extension.empty()) {
       if (frame.isEmptyFrame() || frame.isNoFrame()) return *this;
 
       return TFilePath(m_path + L"." + ::to_wstring(frame.expand(format)));
     }
     if (frame.isNoFrame()) {
-      return TFilePath(info.parentDir + info.levelName + "." + info.extension);
+      return TFilePath(info.parentDir + info.levelName + L"." + info.extension);
     }
-    QString sepChar = (info.sepChar.isNull()) ? QString(frame.getStartSeqInd())
-                      : (info.sepChar == QChar('#') &&
-                         frame.getNumber() != TFrameId::EMPTY_FRAME)
-                          ? QString("")
-                          : QString(info.sepChar);
+    // QString(char) took the char as Latin-1, a NUL included.
+    std::wstring sepChar =
+        (info.sepChar == 0)
+            ? std::wstring(1, wchar_t((unsigned char)frame.getStartSeqInd()))
+        : (info.sepChar == L'#' && frame.getNumber() != TFrameId::EMPTY_FRAME)
+            ? std::wstring()
+            : std::wstring(1, info.sepChar);
 
     return TFilePath(info.parentDir + info.levelName + sepChar +
-                     QString::fromStdString(frame.expand(format)) + "." +
+                     ::to_wstring(frame.expand(format)) + L"." +
                      info.extension);
   }
 
@@ -958,9 +1010,9 @@ TFilePath TFilePath::withFrame(const TFrameId &frame,
   const std::wstring dot = L".", dotDot = L"..";
   int i            = getLastSlash(m_path);  // look for the last slash
   std::wstring str = m_path.substr(i + 1);  // str is the path without parentdir
-  QString type     = QString::fromStdString(getType()).toLower();
+  std::string type     = lowerType(getType());
   if (str == dot || str == dotDot) {
-    qWarning("Invalid path for frame operation: %ls", str.c_str());
+    fprintf(stderr, "Invalid path for frame operation: %ls\n", str.c_str());
     return *this;
   }
 
@@ -1095,29 +1147,204 @@ void TFilePath::split(std::wstring &head, TFilePath &tail) const {
 
 //-----------------------------------------------------------------------------
 
-QString TFilePath::fidRegExpStr() {
-  if (m_useStandard) return QString("(\\d+)([a-zA-Z]?)");
-  QString suffixLetter = (m_acceptNonAlphabetSuffix)
-                             ? "[^\\._ \\\\/:,;*?\"<>|0123456789]"
-                             : "[a-zA-Z]";
-  QString countLetter  = (m_letterCountForSuffix == 0)
-                             ? "{0,}"
-                             : (QString("{0,%1}").arg(m_letterCountForSuffix));
-  return QString("(?<framenum>\\d+)(?<suffix>%1%2)")
-      .arg(suffixLetter)
-      .arg(countLetter);
-  // const QString fIdRegExp("(\\d+)([a-zA-Z]?)");
+// fidRegExpStr() is in tfilepath_qt.cpp. analyzePath() used to match three
+// regular expressions built from it with QRegularExpression; the code below
+// matches the same patterns by hand, trying the alternatives in the order
+// PCRE does (greedy, first match wins), and gives the same captures. The
+// patterns, for the record:
+//   levelname  [^\\/:,;*?"<>|]+
+//   sepchar    [._]
+//   framenum   \d+                                (ASCII digits)
+//   suffix     [a-zA-Z]{0,n}, or with m_acceptNonAlphabetSuffix
+//              [^._ \\/:,;*?"<>|0-9]{0,n}         (n = m_letterCountForSuffix,
+//                                                  no limit when 0)
+//   extension  [^._ \\/:,;*?"<>|]+
+//   1. ^(?:levelname)?sepchar(?:framenum suffix)?\.extension$
+//   2. ^(?:levelname_nosep)?(?:(#)|(?:framenum suffix))\.extension$
+//      where levelname_nosep is [^\\/:,;*?"<>|]*[^\d\\/:,;*?"<>|]
+//   3. ^(?:levelname)?\.extension$
+// $ also matches before a newline that ends the string, as in PCRE.
+
+namespace {
+
+bool isLevelNameChar(wchar_t c) {
+  switch (c) {
+  case L'\\':
+  case L'/':
+  case L':':
+  case L',':
+  case L';':
+  case L'*':
+  case L'?':
+  case L'"':
+  case L'<':
+  case L'>':
+  case L'|':
+    return false;
+  default:
+    return true;
+  }
 }
+
+bool isAsciiDigit(wchar_t c) { return c >= L'0' && c <= L'9'; }
+
+bool isExtensionChar(wchar_t c) {
+  return c != L'.' && c != L'_' && c != L' ' && isLevelNameChar(c);
+}
+
+class PathNameMatcher {
+  const std::wstring &m_s;
+  int m_n;
+  bool m_nonAlphabetSuffix;
+  int m_suffixMax;  // -1: no limit
+
+public:
+  // Captures of a match; -1 marks a group that did not take part.
+  int levelEnd = -1, sepPos = -1, numBegin = -1, numEnd = -1, suffixEnd = -1,
+      extBegin = -1, extEnd = -1;
+
+  PathNameMatcher(const std::wstring &s, bool nonAlphabetSuffix,
+                  int letterCount)
+      : m_s(s)
+      , m_n((int)s.size())
+      , m_nonAlphabetSuffix(nonAlphabetSuffix)
+      , m_suffixMax(letterCount == 0 ? -1 : letterCount) {}
+
+  bool atEnd(int p) const {
+    return p == m_n || (p == m_n - 1 && m_s[m_n - 1] == L'\n');
+  }
+
+  bool isSuffixChar(wchar_t c) const {
+    return m_nonAlphabetSuffix ? isExtensionChar(c) && !isAsciiDigit(c)
+                               : (c >= L'a' && c <= L'z') ||
+                                     (c >= L'A' && c <= L'Z');
+  }
+
+  // \.extension$ at p
+  bool matchDotExtension(int p) {
+    if (p >= m_n || m_s[p] != L'.') return false;
+    int b = p + 1, e = b;
+    while (e < m_n && isExtensionChar(m_s[e])) ++e;
+    for (int k = e; k > b; --k)
+      if (atEnd(k)) {
+        extBegin = b, extEnd = k;
+        return true;
+      }
+    return false;
+  }
+
+  // framenum suffix \.extension$ at p
+  bool matchFrameThenExtension(int p) {
+    int d = p;
+    while (d < m_n && isAsciiDigit(m_s[d])) ++d;
+    for (int q = d; q > p; --q) {
+      int r = q;
+      while (r < m_n && isSuffixChar(m_s[r]) &&
+             (m_suffixMax < 0 || r - q < m_suffixMax))
+        ++r;
+      for (int k = r; k >= q; --k)
+        if (matchDotExtension(k)) {
+          numBegin = p, numEnd = q, suffixEnd = k;
+          return true;
+        }
+    }
+    return false;
+  }
+
+  // Pattern 1
+  bool matchWithSeparator() {
+    int maxLevel = 0;
+    while (maxLevel < m_n && isLevelNameChar(m_s[maxLevel])) ++maxLevel;
+    for (int k = maxLevel; k >= 0; --k) {
+      if (k >= m_n || (m_s[k] != L'.' && m_s[k] != L'_')) continue;
+      numBegin = numEnd = suffixEnd = -1;
+      if (matchFrameThenExtension(k + 1) || matchDotExtension(k + 1)) {
+        levelEnd = k, sepPos = k;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Pattern 2; sepPos is the '#' if that alternative matched
+  bool matchWithoutSeparator() {
+    auto rest = [&](int k) {
+      numBegin = numEnd = suffixEnd = -1;
+      if (k < m_n && m_s[k] == L'#' && matchDotExtension(k + 1)) {
+        sepPos = k;
+        return true;
+      }
+      sepPos = -1;
+      return matchFrameThenExtension(k);
+    };
+    int maxLevel = 0;
+    while (maxLevel < m_n && isLevelNameChar(m_s[maxLevel])) ++maxLevel;
+    for (int j = maxLevel; j >= 0; --j) {
+      // [..]* took j characters; the last character must not be a digit
+      if (j >= m_n || !isLevelNameChar(m_s[j]) || isAsciiDigit(m_s[j]))
+        continue;
+      if (rest(j + 1)) {
+        levelEnd = j + 1;
+        return true;
+      }
+    }
+    if (rest(0)) {
+      levelEnd = 0;
+      return true;
+    }
+    return false;
+  }
+
+  // Pattern 3
+  bool matchWithoutFrame() {
+    int maxLevel = 0;
+    while (maxLevel < m_n && isLevelNameChar(m_s[maxLevel])) ++maxLevel;
+    for (int k = maxLevel; k >= 0; --k)
+      if (matchDotExtension(k)) {
+        levelEnd = k;
+        return true;
+      }
+    return false;
+  }
+
+  std::wstring part(int b, int e) const {
+    return (b < 0 || e <= b) ? std::wstring() : m_s.substr(b, e - b);
+  }
+};
+
+// QString::toInt() of the digits: 0 when they overflow an int.
+int toIntAsQString(const std::wstring &digits) {
+  long long v = 0;
+  for (wchar_t c : digits) {
+    v = v * 10 + (c - L'0');
+    if (v > INT_MAX) return 0;
+  }
+  return int(v);
+}
+
+// The frame of a match, as analyzePath built it.
+TFrameId frameOf(const std::wstring &numberStr, const std::wstring &suffix,
+                 char sepChar) {
+  if (numberStr.empty())  // empty frame case : hogehoge..jpg
+    return TFrameId(TFrameId::EMPTY_FRAME, 0, 4, sepChar);
+  int number  = toIntAsQString(numberStr);
+  int padding = 0;
+  if (numberStr[0] == L'0')  // with padding
+    padding = (int)numberStr.length();
+  return TFrameId(number, suffix, padding, sepChar);
+}
+
+}  // namespace
 
 //-----------------------------------------------------------------------------
 
 TFilePath::TFilePathInfo TFilePath::analyzePath() const {
   // analyzePath should only be called when m_useStandard is false
   if (TFilePath::m_useStandard) {
-#ifdef QT_DEBUG
-    qWarning(
-        "analyzePath called with m_useStandard enabled - returning empty "
-        "TFilePathInfo");
+#ifndef NDEBUG
+    fprintf(stderr,
+            "analyzePath called with m_useStandard enabled - returning empty "
+            "TFilePathInfo\n");
 #endif
     // Return empty structure since standard path analysis should be used
     // instead
@@ -1129,128 +1356,81 @@ TFilePath::TFilePathInfo TFilePath::analyzePath() const {
   int i            = getLastSlash(m_path);
   std::wstring str = m_path.substr(i + 1);
 
-  if (i >= 0) info.parentDir = QString::fromStdWString(m_path.substr(0, i + 1));
+  // The parts went through QString: what it did to them, they still get.
+  if (i >= 0) info.parentDir = roundTripAsQString(m_path.substr(0, i + 1));
 
-  QString fileName = QString::fromStdWString(str);
+  if (!isValidAsQString(str)) {
+    // QRegularExpression matches nothing in a string that is not valid
+    // UTF-16: the "no periods" case below.
+    info.levelName = roundTripAsQString(str);
+    info.sepChar   = 0;
+    info.fId = TFrameId(TFrameId::NO_FRAME, 0, 0);  // initialize with NO_PAD
+    return info;
+  }
+  const std::wstring fileName = roundTripAsQString(str);
 
-  // Level Name : letters other than  \/:,;*?"<>|
-  QString levelNameRegExp("(?<levelname>[^\\\\/:,;*?\"<>|]+)");
-  // Sep Char : period or underscore
-  const QString sepCharRegExp("(?<sepchar>[\\._])");
-
-  // Frame Number and Suffix
-  QString fIdRegExp = TFilePath::fidRegExpStr();
-
-  // Extension: letters other than "._" or  \/:,;*?"<>|  or " "(space)
-  const QString extensionRegExp("(?<extension>[^\\._ \\\\/:,;*?\"<>|]+)");
-
-  // Modern QRegularExpression implementation
-  QRegularExpression rx("^(?:" + levelNameRegExp + ")?" + sepCharRegExp +
-                        "(?:" + fIdRegExp + ")?" + "\\." + extensionRegExp +
-                        "$");
-  QRegularExpressionMatch match = rx.match(fileName);
-
-  if (match.hasMatch()) {
-    info.levelName = match.captured("levelname");
-    info.sepChar   = match.captured("sepchar").isEmpty()
-                         ? QChar()
-                         : match.captured("sepchar").at(0);
-    info.extension = match.captured("extension");
+  PathNameMatcher rx(fileName, m_acceptNonAlphabetSuffix,
+                     m_letterCountForSuffix);
+  if (rx.matchWithSeparator()) {
+    std::wstring levelName = rx.part(0, rx.levelEnd);
+    std::wstring sepChar   = rx.part(rx.sepPos, rx.sepPos + 1);
+    std::wstring numberStr = rx.part(rx.numBegin, rx.numEnd);
+    std::wstring suffix    = rx.part(rx.numEnd, rx.suffixEnd);
+    info.levelName         = levelName;
+    info.sepChar           = sepChar[0];
+    info.extension         = rx.part(rx.extBegin, rx.extEnd);
 
     // ignore frame numbers on non-sequential (i.e. movie) extension case
     if (!checkForSeqNum(info.extension)) {
-      info.levelName = match.captured("levelname") + match.captured("sepchar");
-      if (!match.captured("framenum").isEmpty())
-        info.levelName += match.captured("framenum");
-      if (!match.captured("suffix").isEmpty())
-        info.levelName += match.captured("suffix");
-      info.sepChar = QChar();
+      info.levelName = levelName + sepChar + numberStr + suffix;
+      info.sepChar   = 0;
       info.fId = TFrameId(TFrameId::NO_FRAME, 0, 0);  // initialize with NO_PAD
-    } else {
-      QString numberStr = match.captured("framenum");
-      if (numberStr.isEmpty()) {  // empty frame case : hogehoge..jpg
-        info.fId =
-            TFrameId(TFrameId::EMPTY_FRAME, 0, 4, info.sepChar.toLatin1());
-      } else {
-        int number  = numberStr.toInt();
-        int padding = 0;
-        if (!numberStr.isEmpty() && numberStr[0] == '0') {  // with padding
-          padding = numberStr.length();
-        }
-        QString suffix;
-        if (!match.captured("suffix").isEmpty())
-          suffix = match.captured("suffix");
-        info.fId = TFrameId(number, suffix, padding, info.sepChar.toLatin1());
-      }
-    }
+    } else
+      info.fId = frameOf(numberStr, suffix, (char)info.sepChar);
     return info;
   }
   // check no-separator sequencial images case (hogehoge0001.jpg /
   // hogehoge#.jpg)
   if (m_noSeparatorFormatAllowed) {
-    // level name must be ended with non-digit
-    QString levelNameRegExp_nosep =
-        QString("(?<levelname>[^\\\\/:,;*?\"<>|]*[^\\d\\\\/:,;*?\"<>|])");
-    // check again without separator
-    QRegularExpression rx_nosep("^(?:" + levelNameRegExp_nosep + ")?" +
-                                "(?:(?<sepchar>#)|(?:" + fIdRegExp + "))" +
-                                "\\." + extensionRegExp + "$");
-    match = rx_nosep.match(fileName);
-
-    if (match.hasMatch()) {
-      info.levelName = match.captured("levelname");
-      info.sepChar   = QChar('#');
-      info.extension = match.captured("extension");
+    PathNameMatcher rx_nosep(fileName, m_acceptNonAlphabetSuffix,
+                             m_letterCountForSuffix);
+    if (rx_nosep.matchWithoutSeparator()) {
+      std::wstring levelName = rx_nosep.part(0, rx_nosep.levelEnd);
+      std::wstring numberStr = rx_nosep.part(rx_nosep.numBegin, rx_nosep.numEnd);
+      std::wstring suffix =
+          rx_nosep.part(rx_nosep.numEnd, rx_nosep.suffixEnd);
+      info.levelName = levelName;
+      info.sepChar   = L'#';
+      info.extension = rx_nosep.part(rx_nosep.extBegin, rx_nosep.extEnd);
 
       // ignore frame numbers on non-sequential (i.e. movie) extension case
       if (!checkForSeqNum(info.extension)) {
-        info.levelName = match.captured("levelname");
-        if (!match.captured("framenum").isEmpty())
-          info.levelName += match.captured("framenum");
-        if (!match.captured("suffix").isEmpty())
-          info.levelName += match.captured("suffix");
-        info.sepChar = QChar();
+        info.levelName = levelName + numberStr + suffix;
+        info.sepChar   = 0;
         info.fId =
             TFrameId(TFrameId::NO_FRAME, 0, 0);  // initialize with NO_PAD
-      } else {
-        QString numberStr = match.captured("framenum");
-        if (numberStr.isEmpty()) {  // empty frame case : hogehoge#.jpg
-          info.fId =
-              TFrameId(TFrameId::EMPTY_FRAME, 0, 4, info.sepChar.toLatin1());
-        } else {
-          int number  = numberStr.toInt();
-          int padding = 0;
-          if (!numberStr.isEmpty() && numberStr[0] == '0') {  // with padding
-            padding = numberStr.length();
-          }
-          QString suffix;
-          if (!match.captured("suffix").isEmpty())
-            suffix = match.captured("suffix");
-          info.fId = TFrameId(number, suffix, padding, info.sepChar.toLatin1());
-        }
-      }
+      } else
+        info.fId = frameOf(numberStr, suffix, '#');
       return info;
     }
   }
 
   // no frame case : hogehoge.jpg
   // no level name case : .jpg
-  QRegularExpression rx_nf("^(?:" + levelNameRegExp + ")?\\." +
-                           extensionRegExp + "$");
-  match = rx_nf.match(fileName);
-  if (match.hasMatch()) {
-    if (!match.captured("levelname").isEmpty())
-      info.levelName = match.captured("levelname");
-    info.sepChar = QChar();
+  PathNameMatcher rx_nf(fileName, m_acceptNonAlphabetSuffix,
+                        m_letterCountForSuffix);
+  if (rx_nf.matchWithoutFrame()) {
+    info.levelName = rx_nf.part(0, rx_nf.levelEnd);
+    info.sepChar   = 0;
     info.fId = TFrameId(TFrameId::NO_FRAME, 0, 0);  // initialize with NO_PAD
-    info.extension = match.captured("extension");
+    info.extension = rx_nf.part(rx_nf.extBegin, rx_nf.extEnd);
     return info;
   }
 
   // no periods
   info.levelName = fileName;
-  info.sepChar   = QChar();
+  info.sepChar   = 0;
   info.fId = TFrameId(TFrameId::NO_FRAME, 0, 0);  // initialize with NO_PAD
-  info.extension = QString();
+  info.extension.clear();
   return info;
 }

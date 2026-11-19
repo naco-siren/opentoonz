@@ -16,7 +16,13 @@
 #define DVVAR DV_IMPORT_VAR
 #endif
 
-#include <QString>
+#include <string>
+
+// The members that take or give these are for the code on the Qt side: they
+// are defined in tfilepath_qt.cpp, which the build without Qt leaves out
+// (doc/nexttoonz_core_noqt.md, section 6 and migration step 4).
+class QString;
+class QChar;
 
 //-----------------------------------------------------------------------------
 /*
@@ -28,7 +34,7 @@
 //! optionally by a character (necessary for appended frames)
 class DVAPI TFrameId {
   int m_frame;
-  QString
+  std::wstring
       m_letter;  // Used for "appended" frames like pippo.0001a.tzp => f=1 c='a'
   int m_zeroPadding;
   char m_startSeqInd;
@@ -53,13 +59,15 @@ public:
   };  // pippo_1.tif
 
   TFrameId(int f = EMPTY_FRAME)
-      : m_frame(f), m_letter(""), m_zeroPadding(4), m_startSeqInd('.') {}
+      : m_frame(f), m_letter(), m_zeroPadding(4), m_startSeqInd('.') {}
   TFrameId(int f, char c, int p = 4, char s = '.')
       : m_frame(f), m_zeroPadding(p), m_startSeqInd(s) {
-    m_letter = (c == '\0') ? QString() : QString(1, QChar(c));
+    // A char is a Latin-1 character, as QChar(char) took it.
+    if (c != '\0') m_letter.assign(1, wchar_t((unsigned char)c));
   }
-  TFrameId(int f, QString str, int p = 4, char s = '.')
-      : m_frame(f), m_letter(str), m_zeroPadding(p), m_startSeqInd(s) {}
+  TFrameId(int f, const std::wstring &letter, int p = 4, char s = '.')
+      : m_frame(f), m_letter(letter), m_zeroPadding(p), m_startSeqInd(s) {}
+  TFrameId(int f, QString str, int p = 4, char s = '.');  // tfilepath_qt.cpp
   explicit TFrameId(const std::string &str, char s = '.');
   explicit TFrameId(const std::wstring &wstr, char s = '.');
 
@@ -71,9 +79,10 @@ public:
   }
   inline bool operator<(const TFrameId &f) const {
     return (m_frame < f.m_frame ||
-            (m_frame == f.m_frame &&
-             QString::localeAwareCompare(m_letter, f.m_letter) < 0));
+            (m_frame == f.m_frame && compareLetters(m_letter, f.m_letter) < 0));
   }
+  //! Orders two letters as QString::localeAwareCompare did.
+  static int compareLetters(const std::wstring &a, const std::wstring &b);
   inline bool operator>(const TFrameId &f) const { return f < *this; }
   inline bool operator>=(const TFrameId &f) const { return !operator<(f); }
   inline bool operator<=(const TFrameId &f) const { return !operator>(f); }
@@ -95,7 +104,8 @@ public:
   // operator string() const;
   std::string expand(FrameFormat format = FOUR_ZEROS) const;
   int getNumber() const { return m_frame; }
-  QString getLetter() const { return m_letter; }
+  QString getLetter() const;  // tfilepath_qt.cpp
+  const std::wstring &getLetterW() const { return m_letter; }
 
   void setZeroPadding(int p) { m_zeroPadding = p; }
   int getZeroPadding() const { return m_zeroPadding; }
@@ -155,11 +165,11 @@ class DVAPI TFilePath {
   std::wstring m_path;
 
   struct TFilePathInfo {
-    QString parentDir;  // with slash
-    QString levelName;
-    QChar sepChar;  // either "." or "_", or "#" (indicates no separator)
+    std::wstring parentDir;  // with slash
+    std::wstring levelName;
+    wchar_t sepChar = 0;  // '.', '_' or '#' (no separator), or 0 for none
     TFrameId fId;
-    QString extension;
+    std::wstring extension;
   };
 
   void setPath(std::wstring path);
@@ -190,7 +200,7 @@ public:
     return true;
   }
   static bool useStandard() { return m_useStandard; }
-  static QString fidRegExpStr();
+  static QString fidRegExpStr();  // tfilepath_qt.cpp
 
   /*!This constructor creates a string by removing redundancies ('//', './',
      etc.) and trailing slashes, correcting (redressing) "twisted" slashes.
@@ -200,7 +210,7 @@ public:
   explicit TFilePath(const char *path = "");
   explicit TFilePath(const std::string &path);
   explicit TFilePath(const std::wstring &path);
-  explicit TFilePath(const QString &path);
+  explicit TFilePath(const QString &path);  // tfilepath_qt.cpp
 
   ~TFilePath() {}
   TFilePath(const TFilePath &fp) : m_path(fp.m_path) {}
@@ -216,7 +226,7 @@ public:
   bool operator<(const TFilePath &fp) const;
 
   const std::wstring getWideString() const;
-  QString getQString() const;
+  QString getQString() const;  // tfilepath_qt.cpp
 
   /*!Returns:
    a.  "" if there is no file extension
@@ -328,7 +338,8 @@ type is a string indicating the file extension (e.g., .bmp or bmp)*/
 
   TFilePathInfo analyzePath() const;
 
-  QChar getSepChar() const;
+  QChar getSepChar() const;  // tfilepath_qt.cpp
+  wchar_t getSepCharW() const;  // as getSepChar(), 0 for none
 };
 
 //-----------------------------------------------------------------------------

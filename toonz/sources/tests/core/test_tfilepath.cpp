@@ -135,3 +135,75 @@ TEST(TFrameId, ParsesFromString) {
   EXPECT_EQ(fid.getNumber(), 12);
   EXPECT_FALSE(fid.isEmptyFrame());
 }
+
+// Project settings that change how file names are read
+// (filepathproperties.h): TFilePath then parses with analyzePath(), which
+// used QRegularExpression until migration step 4 of
+// doc/nexttoonz_core_noqt.md. The expected values are what that code gave;
+// test_tfilepath_qt.cpp compares the two implementations over far more
+// names in the Qt build.
+TEST(TFilePath, ProjectSettingsParsing) {
+  // png comes from FileTypeRegistry above
+  TFileType::declare("mp4", TFileType::RASTER_LEVEL);
+  struct Case {
+    bool nonAlphabetSuffix;
+    int letterCount;
+    bool noSeparator;
+    const wchar_t *path, *levelName, *wideName;
+    int frame;
+    const wchar_t *letter;
+    int padding;
+    const char *dots;
+  };
+  const Case cases[] = {
+      {false, 1, false, L"/d/a_0001.png", L"a_.png", L"a", 1, L"", 4, ".."},
+      {false, 1, false, L"/d/a.0012b.png", L"a..png", L"a", 12, L"b", 4, ".."},
+      {false, 1, false, L"/d/a0003.png", L"a0003.png", L"a0003", -2, L"", 0, "."},
+      {false, 1, false, L"/d/a#.png", L"a#.png", L"a#", -2, L"", 0, "."},
+      {false, 1, false, L"/d/a..png", L"a..png", L"a", -1, L"", 4, ".."},
+      {false, 1, false, L"/d/a.png", L"a.png", L"a", -2, L"", 0, "."},
+      {false, 1, false, L"/d/a_b_0001xyz.png", L"a_b_0001xyz.png",
+       L"a_b_0001xyz", -2, L"", 0, "."},
+      {false, 1, false, L"/d/clip.0001.mp4", L"clip.0001.mp4", L"clip.0001", -2,
+       L"", 0, "."},
+      {false, 1, false, L"/d/noext", L"noext", L"noext", -2, L"", 0, ""},
+      {true, 0, true, L"/d/a0003.png", L"a#.png", L"a", 3, L"", 4, ".."},
+      {true, 0, true, L"/d/a#.png", L"a#.png", L"a", -1, L"", 4, ".."},
+      {true, 0, true, L"/d/a_b_0001xyz.png", L"a_b_.png", L"a_b", 1, L"xyz", 4,
+       ".."},
+      {true, 0, true, L"/d/clip.0001.mp4", L"clip.0001.mp4", L"clip.0001", -2,
+       L"", 0, "."},
+  };
+  for (const Case &c : cases) {
+    TFilePath::setFilePathProperties(false, c.nonAlphabetSuffix, c.letterCount,
+                                     c.noSeparator);
+    TFilePath p(c.path);
+    TFrameId f = p.getFrame();
+    EXPECT_EQ(p.getLevelNameW(), c.levelName) << c.path;
+    EXPECT_EQ(p.getWideName(), c.wideName) << c.path;
+    EXPECT_EQ(f.getNumber(), c.frame) << c.path;
+    EXPECT_EQ(f.getLetterW(), c.letter) << c.path;
+    EXPECT_EQ(f.getZeroPadding(), c.padding) << c.path;
+    EXPECT_EQ(p.getDots(), c.dots) << c.path;
+  }
+  TFilePath::setFilePathProperties(true, false, 1, false);  // the defaults
+}
+
+TEST(TFrameId, LettersOrderAsQtDid) {
+  // Empty letters first; otherwise the platform's collation, which puts
+  // lower case before upper case and an accent after its base letter.
+  EXPECT_TRUE(TFrameId(1) < TFrameId(1, 'a'));
+  EXPECT_TRUE(TFrameId(1, 'a') < TFrameId(1, 'b'));
+  EXPECT_TRUE(TFrameId(1, 'z') < TFrameId(2));
+  EXPECT_FALSE(TFrameId(1, 'a') < TFrameId(1, 'a'));
+#ifdef __APPLE__
+  EXPECT_TRUE(TFrameId(1, 'a') < TFrameId(1, 'B'));
+  EXPECT_TRUE(TFrameId(1, 'a') < TFrameId(1, 'A'));
+  EXPECT_TRUE(TFrameId(1, std::wstring(L"e")) < TFrameId(1, std::wstring(L"é")));
+  // Composed and decomposed forms are the same letter to the order.
+  EXPECT_FALSE(TFrameId(1, std::wstring(L"é")) <
+               TFrameId(1, std::wstring(L"é")));
+  EXPECT_FALSE(TFrameId(1, std::wstring(L"é")) <
+               TFrameId(1, std::wstring(L"é")));
+#endif
+}

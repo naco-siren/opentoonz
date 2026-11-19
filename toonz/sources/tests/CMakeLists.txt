@@ -60,6 +60,7 @@ file(GLOB NEXTTOONZ_CORE_TEST_SOURCES CONFIGURE_DEPENDS
 # (TNZCORE_NOQT_SOURCES), and no Qt themselves: with WITH_QT=OFF the core
 # test binary is made of these alone.
 set(NEXTTOONZ_CORE_NOQT_TEST_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tfilepath.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tgeometry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tsmartpointer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tstring.cpp
@@ -67,7 +68,12 @@ set(NEXTTOONZ_CORE_NOQT_TEST_SOURCES
 )
 
 if(WITH_QT)
-    add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_TEST_SOURCES})
+    # legacy/: the code of tnzcore before a migration step, kept for the
+    # differential tests (test_*_qt.cpp) that compare it with the new code.
+    add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_TEST_SOURCES}
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/legacy/legacy_tfilepath.cpp)
+    target_include_directories(nexttoonz_core_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/core)
     target_link_libraries(nexttoonz_core_tests
         PRIVATE
             tnzcore
