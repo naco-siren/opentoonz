@@ -120,6 +120,7 @@ set(HEADERS ${MOC_HEADERS}
     ../include/tipcmsg.h
     ../include/t32bitsrv_wrap.h
     ../include/tenv.h
+    ../include/tkeyvaluestore.h
     ../include/tmeshimage.h
     ../include/tgldisplaylistsmanager.h
     ../include/tversion.h
@@ -250,6 +251,8 @@ set(SOURCES
     ../common/tipc/t32bitsrv_wrap.cpp
     ../common/tsystem/tsystempd.cpp
     ../common/tapptools/tenv.cpp
+    ../common/tapptools/tkeyvaluestore.cpp
+    ../common/tapptools/tkeyvaluestore_qt.cpp
     ../common/tmeshimage/tmeshimage.cpp
     ../common/tmsgcore.cpp
     ../common/tvrender/tfont_qt.cpp
@@ -281,7 +284,8 @@ endif()
 # and with it the next eight; step 4 TFilePath and TFrameId, whose Qt members
 # are in tfilepath_qt.cpp; step 5 the sound track registry and tdata.cpp, as
 # the stream, image cache and image I/O headers lost Qt; step 6a the file
-# system part of tsystem.cpp, whose Qt members are in tsystem_qt.cpp. The
+# system part of tsystem.cpp, whose Qt members are in tsystem_qt.cpp; step 6b
+# the key-value store, whose QSettings store is in tkeyvaluestore_qt.cpp. The
 # others never needed Qt.
 set(TNZCORE_NOQT_SOURCES
     ../common/tcore/tdata.cpp
@@ -307,6 +311,7 @@ set(TNZCORE_NOQT_SOURCES
     ../common/tsystem/tfilepath.cpp
     ../common/tsystem/tfiletype.cpp
     ../common/tsystem/tsystem.cpp
+    ../common/tapptools/tkeyvaluestore.cpp
 )
 foreach(_source ${TNZCORE_NOQT_SOURCES})
     if(NOT _source IN_LIST SOURCES)

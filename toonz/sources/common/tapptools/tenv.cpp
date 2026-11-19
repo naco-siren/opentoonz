@@ -3,12 +3,12 @@
 #include "tconvert.h"
 #include "tfilepath_io.h"
 #include "tversion.h"
+#include "tkeyvaluestore.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QSettings>
 #include <QStandardPaths>
 #include <QStringList>
 
@@ -102,15 +102,10 @@ public:
 #ifdef _WIN32
     return m_registryRoot + varName;
 #else
-    QString settingsPath = getSystemVarFile();
-
-    QSettings settings(settingsPath, QSettings::IniFormat);
-    QString qStr      = QString::fromStdString(varName);
-    QString systemVar = settings.value(qStr).toString();
-    // printf("getSystemVarPath: path:%s key:%s var:%s\n",
-    // settingsPath.toStdString().data(), varName.data(),
-    // systemVar.toStdString().data());
-    return TFilePath(systemVar.toStdWString());
+    // the ini file, through the store (QSettings on the desktop)
+    std::unique_ptr<TKeyValueStore> settings =
+        TKeyValueStore::open(TFilePath(getSystemVarFile().toStdWString()));
+    return TFilePath(settings->stringValue(varName));
 #endif
   }
 
@@ -742,10 +737,10 @@ bool seedStuffTreeIfMissing(const TFilePath &userStuffDir) {
 // Only the root is required; the rest falls back to <stuff>/<subdir>.
 // setValue() merges, so an ini missing just the root keeps its other keys.
 void writeRootVar(EnvGlobals *eg, const TFilePath &userStuffDir) {
-  QSettings settings(eg->getSystemVarFile(), QSettings::IniFormat);
-  settings.setValue(QString::fromStdString(eg->getRootVarName()),
-                    userStuffDir.getQString());
-  settings.sync();
+  std::unique_ptr<TKeyValueStore> settings =
+      TKeyValueStore::open(TFilePath(eg->getSystemVarFile().toStdWString()));
+  settings->setStringValue(eg->getRootVarName(), userStuffDir.getWideString());
+  settings->sync();
 }
 
 }  // namespace
