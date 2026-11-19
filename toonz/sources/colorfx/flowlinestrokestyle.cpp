@@ -3,7 +3,7 @@
 #include "flowlinestrokestyle.h"
 
 #include "colorfxcanvas.h"
-#include "tglcanvasbridge.h"
+#include "tglentries.h"
 
 #include "tcolorfunctions.h"
 #include "tcurves.h"
@@ -215,13 +215,9 @@ void FlowLineStrokeStyle::setParamValue(int index, bool value) {
 
 void FlowLineStrokeStyle::drawStroke(const TColorFunction *cf,
                                      const TStroke *stroke) const {
-  {
-    TLegacyGlCanvas gl;
-    drawStrokeOnCanvas(gl.canvas(), cf, stroke,
-                       glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
-  }
-  // The old code left this colour behind it.
-  glColor4d(0.0, 0.0, 0.0, 1.0);
+  // Sets OpenGL state of its own: drawn on the OpenGL side (colorfx_gl.cpp).
+  TGLEntries::draw<TGLEntries::StrokeDrawer>("FlowLineStrokeStyle::drawStroke",
+                                             *this, cf, stroke);
 }
 
 //-----------------------------------------------------------------------------

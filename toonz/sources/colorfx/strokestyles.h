@@ -7,7 +7,6 @@
 #include "tsimplecolorstyles.h"
 #include "tvectorimage.h"
 #include "tstrokeprop.h"
-#include "tgl.h"
 
 class TVectorRendeData;
 class TRandom;
@@ -42,7 +41,10 @@ typedef struct {
 typedef std::vector<std::pair<TPointD, TPixel32>> PointsAndColors;
 typedef std::vector<Points> PointMatrix;
 typedef std::vector<std::pair<TPointD, double>> PointsAndDoubles;
-typedef std::vector<std::pair<GLenum, Points>> DrawmodePointsMatrix;
+// What each run of points is drawn as: lines or points (the values are
+// those of GL_LINES and GL_POINTS, which it used to hold).
+enum : unsigned int { DrawPoints = 0x0000, DrawLines = 0x0001 };
+typedef std::vector<std::pair<unsigned int, Points>> DrawmodePointsMatrix;
 typedef std::vector<TRectD> RectVector;
 typedef std::vector<PointAnd2Double> PointsAnd2Doubles;
 typedef std::vector<double> Doubles;
@@ -493,6 +495,10 @@ public:
 //-------------------------------------------------------------------
 
 class TSketchStrokeStyle final : public TSimpleStrokeStyle {
+  // The OpenGL drawing of this style: an implementation detail of the
+  // OpenGL side (colorfx_gl.cpp), not for other code.
+  friend struct TColorFxGLAccess;
+
   TPixel32 m_color;
   double m_density;
 
@@ -707,6 +713,10 @@ public:
 //-------------------------------------------------------------------
 
 class TNormal2StrokeStyle final : public TOutlineStyle {
+  // The OpenGL drawing of this style: an implementation detail of the
+  // OpenGL side (colorfx_gl.cpp), not for other code.
+  friend struct TColorFxGLAccess;
+
   TPixel32 m_color;
   double m_lightx, m_lighty, m_shininess, m_metal, m_bend;
 

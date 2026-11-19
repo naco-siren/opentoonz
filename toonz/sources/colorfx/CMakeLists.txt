@@ -5,6 +5,7 @@ set(HEADERS
     regionstyles.h
     strokestyles.h
     flowlinestrokestyle.h
+    colorfx_gl.h
 )
 
 set(SOURCES
@@ -14,6 +15,7 @@ set(SOURCES
     regionstyles.cpp
     strokestyles.cpp
     flowlinestrokestyle.cpp
+    colorfx_gl.cpp
 )
 
 add_library(colorfx SHARED ${HEADERS} ${SOURCES})

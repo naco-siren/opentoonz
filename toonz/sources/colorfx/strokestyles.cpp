@@ -26,7 +26,10 @@ using namespace std;
 //=============================================================================
 
 #include "colorfxcanvas.h"
-#include "tglcanvasbridge.h"
+#include "tglentries.h"
+#ifdef _DEBUG
+#include "tgl.h"  // OutlineViewerStyle, a style for debugging
+#endif
 
 using colorfxcanvas::addPolyline;
 using colorfxcanvas::addSegment;
@@ -107,14 +110,13 @@ void TOptimizedStrokePropT<T>::draw(
       !convert(rd.m_aff * m_stroke->getBBox()).overlaps(rd.m_clippingRect))
     return;
 
-  glPushMatrix();
-  tglMultMatrix(rd.m_aff);
+  TGLEntries::pushTransform(rd.m_aff);
 
-  updateData(sqrt(tglGetPixelSize2()), rd.m_cf);
+  updateData(sqrt(TGLEntries::pixelSize2()), rd.m_cf);
 
   m_colorStyle->drawStroke(rd.m_cf, m_data, m_stroke);
 
-  glPopMatrix();
+  TGLEntries::popTransform();
 }
 
 //-----------------------------------------------------------------------------
@@ -162,12 +164,6 @@ template <class T>
 TStrokeProp *TOptimizedStrokeStyleT<T>::makeStrokeProp(const TStroke *stroke) {
   return new TOptimizedStrokePropT<T>(stroke, this);
 }
-
-//=============================================================================
-
-inline void tglNormal(const T3DPointD &p) { glNormal3d(p.x, p.y, p.z); }
-
-inline void tglVertex(const T3DPointD &p) { glVertex3d(p.x, p.y, p.z); }
 
 //=============================================================================
 
@@ -290,9 +286,9 @@ void TFurStrokeStyle::computeData(Points &positions, const TStroke *stroke,
 //-----------------------------------------------------------------------------
 void TFurStrokeStyle::drawStroke(const TColorFunction *cf, Points &positions,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, positions, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -384,9 +380,9 @@ void TChainStrokeStyle::computeData(Points &data, const TStroke *stroke,
 
 void TChainStrokeStyle::drawStroke(const TColorFunction *cf, Points &data,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, data, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -560,9 +556,9 @@ void TSprayStrokeStyle::setParamValue(int index, double value) {
 
 void TSprayStrokeStyle::drawStroke(const TColorFunction *cf,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -716,10 +712,10 @@ void TGraphicPenStrokeStyle::computeData(DrawmodePointsMatrix &data,
     TPointD shift;
     Points tmpPoints;
     tmpPoints.clear();
-    GLenum drawMode;
+    unsigned int drawMode;
     for (int i = 0; i < intensity; i++) {
       if (pos.thick) {
-        drawMode = GL_LINES;
+        drawMode = DrawLines;
         tmpPoints.reserve((int)(intensity * 2 + 1));
         double randomv = (0.5 - rnd.getFloat()) * pos.thick;
         double randomu = (0.5 - rnd.getFloat()) * step;
@@ -729,13 +725,13 @@ void TGraphicPenStrokeStyle::computeData(DrawmodePointsMatrix &data,
         tmpPoints.push_back(pos1);
         tmpPoints.push_back(pos2);
       } else {
-        drawMode = GL_POINTS;
+        drawMode = DrawPoints;
         tmpPoints.reserve((int)(intensity + 1));
         tmpPoints.push_back((TPointD)pos);
       }
     }
     if (!tmpPoints.empty()) {
-      assert(drawMode == GL_POINTS || drawMode == GL_LINES);
+      assert(drawMode == DrawPoints || drawMode == DrawLines);
       data.push_back(make_pair(drawMode, tmpPoints));
     }
     s += step;
@@ -746,9 +742,9 @@ void TGraphicPenStrokeStyle::computeData(DrawmodePointsMatrix &data,
 
 void TGraphicPenStrokeStyle::drawStroke(const TColorFunction *cf, DrawmodePointsMatrix &data,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, data, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -765,13 +761,13 @@ void TGraphicPenStrokeStyle::drawStrokeOnCanvas(TCanvas &canvas, const TColorFun
   for (; it1 != data.end(); ++it1) {
     const Points &points = it1->second;
     TCanvasPath path;
-    if (it1->first == GL_LINES) {
+    if (it1->first == DrawLines) {
       // Short lines across the stroke.
       for (std::size_t i = 0; i + 1 < points.size(); i += 2)
         addSegment(path, points[i], points[i + 1]);
       strokeLines(canvas, path, color, antialias);
     } else {
-      assert(it1->first == GL_POINTS);
+      assert(it1->first == DrawPoints);
       // Where the stroke has no thickness: points of one pixel.
       for (const TPointD &point : points) path.moveTo(toCanvas(point));
       TCanvasPen pen = thinPen();
@@ -1015,9 +1011,9 @@ void TDottedLineStrokeStyle::computeData(Points &positions,
 
 void TDottedLineStrokeStyle::drawStroke(const TColorFunction *cf, Points &positions,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, positions, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -1162,9 +1158,9 @@ void TRopeStrokeStyle::computeData(Points &positions, const TStroke *stroke,
 
 void TRopeStrokeStyle::drawStroke(const TColorFunction *cf, Points &positions,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, positions, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -1312,9 +1308,9 @@ void TCrystallizeStrokeStyle::computeData(Points &positions,
 
 void TCrystallizeStrokeStyle::drawStroke(const TColorFunction *cf, Points &positions,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, positions, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -1530,9 +1526,9 @@ void TBraidStrokeStyle::loadData(int ids, TInputStreamInterface &is) {
 
 void TBraidStrokeStyle::drawStroke(const TColorFunction *cf,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -1682,13 +1678,9 @@ void TSketchStrokeStyle::setParamValue(int index, double value) {
 
 void TSketchStrokeStyle::drawStroke(const TColorFunction *cf,
     const TStroke *stroke) const {
-  {
-    TLegacyGlCanvas gl;
-    drawStrokeOnCanvas(gl.canvas(), cf, stroke,
-                       glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
-  }
-  // The old code left this colour behind it.
-  glColor4d(0, 0, 0, 1);
+  // Sets OpenGL state of its own: drawn on the OpenGL side (colorfx_gl.cpp).
+  TGLEntries::draw<TGLEntries::StrokeDrawer>("TSketchStrokeStyle::drawStroke",
+                                             *this, cf, stroke);
 }
 
 //-----------------------------------------------------------------------------
@@ -1786,9 +1778,9 @@ void TBubbleStrokeStyle::loadData(int ids, TInputStreamInterface &is) {
 
 void TBubbleStrokeStyle::drawStroke(const TColorFunction *cf,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -1982,9 +1974,9 @@ void TTissueStrokeStyle::computeData(PointMatrix &data, const TStroke *stroke,
 
 void TTissueStrokeStyle::drawStroke(const TColorFunction *cf, PointMatrix &data,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, data, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -2052,9 +2044,9 @@ void TBiColorStrokeStyle::loadData(int ids, TInputStreamInterface &is) {
 
 void TBiColorStrokeStyle::drawStroke(const TColorFunction *cf,
     TStrokeOutline *outline, const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, outline, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -2257,95 +2249,9 @@ void TNormal2StrokeStyle::drawRegion(const TColorFunction *cf,
 void TNormal2StrokeStyle::drawStroke(const TColorFunction *cf,
                                      TStrokeOutline *outline,
                                      const TStroke *stroke) const {
-  TPixel32 color;
-  if (cf)
-    color = (*(cf))(m_color);
-  else
-    color = m_color;
-  TPixelD dcolor;
-  dcolor = toPixelD(color);
-  UINT i;
-  double bend                         = 2 * m_bend;
-  const std::vector<TOutlinePoint> &v = outline->getArray();
-  if (v.empty()) return;
-  vector<T3DPointD> normal;
-
-  GLfloat light_position[] = {(float)(m_lightx), (float)(m_lighty), 100.0, 0.0};
-  glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-  glEnable(GL_LIGHTING);
-  glEnable(GL_LIGHT0);
-  glEnable(GL_NORMALIZE);
-  GLfloat mat_ambient[] = {(float)dcolor.r, (float)dcolor.g, (float)dcolor.b,
-                           1.0};
-  GLfloat mat_specular[] = {(float)(m_metal * (1 - dcolor.r) + dcolor.r),
-                            (float)(m_metal * (1 - dcolor.g) + dcolor.g),
-                            (float)(m_metal * (1 - dcolor.b) + dcolor.b), 1.0};
-  GLfloat mat_shininess[] = {(float)m_shininess};
-
-  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mat_shininess);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, mat_ambient);
-
-  // glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
-
-  // outline with antialiasing
-  glBegin(GL_LINE_STRIP);
-  for (i = 0; i < v.size(); i += 2) {
-    T3DPointD pointa(v[i].x, v[i].y, 0);
-    T3DPointD pointb(v[i + 1].x, v[i + 1].y, 0);
-    T3DPointD d           = pointb - pointa;
-    if (norm2(d) > 0.0) d = normalize(d);
-    normal.push_back(d);
-    T3DPointD pointaNormal = T3DPointD(0, 0, 1) - bend * d;
-    tglNormal(pointaNormal);
-    tglVertex(pointa);
-  }
-  glEnd();
-
-  int normalcounter = 0;
-  glBegin(GL_LINE_STRIP);
-  for (i = 1; i < v.size(); i += 2) {
-    T3DPointD pointa(v[i].x, v[i].y, 0);
-    T3DPointD pointaNormal =
-        T3DPointD(0, 0, 1) + bend * normal[normalcounter++];
-    tglNormal(pointaNormal);
-    tglVertex(pointa);
-  }
-  glEnd();
-
-  normalcounter = 0;
-  for (i = 0; i <= v.size() - 4; i += 2) {
-    glBegin(GL_QUAD_STRIP);
-    T3DPointD olda(v[i].x, v[i].y, 0);
-    T3DPointD oldb(v[i + 1].x, v[i + 1].y, 0);
-    T3DPointD oldcenter = 0.5 * (olda + oldb);
-    T3DPointD oldcenterNormal(0, 0, 1);
-    T3DPointD oldaNormal = T3DPointD(0, 0, 1) - bend * normal[normalcounter];
-    T3DPointD oldbNormal = T3DPointD(0, 0, 1) + bend * normal[normalcounter];
-    T3DPointD a(v[i + 2].x, v[i + 2].y, 0);
-    T3DPointD b(v[i + 3].x, v[i + 3].y, 0);
-    T3DPointD center = 0.5 * (a + b);
-    T3DPointD centerNormal(0, 0, 1);
-    T3DPointD aNormal = T3DPointD(0, 0, 1) - bend * normal[normalcounter++];
-    T3DPointD bNormal = T3DPointD(0, 0, 1) + bend * normal[normalcounter];
-    tglNormal(oldaNormal);
-    tglVertex(olda);
-    tglNormal(aNormal);
-    tglVertex(a);
-    tglNormal(oldcenterNormal);
-    tglVertex(oldcenter);
-    tglNormal(centerNormal);
-    tglVertex(center);
-    tglNormal(oldbNormal);
-    tglVertex(oldb);
-    tglNormal(bNormal);
-    tglVertex(b);
-    glEnd();
-  }
-
-  glDisable(GL_NORMALIZE);
-  glDisable(GL_LIGHTING);
-  glDisable(GL_LIGHT0);
+  // Lit by OpenGL: drawn on the OpenGL side (colorfx_gl.cpp).
+  TGLEntries::draw<TGLEntries::OutlineStrokeDrawer>(
+      "TNormal2StrokeStyle::drawStroke", *this, cf, outline, stroke);
 }
 //-----------------------------------------------------------------------------
 
@@ -2678,9 +2584,9 @@ void TChalkStrokeStyle2::computeData(Doubles &data, const TStroke *stroke,
 
 void TChalkStrokeStyle2::drawStroke(const TColorFunction *cf, Doubles &data,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, data, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -2957,9 +2863,9 @@ void TBlendStrokeStyle2::computeData(PointsAndDoubles &data,
 
 void TBlendStrokeStyle2::drawStroke(const TColorFunction *cf, PointsAndDoubles &data,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, data, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -3102,9 +3008,9 @@ void TTwirlStrokeStyle::computeData(Doubles &data, const TStroke *stroke,
 
 void TTwirlStrokeStyle::drawStroke(const TColorFunction *cf, Doubles &data,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, data, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -3174,9 +3080,9 @@ void TSawToothStrokeStyle::computeOutline(
 
 void TSawToothStrokeStyle::drawStroke(const TColorFunction *cf,
     TStrokeOutline *outline, const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, outline, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -3501,9 +3407,9 @@ void TMultiLineStrokeStyle2::computeData(BlendAndPoints &data,
 
 void TMultiLineStrokeStyle2::drawStroke(const TColorFunction *cf, BlendAndPoints &data,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, data, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, data, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -3760,9 +3666,9 @@ void TZigzagStrokeStyle::computeData(Points &points, const TStroke *stroke,
 
 void TZigzagStrokeStyle::drawStroke(const TColorFunction *cf, Points &points,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, points, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, points, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -3905,9 +3811,9 @@ void TSinStrokeStyle::computeData(Points &positions, const TStroke *stroke,
 
 void TSinStrokeStyle::drawStroke(const TColorFunction *cf, std::vector<TPointD> &positions,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, positions, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -4080,9 +3986,9 @@ void TFriezeStrokeStyle2::computeData(Points &positions, const TStroke *stroke,
 
 void TFriezeStrokeStyle2::drawStroke(const TColorFunction *cf, Points &positions,
     const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, positions, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, positions, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -4141,9 +4047,9 @@ void TDualColorStrokeStyle2::computeOutline(
 
 void TDualColorStrokeStyle2::drawStroke(const TColorFunction *cf,
     TStrokeOutline *outline, const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, outline, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -4277,9 +4183,9 @@ void TLongBlendStrokeStyle2::computeOutline(
 
 void TLongBlendStrokeStyle2::drawStroke(const TColorFunction *cf,
     TStrokeOutline *outline, const TStroke *stroke) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke,
-                     glIsEnabled(GL_LINE_SMOOTH) != GL_FALSE);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool lineSmooth) {
+    drawStrokeOnCanvas(canvas, cf, outline, stroke, lineSmooth);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -4795,10 +4701,9 @@ void TMatrioskaStrokeProp::draw(const TVectorRenderData &rd) {
     return;
 
   int strokeId;
-  glPushMatrix();
-  tglMultMatrix(rd.m_aff);
+  TGLEntries::pushTransform(rd.m_aff);
 
-  double pixelSize = sqrt(tglGetPixelSize2());
+  double pixelSize = sqrt(TGLEntries::pixelSize2());
   int strokeNumber =
       (int)(m_colorStyle->getParamValue(TColorStyle::double_tag(), 0)) - 1;
 
@@ -4854,7 +4759,7 @@ void TMatrioskaStrokeProp::draw(const TVectorRenderData &rd) {
 
   //  }
 
-  glPopMatrix();
+  TGLEntries::popTransform();
 }
 //-----------------------------------------------------------------------------
 

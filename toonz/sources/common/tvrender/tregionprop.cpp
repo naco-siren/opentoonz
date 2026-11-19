@@ -1,6 +1,7 @@
 
 
 #include "tregionprop.h"
+#include "tglentries.h"
 #include "tstroke.h"
 #include "tregion.h"
 //#include "tcurves.h"
@@ -160,16 +161,15 @@ void OutlineRegionProp::draw(const TVectorRenderData &rd) {
       !(rd.m_aff * getRegion()->getBBox()).overlaps(convert(rd.m_clippingRect)))
     return;
 
-  glPushMatrix();
-  tglMultMatrix(rd.m_aff);
-  double pixelSize = sqrt(tglGetPixelSize2());
+  TGLEntries::pushTransform(rd.m_aff);
+  double pixelSize = sqrt(TGLEntries::pixelSize2());
 
   updateOutline(pixelSize);
 
   m_colorStyle->drawRegion(rd.m_cf, rd.m_antiAliasing && rd.m_regionAntialias,
                            m_outline);
 
-  glPopMatrix();
+  TGLEntries::popTransform();
 }
 
 //-------------------------------------------------------------------

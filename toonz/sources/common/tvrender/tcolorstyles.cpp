@@ -7,7 +7,7 @@
 #include "texception.h"
 #include "tvectorrenderdata.h"
 #include "tconvert.h"
-#include "tofflinegl.h"
+#include "tglentries.h"
 #include "tvectorrasterizer.h"
 #include "tpixelutils.h"
 #include "tcolorstyles.h"
@@ -322,12 +322,19 @@ void TColorStyle::makeIcon(const TDimension &d) {
     }
   }
 
-  TOfflineGL *glContext = TOfflineGL::getStock(dim);
+  std::unique_ptr<TGLEntries::OfflineContext> glContext =
+      TGLEntries::openOffline(dim, true);
+  if (!glContext) {  // nothing to draw with: a blank icon
+    TRaster32P icon(d);
+    icon->fill(TPixel32::White);
+    m_icon = icon;
+    return;
+  }
 
   checkErrorsByGL;
   glContext->clear(TPixel32::White);
   checkErrorsByGL;
-  glContext->draw(img, rd);
+  glContext->draw(img.getPointer(), rd);
   checkErrorsByGL;
 
   TRect rect(d);

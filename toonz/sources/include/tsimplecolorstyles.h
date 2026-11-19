@@ -241,6 +241,10 @@ class DVAPI TCenterLineStrokeStyle final : public TSimpleStrokeStyle {
   USHORT m_stipple;
   double m_width;
 
+  // The OpenGL drawing of this style: an implementation detail of the
+  // OpenGL side (tglentries.h), not for other code.
+  friend struct TGLEntriesAccess;
+
 public:
   TCenterLineStrokeStyle(const TPixel32 &color = TPixel32(0, 0, 0, 255),
                          USHORT stipple = 0x0, double width = 1.0);
@@ -298,6 +302,10 @@ private:
 
 class DVAPI TRasterImagePatternStrokeStyle final : public TColorStyle {
   static TFilePath m_rootDir;
+
+  // The OpenGL drawing of this style: an implementation detail of the
+  // OpenGL side (tglentries.h), not for other code.
+  friend struct TGLEntriesAccess;
 
 protected:
   TLevelP m_level;
@@ -410,6 +418,10 @@ private:
 
 class DVAPI TVectorImagePatternStrokeStyle final : public TColorStyle {
   static TFilePath m_rootDir;
+
+  // The OpenGL drawing of this style: an implementation detail of the
+  // OpenGL side (tglentries.h), not for other code.
+  friend struct TGLEntriesAccess;
 
 protected:
   TLevelP m_level;

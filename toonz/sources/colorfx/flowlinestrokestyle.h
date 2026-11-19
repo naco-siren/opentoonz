@@ -7,7 +7,6 @@
 #include "tsimplecolorstyles.h"
 #include "tvectorimage.h"
 #include "tstrokeprop.h"
-#include "tgl.h"
 
 #include "toonz/imagestyles.h"
 
@@ -27,6 +26,10 @@ class TRandom;
 #endif
 
 class FlowLineStrokeStyle final : public TSimpleStrokeStyle {
+  // The OpenGL drawing of this style: an implementation detail of the
+  // OpenGL side (colorfx_gl.cpp), not for other code.
+  friend struct TColorFxGLAccess;
+
   TPixel32 m_color;
 
   enum PARAMID {

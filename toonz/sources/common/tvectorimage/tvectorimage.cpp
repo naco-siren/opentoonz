@@ -9,7 +9,7 @@
 #include "tvectorrenderdata.h"
 #include "tmathutil.h"
 // #include "tdebugmessage.h"
-#include "tofflinegl.h"
+#include "tglentries.h"
 #include "tvectorrasterizer.h"
 // #include "tcolorstyles.h"
 #include "tpaletteutil.h"
@@ -700,7 +700,9 @@ TRaster32P TVectorImage::render(bool onlyStrokes) {
     if (TVectorRasterizer::draw(ras, this, rd)) return ras;
   }
 
-  std::unique_ptr<TOfflineGL> offlineGlContext(new TOfflineGL(bBox.getSize()));
+  std::unique_ptr<TGLEntries::OfflineContext> offlineGlContext =
+      TGLEntries::openOffline(bBox.getSize(), false);
+  if (!offlineGlContext) return (TRaster32P)0;
   offlineGlContext->clear(TPixel32(0, 0, 0, 0));
   offlineGlContext->makeCurrent();
   offlineGlContext->draw(this, rd, false);

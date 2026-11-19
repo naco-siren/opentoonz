@@ -274,6 +274,10 @@ private:
 //============================================================
 
 class DVAPI TPointShadowFillStyle final : public TSolidColorStyle {
+  // The OpenGL drawing of this style: an implementation detail of the
+  // OpenGL side (colorfx_gl.cpp), not for other code.
+  friend struct TColorFxGLAccess;
+
   TPointD m_shadowDirection;
   TPixel32 m_shadowColor;
   double m_shadowSize;
@@ -655,6 +659,10 @@ private:
 //============================================================
 
 class DVAPI TStripeFillStyle final : public TSolidColorStyle {
+  // The OpenGL drawing of this style: an implementation detail of the
+  // OpenGL side (colorfx_gl.cpp), not for other code.
+  friend struct TColorFxGLAccess;
+
   TPixel32 m_pointColor;
   double m_Dist, m_Angle, m_Thickness;
 
@@ -833,6 +841,10 @@ protected:
 //============================================================
 
 class DVAPI TCircleStripeFillStyle final : public TSolidColorStyle {
+  // The OpenGL drawing of this style: an implementation detail of the
+  // OpenGL side (colorfx_gl.cpp), not for other code.
+  friend struct TColorFxGLAccess;
+
   TPixel32 m_pointColor;
   double m_XPos, m_YPos;
   double m_Dist, m_Thickness;

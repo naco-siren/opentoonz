@@ -101,6 +101,7 @@ set(HEADERS ${MOC_HEADERS}
     ../include/tvectorrasterizer.h
     ../include/tcanvasutil.h
     ../include/tglcanvasbridge.h
+    ../include/tglentries.h
     ../include/tvectorbrushstyle.h
     ../include/tvectorrenderdata.h
     ../include/trop.h
@@ -198,6 +199,8 @@ set(SOURCES
     ../common/tvrender/tinbetween.cpp
     ../common/tvrender/tofflinegl.cpp
     ../common/tvrender/tglcanvasbridge.cpp
+    ../common/tvrender/tglentries.cpp
+    ../common/tvrender/tglentries_gl.cpp
     ../common/tvrender/tvectorrasterizer.cpp
     ../common/tvrender/tpalette.cpp
     ../common/tvrender/tpaletteutil.cpp
@@ -292,7 +295,8 @@ endif()
 # the key-value store, whose QSettings store is in tkeyvaluestore_qt.cpp; step
 # 6c tenv.cpp and tfilepath_io.cpp, as the process information left Qt; step 7
 # the translatable text (the vector image and style sources compile without
-# Qt since then, but link only once their GL has moved out, in step 8). The
+# Qt since then, but link only once their GL has moved out, in step 8); step
+# 8b the seams to OpenGL, tglentries.cpp, with nothing installed in them. The
 # others never needed Qt.
 set(TNZCORE_NOQT_SOURCES
     ../common/tcore/tdata.cpp
@@ -322,6 +326,7 @@ set(TNZCORE_NOQT_SOURCES
     ../common/tapptools/tenv.cpp
     ../common/tsystem/tfilepath_io.cpp
     ../common/tcore/ttranslatabletext.cpp
+    ../common/tvrender/tglentries.cpp
 )
 foreach(_source ${TNZCORE_NOQT_SOURCES})
     if(NOT _source IN_LIST SOURCES)

@@ -1,7 +1,6 @@
 
 
 #include "regionstyles.h"
-#include "tgl.h"
 #include "tcolorfunctions.h"
 #include "trandom.h"
 #include "colorfxutils.h"
@@ -10,7 +9,7 @@
 #include "tmathutil.h"
 
 #include "colorfxcanvas.h"
-#include "tglcanvasbridge.h"
+#include "tglentries.h"
 
 using colorfxcanvas::addQuad;
 using colorfxcanvas::addVertex;
@@ -29,12 +28,8 @@ namespace {
 // attributes are kept here.
 template <class Draw>
 void drawThroughGl(Draw draw) {
-  glPushAttrib(GL_ALL_ATTRIB_BITS);
-  {
-    TLegacyGlCanvas gl;
-    draw(gl.canvas());
-  }
-  glPopAttrib();
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool) { draw(canvas); },
+                             true);
 }
 
 // A disc of this radius around each point, in the plain colour: what the
@@ -1196,13 +1191,9 @@ void TPointShadowFillStyle::deleteSameVerts(
 void TPointShadowFillStyle::drawRegion(const TColorFunction *cf,
                                        const bool antiAliasing,
                                        TRegionOutline &boundary) const {
-  drawThroughGl([&](TCanvas &canvas) {
-    // The points are as large as this driver can make them, times the
-    // style's parameter: that is what the style has always meant by a size.
-    GLfloat sizes[2];
-    glGetFloatv(GL_POINT_SIZE_RANGE, sizes);
-    drawOnCanvas(canvas, cf, antiAliasing, boundary, sizes[0], sizes[1]);
-  });
+  // Sets OpenGL state of its own: drawn on the OpenGL side (colorfx_gl.cpp).
+  TGLEntries::draw<TGLEntries::RegionDrawer>("TPointShadowFillStyle::drawRegion", *this, cf,
+                                             antiAliasing, boundary);
 }
 
 //------------------------------------------------------------
@@ -2599,11 +2590,9 @@ inline void trim(TPointD &p0, TPointD &p1, double y0, double y1) {
 void TStripeFillStyle::drawRegion(const TColorFunction *cf,
                                   const bool antiAliasing,
                                   TRegionOutline &boundary) const {
-  drawThroughGl([&](TCanvas &canvas) {
-    // The lines along the stripes are smooth whatever the caller has set.
-    tglEnableLineSmooth();
-    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
-  });
+  // Sets OpenGL state of its own: drawn on the OpenGL side (colorfx_gl.cpp).
+  TGLEntries::draw<TGLEntries::RegionDrawer>("TStripeFillStyle::drawRegion", *this, cf,
+                                             antiAliasing, boundary);
 }
 
 //------------------------------------------------------------
@@ -2954,8 +2943,9 @@ void TLinGradFillStyle::getRects(const TRectD &bbox, std::vector<TPointD> &r0,
 void TLinGradFillStyle::drawRegion(const TColorFunction *cf,
                                    const bool antiAliasing,
                                    TRegionOutline &boundary) const {
-  TLegacyGlCanvas gl;
-  drawRegionOnCanvas(gl.canvas(), cf, antiAliasing, boundary);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
 }
 
 //------------------------------------------------------------
@@ -3179,8 +3169,9 @@ void TRadGradFillStyle::setColorParamValue(int index, const TPixel32 &color) {
 void TRadGradFillStyle::drawRegion(const TColorFunction *cf,
                                    const bool antiAliasing,
                                    TRegionOutline &boundary) const {
-  TLegacyGlCanvas gl;
-  drawRegionOnCanvas(gl.canvas(), cf, antiAliasing, boundary);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
 }
 
 //------------------------------------------------------------
@@ -3485,11 +3476,9 @@ void TCircleStripeFillStyle::drawCircleStripe(TCanvas &canvas,
 void TCircleStripeFillStyle::drawRegion(const TColorFunction *cf,
                                         const bool antiAliasing,
                                         TRegionOutline &boundary) const {
-  drawThroughGl([&](TCanvas &canvas) {
-    // The lines along the stripes are smooth whatever the caller has set.
-    tglEnableLineSmooth();
-    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
-  });
+  // Sets OpenGL state of its own: drawn on the OpenGL side (colorfx_gl.cpp).
+  TGLEntries::draw<TGLEntries::RegionDrawer>("TCircleStripeFillStyle::drawRegion", *this, cf,
+                                             antiAliasing, boundary);
 }
 
 //------------------------------------------------------------

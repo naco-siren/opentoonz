@@ -14,7 +14,6 @@
 #include "tlevel_io.h"
 #include "tstrokeprop.h"
 #include "tcolorfunctions.h"
-#include "tofflinegl.h"
 #include "drawutil.h"
 #include "trop.h"
 #include "tropcm.h"
@@ -32,7 +31,7 @@
 #include "trailscale.h"
 
 #include "tcanvasutil.h"
-#include "tglcanvasbridge.h"
+#include "tglentries.h"
 #include "tvectorrasterizer.h"
 #include "tvectorcanvas.h"
 
@@ -50,7 +49,8 @@ TFilePath TVectorImagePatternStrokeStyle::m_rootDir = TFilePath();
 
 //-----------------------------------------------------------------------------
 
-#ifndef NDEBUG
+// For the display lists of Windows, the only OpenGL left in this file.
+#if defined(_WIN32) && !defined(NDEBUG)
 static void checkGlError() {
   GLenum err = glGetError();
   assert(err != GL_INVALID_ENUM);
@@ -444,8 +444,9 @@ int TSolidColorStyle::canvasSupport() const {
 void TSolidColorStyle::drawRegion(const TColorFunction *cf,
                                   const bool antiAliasing,
                                   TRegionOutline &boundary) const {
-  TLegacyGlCanvas gl;
-  drawRegionOnCanvas(gl.canvas(), cf, antiAliasing, boundary);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool) {
+    drawRegionOnCanvas(canvas, cf, antiAliasing, boundary);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -529,8 +530,9 @@ void TSolidColorStyle::doDrawStroke(const TColorFunction *cf,
                                     TStrokeOutline *outline,
                                     const TStroke *stroke,
                                     bool antialias) const {
-  TLegacyGlCanvas gl;
-  drawStrokeOnCanvas(gl.canvas(), cf, outline, stroke, antialias);
+  TGLEntries::onViewerCanvas([&](TCanvas &canvas, bool) {
+    drawStrokeOnCanvas(canvas, cf, outline, stroke, antialias);
+  });
 }
 
 //-----------------------------------------------------------------------------
@@ -624,53 +626,9 @@ TColorStyle *TCenterLineStrokeStyle::clone() const {
 
 void TCenterLineStrokeStyle::drawStroke(const TColorFunction *cf,
                                         const TStroke *stroke) const {
-  // The old function touched no OpenGL state when it had nothing to draw.
-  if (!stroke || stroke->getChunkCount() == 0) return;
-  TPixel32 color = m_color;
-  if (cf) color = (*cf)(m_color);
-  if (color.m == 0) return;
-
-  // Through OpenGL the width goes by what the driver says it can draw, as
-  // it always has, and smoothing by what the caller has set.
-  GLfloat range[2];
-  glGetFloatv(GL_LINE_WIDTH_RANGE, &range[0]);
-
-  // The old function switched the stipple on here, before it drew anything,
-  // the ribbon included. The canvas does it for the lines alone, which by
-  // the OpenGL specification draws the same thing. Mesa's software
-  // rasteriser does not agree: with a dashed line that starts outside the
-  // picture, where the dashes fall came out different (seen in a
-  // before-and-after comparison; why, I did not find out). With the stipple
-  // switched on here as well, it draws what it drew.
-  if (m_stipple != 0) {
-    glEnable(GL_LINE_STIPPLE);
-    glLineStipple(1, m_stipple);
-  }
-
-  // It also set the width of a thin line whatever the width already was,
-  // and put it back to 1 at the end. The canvas leaves the width alone when
-  // it is what it needs (see tglcanvas.cpp: on one driver even a call that
-  // changes nothing moves the dashes of the next stippled line), so those
-  // two calls are made here, where the old code made them.
-  float width = float(m_width);
-  if (width < range[0])
-    width = range[0];
-  else if (width > range[1])
-    width = range[1];
-  width = 2 * width;
-  if (width <= 1.0) {
-    if (m_width != 0.0) width /= sqrt(tglGetPixelSize2());
-    if (width == 0.F) width = 0.00001f;
-    glLineWidth(width);
-  }
-
-  {
-    TLegacyGlCanvas gl;
-    drawStrokeOnCanvas(gl.canvas(), cf, stroke, glIsEnabled(GL_LINE_SMOOTH),
-                       range[0], range[1], 0.00001f);
-  }
-
-  glLineWidth(1.0);
+  // Sets OpenGL state of its own: drawn on the OpenGL side (tglentries.h).
+  TGLEntries::draw<TGLEntries::StrokeDrawer>(
+      "TCenterLineStrokeStyle::drawStroke", *this, cf, stroke);
 }
 
 //------------------------------------------------------------------------------------
@@ -1277,7 +1235,7 @@ void TRasterImagePatternStrokeStyle::loadLevel(const std::string &patternName) {
   TLevelReaderP lr(fp);
   TLevelP level = lr->loadInfo();
   TLevel::Iterator frameIt;
-  TOfflineGL *glContext = 0;
+  std::unique_ptr<TGLEntries::OfflineContext> glContext;
 
   for (frameIt = level->begin(); frameIt != level->end(); ++frameIt) {
     TImageP img = lr->getFrameReader(frameIt->first)->load();
@@ -1308,16 +1266,20 @@ void TRasterImagePatternStrokeStyle::loadLevel(const std::string &patternName) {
       if (!TVectorRasterizer::isSelected() ||
           !TVectorRasterizer::rasterize(ras, vi, rd)) {
         // se serve creo il contesto OpenGL offline (l'idea e' di crearne
-        // uno solo per tutto il livello
-        if (!glContext) glContext = new TOfflineGL(ras->getSize());
-        glContext->draw(vi, rd);
-        ras->copy(glContext->getRaster());
+        // uno solo per tutto il livello). It is not cleared between frames:
+        // each is drawn over the one before (pinned by a test).
+        if (!glContext)
+          glContext = TGLEntries::openOffline(ras->getSize(), false);
+        if (glContext) {
+          glContext->draw(vi.getPointer(), rd);
+          ras->copy(glContext->getRaster());
+        } else
+          ras->clear();
       }
       m_level->setFrame(frameIt->first, new TRasterImage(ras));
     }
   }
-  // cancello il contesto offline (se e' stato creato)
-  delete glContext;
+  // cancello il contesto offline (se e' stato creato) on the way out
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1363,21 +1325,10 @@ void TRasterImagePatternStrokeStyle::computeTransformations(
 void TRasterImagePatternStrokeStyle::drawStroke(
     const TVectorRenderData &rd, const std::vector<TAffine> &transformations,
     const TStroke *stroke) const {
-  if (m_level->getFrameCount() == 0) return;
-
-  // The blending is this style's own, in both of the passes the caller
-  // makes: TRop's indexed-color conversion is premultiplied, so its alpha
-  // is applied once; pre-existing full-color Trail sources keep the legacy
-  // blend mode. The canvas draws with what is set here.
-  glEnable(GL_BLEND);
-  glBlendFunc(m_toonzRasterSource ? GL_ONE : GL_SRC_ALPHA,
-              GL_ONE_MINUS_SRC_ALPHA);
-  {
-    TLegacyGlCanvas gl;
-    drawStrokeOnCanvas(gl.canvas(), rd, transformations, stroke);
-  }
-  glDisable(GL_TEXTURE_2D);
-  glDisable(GL_BLEND);
+  // Sets OpenGL state of its own: drawn on the OpenGL side (tglentries.h).
+  TGLEntries::draw<TGLEntries::PatternStrokeDrawer>(
+      "TRasterImagePatternStrokeStyle::drawStroke", *this, rd,
+      transformations, stroke);
 }
 
 //-----------------------------------------------------------------------------
@@ -1685,9 +1636,16 @@ void TVectorImagePatternStrokeStyle::makeIcon(const TDimension &size) {
     }
   }
 
-  TOfflineGL *glContext = TOfflineGL::getStock(size);
+  std::unique_ptr<TGLEntries::OfflineContext> glContext =
+      TGLEntries::openOffline(size, true);
+  if (!glContext) {  // nothing to draw with: a blank icon
+    TRaster32P icon(size);
+    icon->fill(TPixel32::White);
+    m_icon = icon;
+    return;
+  }
   glContext->clear(TPixel32::White);
-  glContext->draw(img, rd);
+  glContext->draw(img.getPointer(), rd);
   if (!m_icon || m_icon->getSize() != size)
     m_icon = glContext->getRaster()->clone();
   else
@@ -1926,13 +1884,8 @@ void TVectorImagePatternStrokeStyle::clearGlDisplayLists() {
 
 namespace {
 
-// How a stamp of a vector pattern gets drawn once the transform is in place:
-// by the old renderer straight to OpenGL, or on the canvas.
-void paintStampWithGl(TCanvas &, const TVectorRenderData &rd,
-                      const TVectorImage *stamp) {
-  tglDraw(rd, stamp);
-}
-
+// How a stamp of a vector pattern gets drawn on the canvas once the
+// transform is in place (through OpenGL: see tglentries_gl.cpp).
 void paintStampOnCanvas(TCanvas &canvas, const TVectorRenderData &rd,
                         const TVectorImage *stamp) {
   tcanvasDraw(canvas, rd, stamp);
@@ -1965,10 +1918,11 @@ int TVectorImagePatternStrokeStyle::canvasSupport() const {
 void TVectorImagePatternStrokeStyle::drawStroke(
     const TVectorRenderData &rd, const std::vector<TAffine> &transformations,
     const TStroke *stroke) const {
-  // The canvas only places the stamps; they are drawn by the old renderer,
-  // which sets up OpenGL for each of their styles as it always did.
-  TLegacyGlCanvas gl;
-  drawStamps(gl.canvas(), rd, transformations, stroke, &paintStampWithGl);
+  // The stamps are drawn by the old renderer: on the OpenGL side
+  // (tglentries.h).
+  TGLEntries::draw<TGLEntries::PatternStrokeDrawer>(
+      "TVectorImagePatternStrokeStyle::drawStroke", *this, rd,
+      transformations, stroke);
 }
 
 //--------------------------------------------------------------------------------------------------

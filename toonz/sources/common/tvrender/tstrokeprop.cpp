@@ -4,7 +4,7 @@
 #include "tsimplecolorstyles.h"
 //#include "tstrokeoutline.h"
 #include "tstrokeprop.h"
-#include "tgl.h"
+#include "tglentries.h"
 //#include "tcolorfunctions.h"
 #include "tvectorrenderdata.h"
 #include "tmathutil.h"
@@ -66,11 +66,10 @@ void TSimpleStrokeProp::draw(
     if (cs && cs->getParamValue(TColorStyle::double_tag(), 0) == 0) return;
   }
 
-  glPushMatrix();
-  tglMultMatrix(rd.m_aff);
+  TGLEntries::pushTransform(rd.m_aff);
   m_colorStyle->drawStroke(rd.m_cf, m_stroke);
 
-  glPopMatrix();
+  TGLEntries::popTransform();
 }
 
 //-----------------------------------------------------------------------------
@@ -254,10 +253,9 @@ void OutlineStrokeProp::draw(const TVectorRenderData &rd) {
       !convert(rd.m_aff * m_stroke->getBBox()).overlaps(rd.m_clippingRect))
     return;
 
-  glPushMatrix();
-  tglMultMatrix(rd.m_aff);
+  TGLEntries::pushTransform(rd.m_aff);
 
-  double pixelSize = sqrt(tglGetPixelSize2());
+  double pixelSize = sqrt(TGLEntries::pixelSize2());
 
 #ifdef _DEBUG
   if (m_stroke->isCenterLine() && m_colorStyle->getTagId() != 99)
@@ -278,7 +276,7 @@ void OutlineStrokeProp::draw(const TVectorRenderData &rd) {
       m_colorStyle->drawAliasedStroke(rd.m_cf, &m_outline, m_stroke);
   }
 
-  glPopMatrix();
+  TGLEntries::popTransform();
 }
 
 //-----------------------------------------------------------------------------

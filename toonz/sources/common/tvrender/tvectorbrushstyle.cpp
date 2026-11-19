@@ -2,7 +2,7 @@
 
 #include "tstroke.h"
 #include "tvectorrenderdata.h"
-#include "tgl.h"
+#include "tglentries.h"
 #include "tstrokeoutline.h"
 #include "tsimplecolorstyles.h"
 #include "tpalette.h"
@@ -82,13 +82,12 @@ void VectorBrushProp::draw(const TVectorRenderData &rd) {
   if (!m_brush->getPalette()) return;
 
   // Push the specified rd affine before drawing
-  glPushMatrix();
-  tglMultMatrix(rd.m_aff);
+  TGLEntries::pushTransform(rd.m_aff);
 
-  buildOutlines(sqrt(tglGetPixelSize2()));
+  buildOutlines(sqrt(TGLEntries::pixelSize2()));
   drawOutlines(0);
 
-  glPopMatrix();
+  TGLEntries::popTransform();
 }
 
 //-----------------------------------------------------------------

@@ -5,7 +5,7 @@
 
 #include "tcurves.h"
 #include "tstroke.h"
-#include "tgl.h"  //tglPixelSize
+#include "tglentries.h"  // the size of a pixel where the viewer draws
 #include "tstrokeoutline.h"
 
 namespace tellipticbrush {
@@ -53,8 +53,9 @@ struct OutlinizationData {
   OutlinizationData() : m_options(), m_pixSize(0.0) {}
   OutlinizationData(const TOutlineUtil::OutlineParameter &options)
       : m_options(options)
-      , m_pixSize(options.m_pixelSize > 0.0 ? options.m_pixelSize
-                                            : sqrt(tglGetPixelSize2())) {}
+      , m_pixSize(options.m_pixelSize > 0.0
+                      ? options.m_pixelSize
+                      : sqrt(TGLEntries::pixelSize2())) {}
 };
 
 //********************************************************************************
