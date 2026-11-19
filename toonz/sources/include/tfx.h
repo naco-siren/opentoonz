@@ -14,6 +14,7 @@
 
 // TnzBase includes
 #include "tparamchange.h"
+#include <cstring>
 
 #undef DVAPI
 #undef DVVAR

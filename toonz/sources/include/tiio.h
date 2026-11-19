@@ -5,7 +5,12 @@
 
 #include "tcommon.h"
 #include <string>
-#include <QStringList>
+// The members that take or give these are for the code on the Qt side and
+// are defined in timage_io_qt.cpp, which the build without Qt leaves out
+// (doc/nexttoonz_core_noqt.md, section 6).
+class QStringList;
+
+#include <vector>
 #include "timageinfo.h"
 
 #undef DVAPI
@@ -93,7 +98,10 @@ protected:
   static int m_bwThreshold;
 
 public:
-  static void getSupportedFormats(QStringList &formats, bool onlyRenderFormats);
+  static void getSupportedFormats(QStringList &formats,
+                                  bool onlyRenderFormats);  // timage_io_qt.cpp
+  static void getSupportedFormats(std::vector<std::string> &formats,
+                                  bool onlyRenderFormats);
   static void setBlackAndWhiteThreshold(int threshold) {
     m_bwThreshold = threshold;
   }

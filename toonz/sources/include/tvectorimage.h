@@ -12,6 +12,7 @@
 #include "tstream.h"
 
 #include <set>
+#include <QSet>
 
 #undef DVAPI
 #undef DVVAR

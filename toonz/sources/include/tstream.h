@@ -11,10 +11,10 @@
 // TnzCore includes
 #include "tpixel.h"
 
-// Qt includes
-#ifndef TNZCORE_LIGHT
-#include <QString>
-#endif
+// The members that take or give these are for the code on the Qt side and
+// are defined in tstream_qt.cpp, which the build without Qt leaves out
+// (doc/nexttoonz_core_noqt.md, section 6).
+class QString;
 
 #undef DVAPI
 #undef DVVAR
@@ -80,9 +80,7 @@ public:
   TIStream &operator>>(TPixel32 &v);      //!< Reads a TPixel32 from the stream
   TIStream &operator>>(TPixel64 &v);      //!< Reads a TPixel64 from the stream
 
-#ifndef TNZCORE_LIGHT
-  TIStream &operator>>(QString &v);  //!< Reads a QString from the stream
-#endif
+  TIStream &operator>>(QString &v);  //!< Reads a QString (tstream_qt.cpp)
 
   /*! \detail
 This function dispatches the loading process to the derived class'
@@ -247,9 +245,7 @@ public:
   TOStream &operator<<(
       const TPixel64 &v);  //!< Writes a TPixel64 to the stream.
 
-#ifndef TNZCORE_LIGHT
-  TOStream &operator<<(QString v);  //!< Writes a QString to the stream.
-#endif
+  TOStream &operator<<(QString v);  //!< Writes a QString (tstream_qt.cpp)
 
   //! \deprecated Use operator<<(TPersist&) instead
   TOStream &operator<<(TPersist *v);

@@ -179,7 +179,9 @@ set(SOURCES
     ../common/tsound/tsop.cpp
     ../common/tsound/tsound.cpp
     ../common/tsound/tsound_io.cpp
+    ../common/tsound/tsound_io_qt.cpp
     ../common/timage_io/timage_io.cpp
+    ../common/timage_io/timage_io_qt.cpp
     ../common/timage_io/tlevel_io.cpp
     ../common/trasterimage/tcodec.cpp
     ../common/trasterimage/trasterimage.cpp
@@ -224,6 +226,7 @@ set(SOURCES
     ../common/trop/tropcm.cpp
     ../common/trop/trop_borders.cpp
     ../common/tstream/tstream.cpp
+    ../common/tstream/tstream_qt.cpp
     ../common/tstream/tstreamexception.cpp
     ../common/tstream/tpersistset.cpp
     ../common/tiio/tiio.cpp
@@ -275,8 +278,11 @@ endif()
 # mutexes) took Qt out of tthreadmessage.h, which is what kept
 # tsmartpointer.cpp on it; step 3 (the string conversions) freed tconvert.h
 # and with it the next eight; step 4 TFilePath and TFrameId, whose Qt members
-# are in tfilepath_qt.cpp. The others never needed Qt.
+# are in tfilepath_qt.cpp; step 5 the sound track registry and tdata.cpp, as
+# the stream, image cache and image I/O headers lost Qt. The others never
+# needed Qt.
 set(TNZCORE_NOQT_SOURCES
+    ../common/tcore/tdata.cpp
     ../common/tcore/tdebugmessage.cpp
     ../common/tcore/texception.cpp
     ../common/tcore/tmathutil.cpp
@@ -295,6 +301,7 @@ set(TNZCORE_NOQT_SOURCES
     ../common/tvectorimage/tstrokeoutline.cpp
     ../common/tvectorimage/cornerdetector.cpp
     ../common/tsound/tsound.cpp
+    ../common/tsound/tsound_io.cpp
     ../common/tsystem/tfilepath.cpp
     ../common/tsystem/tfiletype.cpp
 )

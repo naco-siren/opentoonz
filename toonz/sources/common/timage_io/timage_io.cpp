@@ -37,8 +37,9 @@ DEFINE_CLASS_CODE(TImageWriter, 6)
 
 //-----------------------------------------------------------
 
-std::map<QString, TImageReaderCreateProc *> ImageReaderTable;
-std::map<QString, std::pair<TImageWriterCreateProc *, bool>> ImageWriterTable;
+std::map<std::string, TImageReaderCreateProc *> ImageReaderTable;
+std::map<std::string, std::pair<TImageWriterCreateProc *, bool>>
+    ImageWriterTable;
 
 //-----------------------------------------------------------
 
@@ -132,8 +133,8 @@ void TImageReader::open() {
       }
     } catch (TException &e) {
       close();  // close() chiude il file e setta m_file a NULL.
-      QString msg = QString::fromStdWString(e.getMessage());
-      if (msg == QString("Old 4.1 Palette")) throw e;
+      // compared as QStrings once, hence the round trip
+      if (roundTripAsQString(e.getMessage()) == L"Old 4.1 Palette") throw e;
     } catch (std::string str) {
       if (str == "Tiff file closed") m_file = NULL;
     }
@@ -820,37 +821,36 @@ TPixel32 TImageWriter::getBackgroundColor() { return m_backgroundColor; }
 //
 //===========================================================
 
-void TImageReader::define(QString extension, TImageReaderCreateProc *proc) {
+// The QString and QStringList versions are in timage_io_qt.cpp. The tables
+// were keyed by QString; for the extensions there are (ASCII) the order of
+// std::string keys is the same.
+
+void TImageReader::define(const std::string &extension,
+                          TImageReaderCreateProc *proc) {
   ImageReaderTable[extension] = proc;
 }
 
 //-----------------------------------------------------------
 
-void TImageWriter::define(QString extension, TImageWriterCreateProc *proc,
-                          bool isRenderFormat) {
+void TImageWriter::define(const std::string &extension,
+                          TImageWriterCreateProc *proc, bool isRenderFormat) {
   ImageWriterTable[extension] =
       std::pair<TImageWriterCreateProc *, bool>(proc, isRenderFormat);
 }
 
 //-----------------------------------------------------------
 
-void TImageReader::getSupportedFormats(QStringList &names) {
-  for (std::map<QString, TImageReaderCreateProc *>::iterator it =
-           ImageReaderTable.begin();
-       it != ImageReaderTable.end(); ++it) {
+void TImageReader::getSupportedFormats(std::vector<std::string> &names) {
+  for (auto it = ImageReaderTable.begin(); it != ImageReaderTable.end(); ++it)
     names.push_back(it->first);
-  }
 }
 
 //-----------------------------------------------------------
 
-void TImageWriter::getSupportedFormats(QStringList &names,
+void TImageWriter::getSupportedFormats(std::vector<std::string> &names,
                                        bool onlyRenderFormat) {
-  for (std::map<QString, std::pair<TImageWriterCreateProc *, bool>>::iterator
-           it = ImageWriterTable.begin();
-       it != ImageWriterTable.end(); ++it) {
+  for (auto it = ImageWriterTable.begin(); it != ImageWriterTable.end(); ++it)
     if (!onlyRenderFormat || it->second.second) names.push_back(it->first);
-  }
 }
 
 //-----------------------------------------------------------

@@ -8,6 +8,8 @@
 #include "trasterimage.h"
 #include "trop.h"
 #include "tpixelutils.h"
+#include <QString>
+#include <QStringList>
 
 /*
   The entire content of this file is ridden with LEAKS. A bug has been filed,

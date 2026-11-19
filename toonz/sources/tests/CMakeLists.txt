@@ -63,6 +63,7 @@ set(NEXTTOONZ_CORE_NOQT_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tfilepath.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tgeometry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tsmartpointer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tsound_io.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tstring.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tthreadmutex.cpp
 )

@@ -4,6 +4,7 @@
 #include "tstream.h"
 #include "tconvert.h"
 #include "tunit.h"
+#include <QString>
 
 TDoubleKeyframe::TDoubleKeyframe(double frame, double value)
     : m_type(Linear)

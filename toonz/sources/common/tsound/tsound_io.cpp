@@ -8,8 +8,8 @@ DEFINE_CLASS_CODE(TSoundTrackWriter, 14)
 
 //-----------------------------------------------------------
 
-std::map<QString, TSoundTrackReaderCreateProc *> SoundTrackReaderTable;
-std::map<QString, TSoundTrackWriterCreateProc *> SoundTrackWriterTable;
+std::map<std::string, TSoundTrackReaderCreateProc *> SoundTrackReaderTable;
+std::map<std::string, TSoundTrackWriterCreateProc *> SoundTrackWriterTable;
 
 //-----------------------------------------------------------
 
@@ -23,8 +23,8 @@ TSoundTrackReader::~TSoundTrackReader() {}
 //===========================================================
 
 TSoundTrackReaderP::TSoundTrackReaderP(const TFilePath &path) {
-  QString type = QString::fromStdString(toLower(path.getType()));
-  std::map<QString, TSoundTrackReaderCreateProc *>::iterator it;
+  std::string type = toLower(path.getType());
+  std::map<std::string, TSoundTrackReaderCreateProc *>::iterator it;
   it = SoundTrackReaderTable.find(type);
   if (it != SoundTrackReaderTable.end()) {
     m_pointer = it->second(path);
@@ -49,8 +49,8 @@ TSoundTrackWriter::~TSoundTrackWriter() {}
 //===========================================================
 
 TSoundTrackWriterP::TSoundTrackWriterP(const TFilePath &path) {
-  QString type = QString::fromStdString(toLower(path.getType()));
-  std::map<QString, TSoundTrackWriterCreateProc *>::iterator it;
+  std::string type = toLower(path.getType());
+  std::map<std::string, TSoundTrackWriterCreateProc *>::iterator it;
   it = SoundTrackWriterTable.find(type);
   if (it != SoundTrackWriterTable.end()) {
     m_pointer = it->second(path);
@@ -76,8 +76,8 @@ bool TSoundTrackReader::load(const TFilePath &path, TSoundTrackP &st) {
 
 //-----------------------------------------------------------
 
-void TSoundTrackReader::getSupportedFormats(QStringList &names) {
-  for (std::map<QString, TSoundTrackReaderCreateProc *>::iterator it =
+void TSoundTrackReader::getSupportedFormats(std::vector<std::string> &names) {
+  for (std::map<std::string, TSoundTrackReaderCreateProc *>::iterator it =
            SoundTrackReaderTable.begin();
        it != SoundTrackReaderTable.end(); ++it) {
     names.push_back(it->first);
@@ -91,8 +91,8 @@ bool TSoundTrackWriter::save(const TFilePath &path, const TSoundTrackP &st) {
 
 //-----------------------------------------------------------
 
-void TSoundTrackWriter::getSupportedFormats(QStringList &names) {
-  for (std::map<QString, TSoundTrackWriterCreateProc *>::iterator it =
+void TSoundTrackWriter::getSupportedFormats(std::vector<std::string> &names) {
+  for (std::map<std::string, TSoundTrackWriterCreateProc *>::iterator it =
            SoundTrackWriterTable.begin();
        it != SoundTrackWriterTable.end(); ++it) {
     names.push_back(it->first);
@@ -105,14 +105,14 @@ void TSoundTrackWriter::getSupportedFormats(QStringList &names) {
 //
 //===========================================================
 
-void TSoundTrackReader::define(QString extension,
+void TSoundTrackReader::define(const std::string &extension,
                                TSoundTrackReaderCreateProc *proc) {
   SoundTrackReaderTable[extension] = proc;
 }
 
 //-----------------------------------------------------------
 
-void TSoundTrackWriter::define(QString extension,
+void TSoundTrackWriter::define(const std::string &extension,
                                TSoundTrackWriterCreateProc *proc) {
   SoundTrackWriterTable[extension] = proc;
 }

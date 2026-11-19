@@ -33,6 +33,7 @@ m_ras - stores the pointer to the original RASTER picture
 
 #include "timagecache.h"
 #include "trasterimage.h"
+#include <cstring>
 
 #define ISINPIC(x, y) (m_pic && x >= 0 && x < m_lX && y >= 0 && y < m_lY)
 

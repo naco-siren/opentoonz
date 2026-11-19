@@ -13,6 +13,7 @@
 #include "tpixel.h"
 #include "tpixelgr.h"
 #include "timagecache.h"
+#include <cstring>
 
 DEFINE_CLASS_CODE(TRaster, 1)
 

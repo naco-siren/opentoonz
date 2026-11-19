@@ -371,31 +371,7 @@ TOStream &TOStream::operator<<(std::string v) {
 
 //---------------------------------------------------------------
 
-TOStream &TOStream::operator<<(QString _v) {
-  std::string v = _v.toStdString();
-
-  std::ostream &os = *(m_imp->m_os);
-  int len          = v.length();
-  if (len == 0) {
-    os << "\"\"" << " ";
-    m_imp->m_justStarted = false;
-    return *this;
-  }
-  int i;
-  for (i = 0; i < len; i++)
-    if ((!iswalnum(v[i]) && v[i] != '_' && v[i] != '%') ||
-        v[i] < 32      // Less than ASCII for SPACE
-        || v[i] > 126  // Greater than ASCII for ~
-    )
-      break;
-  if (i == len)
-    os << v << " ";
-  else {
-    os << '"' << escape(v) << '"';
-  }
-  m_imp->m_justStarted = false;
-  return *this;
-}
+// operator<<(QString) is in tstream_qt.cpp.
 
 //---------------------------------------------------------------
 
@@ -985,43 +961,7 @@ TIStream &TIStream::operator>>(std::string &v) {
 
 //---------------------------------------------------------------
 
-TIStream &TIStream::operator>>(QString &v) {
-  std::istream &is = *(m_imp->m_is);
-  v                = "";
-  m_imp->skipBlanks();
-  char c;
-  is.get(c);
-  if (c == '\"') {
-    is.get(c);
-    while (is && c != '"') {
-      if (c == '\\') {
-        is.get(c);
-        if (!is) throw TException("unexpected EOF");
-        if (c == '"')
-          v.append('"');
-        else if (c == '\\')
-          v.append('\\');
-        else if (c == '\'')
-          v.append('\'');
-        else {
-          v.append('\\');
-          v.append(c);
-        }
-      } else
-        v.append(c);
-      is.get(c);
-    }
-  } else {
-    v.append(c);
-    while (c = is.peek(), isalnum(c) || c == '_' || c == '&' || c == '#' ||
-                              c == ';' || c == '%') {
-      is.get(c);
-      v.append(c);
-    }
-  }
-
-  return *this;
-}
+// operator>>(QString &) is in tstream_qt.cpp.
 
 //---------------------------------------------------------------
 

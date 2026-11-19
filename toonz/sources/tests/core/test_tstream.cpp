@@ -456,3 +456,26 @@ TEST_F(TStreamTest, VersionIsCarriedByTheReader) {
   EXPECT_EQ(is.getVersion(), VersionNumber(71, 1));
   EXPECT_EQ(is.getFilePath(), fp);
 }
+
+// The QString operators (tstream_qt.cpp since migration step 5 of
+// doc/nexttoonz_core_noqt.md) do what they always did: writing goes through
+// UTF-8 like a std::string, but reading appends each byte through QChar's
+// integer constructor, so a byte from 0x80 up comes back as 0xFF00 plus the
+// byte, not as text (doc/nexttoonz_known_issues.md, item 28).
+TEST_F(TStreamTest, QStringsWriteAsUtf8AndReadBackByteBySignedByte) {
+  const TFilePath fp = path("qstring.xml");
+  {
+    TOStream os(fp);
+    os.openChild("s");
+    os << QString("plain") << QString::fromUtf8("caf\xc3\xa9");
+    os.closeChild();
+  }
+  TIStream is(fp);
+  std::string tag;
+  ASSERT_TRUE(is.matchTag(tag));
+  QString a, b;
+  is >> a >> b;
+  EXPECT_EQ(a, QString("plain"));
+  const ushort expected[] = {'c', 'a', 'f', 0xffc3, 0xffa9};
+  EXPECT_EQ(b, QString::fromUtf16(expected, 5));
+}

@@ -240,7 +240,8 @@ Tiio::Writer::Writer() : m_properties(0) {}
 
 Tiio::Writer::~Writer() {}
 
-void Tiio::Writer::getSupportedFormats(QStringList &formats,
+// The QStringList version is in timage_io_qt.cpp.
+void Tiio::Writer::getSupportedFormats(std::vector<std::string> &formats,
                                        bool onlyRenderFormats) {
   TiioTable::VectorWriterTable::const_iterator vit =
       TiioTable::instance()->m_vectorWriters.begin();
@@ -248,14 +249,14 @@ void Tiio::Writer::getSupportedFormats(QStringList &formats,
       TiioTable::instance()->m_vectorWriters.end();
   for (; vit != vit_e; ++vit)
     if (onlyRenderFormats && vit->second.second)
-      formats.push_back(QString::fromStdString(vit->first));
+      formats.push_back(vit->first);
   TiioTable::WriterTable::const_iterator it =
       TiioTable::instance()->m_writers.begin();
   TiioTable::WriterTable::const_iterator it_e =
       TiioTable::instance()->m_writers.end();
   for (; it != it_e; ++it)
     if (onlyRenderFormats && it->second.second)
-      formats.push_back(QString::fromStdString(it->first));
+      formats.push_back(it->first);
 }
 
 //-----------------------------------------------------

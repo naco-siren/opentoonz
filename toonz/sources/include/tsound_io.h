@@ -3,7 +3,14 @@
 #ifndef TSOUND_IO_INCLUDED
 #define TSOUND_IO_INCLUDED
 
-#include <QStringList>
+// The members that take or give these are for the code on the Qt side and
+// are defined in tsound_io_qt.cpp, which the build without Qt leaves out
+// (doc/nexttoonz_core_noqt.md, section 6).
+class QString;
+class QStringList;
+
+#include <string>
+#include <vector>
 #include "tfilepath.h"
 #include "tsound.h"
 
@@ -46,8 +53,16 @@ public:
 
   static bool load(const TFilePath &, TSoundTrackP &);
 
-  static void getSupportedFormats(QStringList &names);
-  static void define(QString extension, TSoundTrackReaderCreateProc *proc);
+  static void getSupportedFormats(QStringList &names);  // tsound_io_qt.cpp
+  static void getSupportedFormats(std::vector<std::string> &names);
+  static void define(QString extension,
+                     TSoundTrackReaderCreateProc *proc);  // tsound_io_qt.cpp
+  static void define(const std::string &extension,
+                     TSoundTrackReaderCreateProc *proc);
+  static void define(const char *extension,
+                     TSoundTrackReaderCreateProc *proc) {
+    define(std::string(extension), proc);
+  }
 };
 
 #ifdef _WIN32
@@ -85,9 +100,17 @@ public:
 
   static bool save(const TFilePath &, const TSoundTrackP &);
 
-  static void getSupportedFormats(QStringList &names);
+  static void getSupportedFormats(QStringList &names);  // tsound_io_qt.cpp
+  static void getSupportedFormats(std::vector<std::string> &names);
 
-  static void define(QString extension, TSoundTrackWriterCreateProc *proc);
+  static void define(QString extension,
+                     TSoundTrackWriterCreateProc *proc);  // tsound_io_qt.cpp
+  static void define(const std::string &extension,
+                     TSoundTrackWriterCreateProc *proc);
+  static void define(const char *extension,
+                     TSoundTrackWriterCreateProc *proc) {
+    define(std::string(extension), proc);
+  }
 };
 
 #ifdef _WIN32

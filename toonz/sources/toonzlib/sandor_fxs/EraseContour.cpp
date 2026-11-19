@@ -10,6 +10,7 @@
 
 //#include "myetc.h"
 #include "EraseContour.h"
+#include <cstring>
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction

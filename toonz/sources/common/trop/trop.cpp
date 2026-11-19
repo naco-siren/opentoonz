@@ -10,6 +10,7 @@
 #include "ttoonzimage.h"
 #endif
 #include "tpixelutils.h"
+#include <cstring>
 
 TString TRopException::getMessage() const { return ::to_wstring(message); }
 

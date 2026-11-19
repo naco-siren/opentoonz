@@ -10,10 +10,10 @@
 #include "timage.h"
 #include "tsmartpointer.h"
 
-// Qt includes
-#ifndef TNZCORE_LIGHT
-#include <QString>
-#endif
+// The members that take or give these are for the code on the Qt side and
+// are defined in timagecache.cpp, which the build without Qt leaves out
+// (doc/nexttoonz_core_noqt.md, section 6).
+class QString;
 
 #undef DVAPI
 #undef DVVAR
@@ -146,11 +146,9 @@ public:
 
   bool hasBeenModified(const std::string &id, bool reset) const;
 
-#ifndef TNZCORE_LIGHT
   void add(const QString &id, const TImageP &img, bool overwrite = true);
   void remove(const QString &id);
   TImageP get(const QString &id, bool toBeModified) const;
-#endif
 
   // compress id (in memory)
   void compress(const std::string &id);

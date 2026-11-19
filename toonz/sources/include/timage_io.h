@@ -6,7 +6,14 @@
 // #include "trasterimage.h"
 // #include "texception.h"
 // #include "tfilepath.h"
-#include <QStringList>
+// The members that take or give these are for the code on the Qt side and
+// are defined in timage_io_qt.cpp, which the build without Qt leaves out
+// (doc/nexttoonz_core_noqt.md, section 6).
+class QString;
+class QStringList;
+
+#include <string>
+#include <vector>
 
 #include "tfilepath_io.h"
 #include "traster.h"
@@ -139,12 +146,19 @@ Note: if the region, or part of it, is not contained in the image
   // Only for TLV (version 13). Return the icon in TLV file.
   virtual TImageP loadIcon() { return TImageP(); }
 
-  static void getSupportedFormats(QStringList &names);
+  static void getSupportedFormats(QStringList &names);  // timage_io_qt.cpp
+  static void getSupportedFormats(std::vector<std::string> &names);
 
   // TDimension getSize() const;
   // virtual TRect getBBox() const = 0;
 
-  static void define(QString extension, TImageReaderCreateProc *proc);
+  static void define(QString extension,
+                     TImageReaderCreateProc *proc);  // timage_io_qt.cpp
+  static void define(const std::string &extension,
+                     TImageReaderCreateProc *proc);
+  static void define(const char *extension, TImageReaderCreateProc *proc) {
+    define(std::string(extension), proc);
+  }
 
   void doReadGraytones(bool readThem);
   void enable16BitRead(bool is64bitEnabled) {
@@ -247,10 +261,19 @@ public:
   static void save(const TFilePath &, TRasterP);
   static void save(const TFilePath &, const TImageP &);
 
-  static void getSupportedFormats(QStringList &names, bool onlyRenderFormats);
+  static void getSupportedFormats(QStringList &names,
+                                  bool onlyRenderFormats);  // timage_io_qt.cpp
+  static void getSupportedFormats(std::vector<std::string> &names,
+                                  bool onlyRenderFormats);
 
   static void define(QString extension, TImageWriterCreateProc *proc,
-                     bool isRenderFormat);
+                     bool isRenderFormat);  // timage_io_qt.cpp
+  static void define(const std::string &extension,
+                     TImageWriterCreateProc *proc, bool isRenderFormat);
+  static void define(const char *extension, TImageWriterCreateProc *proc,
+                     bool isRenderFormat) {
+    define(std::string(extension), proc, isRenderFormat);
+  }
 
   static void setBackgroundColor(TPixel32 color);
   static TPixel32 getBackgroundColor();

@@ -1,5 +1,6 @@
 #include "plugin_tile_interface.h"
 #include "ttile.h"
+#include <cstring>
 
 int tile_interface_get_raw_address_unsafe(toonz_tile_handle_t handle,
                                           void **address) {
