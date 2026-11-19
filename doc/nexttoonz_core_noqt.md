@@ -2,7 +2,7 @@
 
 版本 0.7，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
-迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）、第 6b 步（`SystemVar.ini` 经键值存储）、第 6c 步（应用与进程信息，`tenv` 进无 Qt 构建）、第 7 步（样式的界面文字由界面翻译）和第 8a 步（矢量图和样式里不带 GL 的 Qt）已经实现（第 7 节，做成的样子在 8.1 到 8.10 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
+迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）、第 6b 步（`SystemVar.ini` 经键值存储）、第 6c 步（应用与进程信息，`tenv` 进无 Qt 构建）、第 7 步（样式的界面文字由界面翻译）、第 8a 步（矢量图和样式里不带 GL 的 Qt）和第 8b 步（核心对 GL 的每处使用改经三种接缝）已经实现（第 7 节，做成的样子在 8.1 到 8.11 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`（Phase 1 合并之后）。所有路径相对于 `toonz/sources/`。标着"实测"的数字来自编译器和链接器，不是读代码：预处理器的包含树（`-E -H`，用构建目录里 `compile_commands.json` 的原样参数）、已构建的 dylib 的未定义符号（`nm -m`）和链接的框架（`otool -L`）。按类分的行数来自正则统计，有噪声，只当量级看。测量脚本不在版本库里，做法记在 2.1 节。
 
@@ -267,7 +267,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 5（已完成） | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList（8.5 节） | `tsound_io.cpp`、`tdata.cpp`；栅格和 trop 要等第 6 步（`TBigMemoryManager`）和第 9 步（`TImageCache` 的 `QThreadStorage`） | 8.5 节 |
 | 6（拆成 6a、6b、6c，见第 10 节；都已完成，8.6 到 8.8 节） | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
 | 7（已完成，8.9 节） | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名、枚举项改成核心产生 `TTranslatableText`、界面翻译（Q2）；`TPalette` 第一页名字经窄的数据翻译服务；`tvectorimage.h` 的 `QSet` | `ttranslatabletext.cpp`；矢量图和样式的 16 个源文件从此编译时碰不到 Qt 的头，但链接要等第 8 步 | 每个注册样式的描述、参数名、枚举项在 11 种语言下经 Qt 翻译后与改动前逐字相同（导出对照）；lupdate 前后产出的 .ts 相同 |
-| 8（8a 已完成，8.10 节） | 开头先清矢量图和样式里不带 GL 的 Qt（第 7 步之后剩下的）：`tpalette.cpp` 的帧号区间解析与 `QString::number(…, 'g', 17)`、`toDouble`，`tsimplecolorstyles.cpp` 的 `QDir::match`、`sourceFilters`、`QMutexLocker`，`tl2lautocloser.cpp`、`tsegmentadjuster.cpp` 的 `qDebug`；然后 tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzqt、tnztools、toonz 链接它，也由它链接 `tnzglcanvas`）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`）；矢量图和样式（第 7 步留下的 16 个源文件和 `tpalette`、`tsimplecolorstyles`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收；`.tpl` 里的数字与 Qt 逐字节相同（大量随机 double 和边界值的差分测试），帧号区间解析与旧代码差分对照，`QDir::match` 的通配规则照 Qt 5.15 对照 |
+| 8（8a、8b 已完成，8.10、8.11 节） | 开头先清矢量图和样式里不带 GL 的 Qt（第 7 步之后剩下的）：`tpalette.cpp` 的帧号区间解析与 `QString::number(…, 'g', 17)`、`toDouble`，`tsimplecolorstyles.cpp` 的 `QDir::match`、`sourceFilters`、`QMutexLocker`，`tl2lautocloser.cpp`、`tsegmentadjuster.cpp` 的 `qDebug`；然后 tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzqt、tnztools、toonz 链接它，也由它链接 `tnzglcanvas`）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`）；矢量图和样式（第 7 步留下的 16 个源文件和 `tpalette`、`tsimplecolorstyles`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收；`.tpl` 里的数字与 Qt 逐字节相同（大量随机 double 和边界值的差分测试），帧号区间解析与旧代码差分对照，`QDir::match` 的通配规则照 Qt 5.15 对照 |
 | 9 | 线程：`TThread::Executor`/`Runnable` 换成线程池，`TThread::Message` 换成派发器，`QThreadStorage`、`QReadWriteLock`、`QWaitCondition` 换成 std；toonzqt 加 Runnable 的 Qt 适配和 Qt 派发器 | `tthread.cpp`、`threadmessage.cpp`、`timagecache.cpp`… | golden 用 `-nthreads 1` 和 `-nthreads 8` 各渲一遍，与改动前逐字节相同；线程池的单测在 ThreadSanitizer 下跑；应用里人工验收（预览、渲染进度、取消） |
 | 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`tundo.h` 的 `TUndoManager` 去 QObject；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
 | 11 | 引擎 API 第一版（第 9 节），tcomposer 改用它 | | tcomposer 的全部 golden 与改动前逐字节相同 |
@@ -656,6 +656,76 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 **结果（Linux 虚拟机）。** 全部目标编译通过，没有新的 `<cstring>` 问题；464 个测试里 463 个通过，失败的仍是 `golden_fx_sweep_font_a`；GL 画布 32 个通过。最后一次提交后又在虚拟机里跑了核心测试：清洁剂构建 211 个全部通过，其中包括上面那些与 Qt 的对照，所以在 glibc 的 printf 和 strtod 上也相同；无 Qt 构建 150 个通过。
 
+### 8.11 第 8b 步实际做成的样子（2026-11-18）
+
+核心里矢量图、样式和属性类对 GL 的每一处使用，现在都经 `tglentries.h` 的三种接缝走。GL 的实现暂时还在 tnzcore（`tglentries_gl.cpp`）和 colorfx（`colorfx_gl.cpp`）里，Qt 构建默认装上，所以默认路径和 GL 退路都没有变。8c 把这两个文件连同其余的 GL 搬进 tnzglview。
+
+**三种接缝**（`namespace TGLEntries`，每种只有一个切换点，设置时交回被替换的那个，传 `nullptr` 回到内置的）：
+
+1. **viewer 画布**，`setViewerCanvas(const ViewerCanvas *)`。钩子就是 8b 的决定里定下的那一组，一个不多：
+   - `paint(painter, what, saveAllAttributes)`：在当前 GL 上下文上建一张画布，连同那里线条平滑开着没有，一起交给 `painter`；`saveAllAttributes` 为真时，前后是 `glPushAttrib(GL_ALL_ATTRIB_BITS)` 和 `glPopAttrib()`。这一个钩子包了决定里的"建画布、线条平滑的状态、在外面保存全部属性的开关"三项。
+   - `pushTransform(aff)`：`glPushMatrix()` 加 `tglMultMatrix(aff)`。
+   - `popTransform()`：`glPopMatrix()`。
+   - `pixelSize2()`：`tglGetPixelSize2()`。
+
+   头注释写明钩子到此为止，再加要先问。调用方用模板 `onViewerCanvas(lambda, saveAll)`。
+2. **按类注册的 GL 画法**，`setDrawer(entry, drawer)`。以成员函数的全名为键，例如 `"TCenterLineStrokeStyle::drawStroke"`。画法是普通函数，参数是样式本身和那个成员的参数，四种签名（描边、带轮廓的描边、区域、图案描边）。
+3. **离线上下文**，`setOfflineFactory(factory)`。`factory(size, stock)` 交出一个 `OfflineContext` 对象，它有 `clear`、`makeCurrent`、`draw(image, rd, doInitMatrix)`、`getRaster`（一份拷贝）。`stock` 为真时是 `TOfflineGL::getStock` 的共享上下文，对象不拥有它。内置的工厂把 `TOfflineGL` 包一层。
+
+**没有装接缝时**（Q8-C）。画布钩子和画法什么都不画，`pixelSize2()` 给 1，`openOffline` 给空。四处离线调用因此有各自的退路：
+- 图标给一张白图；
+- 图案关卡的帧给一张清空的栅格；
+- `TVectorImage::render` 给空。
+
+在 Qt 构建里，接缝不会缺：内置的总在。只有删掉一个画法，或问一个没有的画法时，才往标准错误打一行（全程一次），Debug 构建里还会 assert。这一行提到 `TGLView::install()`，那是 8c 的入口。无 Qt 构建里什么都不打。iPad 上图标和图案笔刷与桌面不同的那条待办（Q8-C），等 8d 矢量图和样式进了无 Qt 构建、真能在 iPad 上跑到时再写。
+
+**改了哪些地方。**
+
+- **画布钩子**：
+  - 样式里原来 `TLegacyGlCanvas gl; drawXxxOnCanvas(gl.canvas(), …, glIsEnabled(GL_LINE_SMOOTH))` 的入口层，一共 26 处：colorfx 描边 21 处、区域 2 处，tnzcore 的纯色样式 2 处，再加 `drawThroughGl` 一处，它就是带保存全部属性开关的 `onViewerCanvas`。经 `drawThroughGl` 画的 11 个区域样式里，有 8 个就这样完了；另外 3 个带自己的 GL 状态，是画法。
+  - 6 个属性类的压入、弹出变换和像素大小：`TSimpleStrokeProp`、`OutlineStrokeProp`、`OutlineRegionProp`、`VectorBrushProp`、`TMatrioskaStrokeProp` 和 `TOptimizedStrokePropT<T>`，函数体留在核心。
+  - 调查漏掉的一处：轮廓生成（`tellipticbrushP.h` 的 `OutlinizationData`）在调用方没给像素大小时，自己问 `tglGetPixelSize2()`。它在第一版注入测试里露了出来：没有 GL 上下文时，套娃样式在 `glMatrixMode` 里崩溃。现在改问 `TGLEntries::pixelSize2()`，用的是已有的钩子，没有加新钩子。
+- **画法**，正好决定里的 9 个，函数体原样搬进 GL 文件，经友元结构访问私有成员，类里写了注释，说明那是 GL 一侧的实现细节：
+  - tnzcore 的 3 个（`TGLEntriesAccess`）：中心线、栅格图案、矢量图案；
+  - colorfx 的 6 个（`TColorFxGLAccess`，由 `initColorFx()` 注册）：Sketch、FlowLine、`TNormal2`、点阴影、两种条纹。
+- **离线上下文**：四处都保留原来的调用顺序：
+  - `TColorStyle::makeIcon`：共享上下文，清成白色，画；
+  - 矢量图案的 `makeIcon`：同上；
+  - `TVectorImage::render`：新上下文，清成透明，设为当前，画；
+  - 栅格图案的 `loadLevel`：整个关卡一个新上下文，第一帧要用时才建，帧与帧之间不清空，每帧画在上一帧上面。
+- **colorfx 的数据里不再有 GL 的值**：`DrawmodePointsMatrix` 的 `GLenum` 换成 `unsigned int`，`GL_LINES`、`GL_POINTS` 换成同值的 `DrawLines`、`DrawPoints`，类布局不变。`strokestyles.h`、`flowlinestrokestyle.h` 不再包含 `tgl.h`。
+- `tglentries.cpp` 本身没有 GL，也没有 Qt，进了无 Qt 构建（`TNZCORE_NOQT_SOURCES` 现在 28 个）。
+
+**还留着 GL、交给 8c 的**：
+- Q8-D 的那几个调试画法；
+- `#ifdef _DEBUG` 里的 `OutlineViewerStyle` 和 `drawAutocloses`，照 Q8-D 原样不动；
+- `tsimplecolorstyles.cpp` 里只在 Windows 上编译的显示列表管理器。它的 `getDisplayListId` 没有调用者，只有 `clearLists` 被调用，清的是一张永远空着的表。8c 处理时再问是搬还是删。
+
+**新测试。**
+- `test_tglentries.cpp`（两种构建都有，也在 iPad 模拟器里跑）：三种接缝的设置、交回和转交。Qt 构建里，内置的都在，缺画法时只说一次；无 Qt 构建里什么都没装，问了也什么都不说。
+- `test_gl_seams.cpp`（toonzlib 测试，没有 GL 上下文，假的钩子记下收到了什么）：
+  - 属性类在压入和弹出变换之间画，中间问一次像素大小；
+  - 象棋格子之类的区域在外面保存全部属性，渐变和纯色不保存；
+  - colorfx 的 22 个描边样式和 13 个区域样式都画到交给它们的画布上。这一组本身也是检查：哪里还直接调 GL，没有上下文就会崩溃；
+  - 9 个画法各有内置的，换成假的以后，入口带着样式本身走到假的那里，画布上什么也没有；
+  - 四处离线调用的顺序。图案关卡用参考工程 8 帧的 `vec_circle.pli`：一次建上下文，8 次"画、取回"，一次也没清空。
+
+**GL 的前后对照**（工具在 `toonz/build-phase1/ab/phase2/glseams/`，不进版本库，`README.md` 写了怎么重跑）。一个程序关掉 CPU 栅格化器，分别用 8a 和 8b 应用包里的库各跑一次，写出 19 张栅格，两边逐字节相同，而且每张都有画出来的像素：
+- 栅格图案和矢量图案的描边，经 `tglDraw` 画。栅格图案的纹理就是在那个不清空的上下文里一帧叠一帧做出来的。
+- 两种图案的图标；
+- 9 个 colorfx 样式的图标，6 个画法和保存全部属性的区域都在里面；
+- 其中 4 个描边样式的描边；
+- 带点划线的中心线；
+- `TVectorImage::render`。
+
+**结果（x86_64 macOS）。**
+
+- 全部测试：505 个通过（新增 14 个）。
+- 渲染对照：golden 通过；与 8a 的应用包（改动前当天复制的）对照，单线程和 8 线程的 554 帧、OpenGL 退路单线程的 277 帧逐字节相同；上面那个 GL 程序的 19 张栅格逐字节相同。
+- 无 Qt 构建：三道检查通过，154 个测试通过，iPad 模拟器里 66 个通过。
+
+**结果（Linux 虚拟机）。** 全部目标编译通过（两个 colorfx 头去掉 `tgl.h` 也没有引出新的缺头问题）；清洁剂构建 478 个测试里 477 个通过，失败的仍是 `golden_fx_sweep_font_a`，新的接缝测试在 ASan、UBSan、LSan 下都通过；GL 画布 32 个通过；无 Qt 构建 154 个通过。
+
 ---
 
 ## 9. 引擎 API 的第一版
@@ -744,6 +814,18 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 4. **Q8-D** 没有调用者的调试画法（`drawPointSquare`、`drawPointCross`、`drawLinks`）删掉，提交信息里逐个列名；有调用者的 `drawQuadratic`、`drawStrokeCenterline` 搬进 tnzglview；`#ifdef` 里默认不编译的原样不动。
 
 另外：8a 的数字对照里，`QString::number(x, 'g', 17)` 对 inf、nan、负零的输出以 Qt 5.15 实测为准，样本写进测试；8c 的 viewer 人工验收清单到里程碑时与 6a 的清单合并成一份交给所有者。
+
+**8b 开工后的决定（2026-11-18，所有者委托主会话拍板）：接缝的细化。** 实测之后，属性类（`TSimpleStrokeProp`、`OutlineStrokeProp`、`OutlineRegionProp`、`VectorBrushProp`、colorfx 的 `TMatrioskaStrokeProp` 和模板 `TOptimizedStrokePropT<T>`）用到的 GL 只有压入变换、弹出变换和像素大小。主会话取了细化的做法：
+
+- 属性类的函数体留在核心，这几处 GL 调用换成"viewer 画布"接缝的钩子。
+- 画布钩子另带一个"在外面保存全部 GL 属性"的开关，给 colorfx 里 11 个经 `drawThroughGl` 画的区域样式。
+- 按类注册的 GL 画法只留给 9 个带着样式自己 GL 状态的函数：中心线、两个图案笔刷、FlowLine、Sketch、两个条纹填充、点阴影、`TNormal2`。
+
+理由：属性类的裁剪和缓存逻辑留在核心，8d 的无 Qt 单测才覆盖得到；模板不用按实例化逐个注册；搬走的代码少，逐字节相同也更好证明。代价是没装 tnzglview 时"压入、弹出变换"是空操作，按 Q8-C 无害。
+
+**"viewer 画布"接缝的钩子到此为止**：建画布、线条平滑的状态、压入变换、弹出变换、像素大小的平方、在外面保存全部属性的开关。再要加新钩子要先问主会话，免得它慢慢长成一张 GL 函数表（那是 Q8-A 否决的 (b)）。
+
+离线 GL 的接缝交出一个上下文对象（清空、设为当前、画、取回栅格）。图案关卡加载时跨帧重用同一个上下文、帧与帧之间不清空，这一行为用对照测试钉住。
 
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
