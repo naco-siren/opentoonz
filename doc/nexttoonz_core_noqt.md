@@ -2,7 +2,7 @@
 
 版本 0.7，2026-11-18。本文是 `doc/nexttoonz_plan.md` Phase 2（核心去 Qt 与抽出）的设计草案：先实测核心库现在怎样依赖 Qt，再定目标状态、每项 Qt 设施的替代、一张每步都能单独合并的迁移表、每步怎样验证、引擎 API（D3）的第一版和出现时机，最后是需要所有者决定的问题。做法沿用 Phase 1（`doc/nexttoonz_canvas_ir.md`）：先有设计，再一步一步做，每一步都证明默认路径没有变，做完一步就把"实际做成什么样"补回本文。
 
-迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）、第 6b 步（`SystemVar.ini` 经键值存储）和第 6c 步（应用与进程信息，`tenv` 进无 Qt 构建）已经实现（第 7 节，做成的样子在 8.1 到 8.8 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
+迁移第 1 步（递归互斥锁与无 Qt 构建的骨架）、第 2 步（无 Qt 构建的 CI job）、第 3 步（字符串转换）、第 4 步（TFilePath 与 TFrameId）、第 5 步（流、图像缓存与图像读写框架的头）第 6a 步（文件状态、文件操作与目录列表）、第 6b 步（`SystemVar.ini` 经键值存储）、第 6c 步（应用与进程信息，`tenv` 进无 Qt 构建）和第 7 步（样式的界面文字由界面翻译）已经实现（第 7 节，做成的样子在 8.1 到 8.9 节），在本地分支 `wip/phase2-noqt` 上，没有合并、没有推送；第 2 步的 CI job 因此还没有在 GitHub 上跑过。其余都是设计。所有者 2026-11-18 审过第 10 节的 Q1 到 Q8，都按本稿的倾向定了，其中 Q4、Q5 标为要跟进（第 10 节开头）。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`（Phase 1 合并之后）。所有路径相对于 `toonz/sources/`。标着"实测"的数字来自编译器和链接器，不是读代码：预处理器的包含树（`-E -H`，用构建目录里 `compile_commands.json` 的原样参数）、已构建的 dylib 的未定义符号（`nm -m`）和链接的框架（`otool -L`）。按类分的行数来自正则统计，有噪声，只当量级看。测量脚本不在版本库里，做法记在 2.1 节。
 
@@ -266,7 +266,7 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 4（已完成） | `TFilePath`、`TFrameId` 不用 QString、QChar、QRegularExpression；带 Qt 类型的成员留给 Qt 一侧（8.4 节） | `tfilepath.cpp`、`tfiletype.cpp` | 8.4 节 |
 | 5（已完成） | `tstream.h`、`timagecache.h`、`timage_io.h`、`tiio.h`、`tsound_io.h` 的 QString、QStringList（8.5 节） | `tsound_io.cpp`、`tdata.cpp`；栅格和 trop 要等第 6 步（`TBigMemoryManager`）和第 9 步（`TImageCache` 的 `QThreadStorage`） | 8.5 节 |
 | 6（拆成 6a、6b、6c，见第 10 节；都已完成，8.6 到 8.8 节） | `tsystem`、`tenv`、`tfilepath_io`：文件系统与时间换成 std；`TSystem` 接口里的 QString、QDateTime 改适配；`tenv` 的 QSettings 接到第 15 步的键值存储前先用一个过渡实现 | `tsystem*`、`tenv`、`tbigmemorymanager`、`tlogger`… | `TSystem` 的单测（新写：列目录、时间戳、复制、删除到临时目录）；`stuff` 目录的初始化在新旧构建里产生相同的文件树 |
-| 7 | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名改成源文本加上下文（Q2）；`tsimplecolorstyles`、`tpalette`、colorfx 的 `translate` 一并改 | 矢量图（`tvectorimage`、`tregion`、`tcomputeregions`…）、样式；colorfx 的非 GL 部分（GL 入口在第 8 步移出） | 每个注册样式的名字在界面里显示的译文与改动前相同（一个测试：遍历注册表，经 Qt 翻译后与旧实现逐字比较） |
+| 7（已完成，8.9 节；矢量图和样式进无 Qt 构建要等第 8 步） | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名改成源文本加上下文（Q2）；`tsimplecolorstyles`、`tpalette`、colorfx 的 `translate` 一并改 | 矢量图（`tvectorimage`、`tregion`、`tcomputeregions`…）、样式；colorfx 的非 GL 部分（GL 入口在第 8 步移出） | 每个注册样式的名字在界面里显示的译文与改动前相同（一个测试：遍历注册表，经 Qt 翻译后与旧实现逐字比较） |
 | 8 | tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzqt、tnztools、toonz 链接它，也由它链接 `tnzglcanvas`）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收 |
 | 9 | 线程：`TThread::Executor`/`Runnable` 换成线程池，`TThread::Message` 换成派发器，`QThreadStorage`、`QReadWriteLock`、`QWaitCondition` 换成 std；toonzqt 加 Runnable 的 Qt 适配和 Qt 派发器 | `tthread.cpp`、`threadmessage.cpp`、`timagecache.cpp`… | golden 用 `-nthreads 1` 和 `-nthreads 8` 各渲一遍，与改动前逐字节相同；线程池的单测在 ThreadSanitizer 下跑；应用里人工验收（预览、渲染进度、取消） |
 | 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`tundo.h` 的 `TUndoManager` 去 QObject；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
@@ -559,6 +559,51 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 **首次运行的四种情形（Linux 虚拟机）。** 用 6a 的脚本，改动前仍是第 5 步的程序。首次运行、第二次运行、删掉 stuff 之后、便携模式四种情形下，`SystemVar.ini`、家目录的文件树、`portablestuff`、渲出的帧都与改动前逐字节相同；不同的仍只有记着输出路径和耗时的日志与标准输出。
 
+### 8.9 第 7 步实际做成的样子（2026-11-18）
+
+**`include/ttranslatabletext.h`。**
+- `TTranslatableText` 只有决定里的三项：上下文、UTF-8 的源文本、是否翻译。
+- 要翻译的文字一律写成 `TTranslatableText("类名", QT_TRANSLATE_NOOP("类名", "文本"))`，没有另定宏；不翻译的写成 `TTranslatableText::untranslated(...)`。
+- 头里在没有 Qt 时定义 `QT_TRANSLATE_NOOP(scope, x)`，定义与 Qt 的逐字相同，两者都出现也不会冲突。
+- 窄的翻译服务：`translateForData` 和唯一的切换点 `setDataTranslator`，做法与 6b、6c 相同。头注释写明它只给"核心把译文存进数据"的地方用。Qt 构建内置的是 `QCoreApplication::translate`（`ttranslatabletext_qt.cpp`），无 Qt 构建内置的是原样返回。
+- 不翻译的文字不经过翻译服务。
+
+**样式。**
+- `TColorStyle` 多了三个虚函数 `getDescriptionText`、`getParamNameText`、`getParamRangeText`。原来的 `getDescription`、`getParamNames`、`getParamRange(int, QStringList &)` 改成非虚的 Qt 包装，在新文件 `tcolorstyles_qt.cpp` 里：要翻译的走 `QCoreApplication::translate(上下文, 源文本)`，与原来各样式自己调的那个一字不差；不翻译的走 `QString::fromUtf8`，与原来从 `const char *` 构造 QString 相同。调用点一处都没改。
+- tnzcore、colorfx、toonzlib 里重写这几个函数的样式全部改成重写新的虚函数：`getDescriptionText` 56 处、`getParamNameText` 50 处（含头里的内联定义），带翻译的串共 180 个。这一批是用脚本转的再逐个看过：脚本把 `items << a << b` 拆成几个 `push_back` 时，有一处原来是不带花括号的 `if`，拆开以后只有第一个还受 `if` 管（`TTextureStyle`，编译时就报了错），补了花括号，其余三处都不在条件句里。
+- 原来就有的怪处原样保留：清理样式（`TColorCleanupStyle`）里有两句 `QObject::tr(...)` 的结果从来没被用过，现在是两句 `(void)QT_TRANSLATE_NOOP(...)`，lupdate 照样提取；MyPaint 的参数名来自 libmypaint，不翻译。
+- `tcolorstyles.cpp` 里另外两处 Qt 也去掉了：存档时 `QString::number(m_flags)` 换成 `std::to_string`；读档时那个标志只有一位数字，原来的 `toUInt()` 换成直接减 `'0'`。
+- 一个限制：派生类如果重写了别的 `getParamRange` 重载，经派生类的类型调用 QStringList 版本会被名字隐藏、编译不过。界面一直是经 `TColorStyle` 调用的，全树编译通过；新测试里经基类调用。
+
+**调色板。** `TPalette` 构造时第一页的名字原来是 `QObject::tr("colors")`，现在是 `translateForData(TTranslatableText("QObject", QT_TRANSLATE_NOOP("QObject", "colors")))`。Qt 构建里结果不变。无 Qt 构建和 iPad 在壳注入翻译服务之前，这一页叫英文的 "colors"；注入它是 iPad 壳要做的事之一。
+
+**顺带。** `tvectorimage.h` 的 `QSet<int>` 换成 `std::set<int>`：`addStrokeBelow` 只用它判断有没有，与顺序无关；tnztools 的 `toonzvectorbrushtool.cpp` 里 4 处跟着改。`tsimplecolorstyles.h` 不再包含 `<QCoreApplication>`，`tcolorstyles.h` 不再包含 `<QString>`。原来经它们拿到 Qt 类的 `timagecache.cpp` 和 `tpalette.cpp` 补了包含。改动行按仓库的 `.clang-format` 用 `git clang-format` 排过版。
+
+**进入无 Qt 构建的，和没进去的。** 进去的只有 `ttranslatabletext.cpp`（26 个变成 27 个）。
+- 这一步之后，矢量图和样式的 16 个源文件编译时已经碰不到 Qt 的头：`tvectorimage`、`tregion`、`tcomputeregions`、`tstroke`、`tsweepboundary`、`drawutil`、`outlineApproximation`、`tcolorstyles`、`tellipticbrush`、`tinbetween`、`tpaletteutil`、`tregionprop`、`tstrokedeformations`、`tstrokeprop`、`tstrokeutil`、`tvectorbrush`。
+- 但它们链接不闭合，还要 `TPalette`、`tsimplecolorstyles.cpp` 里的样式、`TOfflineGL`、桌面 GL 的函数、`TRaster`、`TImage` 和 tnzcanvas。
+- 这几处里，`tpalette.cpp`（帧号区间的解析、`QString::number(…, 'g', 17)` 和 `toDouble`）、`tsimplecolorstyles.cpp`（`QDir::match` 的通配符、`sourceFilters` 的 QString、两处 `QMutexLocker`）、`tl2lautocloser.cpp` 和 `tsegmentadjuster.cpp`（`qDebug`）还有不带 GL 的 Qt；`tsimplecolorstyles.cpp` 还带着桌面 GL。
+- 所以迁移表第 7 步那一栏写的"矢量图、样式进入无 Qt 构建"要到第 8 步把 GL 移走时才做得到。上面那些不带 GL 的 Qt，建议放在第 8 步开头一起做，见报告。
+
+**新测试。**
+- `test_ttranslatabletext.cpp`（两个构建都有，也在 iPad 模拟器里跑）：三项字段；翻译服务走注入的那个；不翻译的文字不经过服务；`nullptr` 恢复内置的；无 Qt 构建里内置的那个原样返回。
+- `test_ttranslatabletext_qt.cpp`（Qt 构建）：几个样式给出的上下文和源文本，经包装以后的结果；新调色板的页名经注入的服务得出，恢复以后又是 "colors"。
+
+**前后对照**（工具在 `toonz/build-phase1/ab/phase2/translations/`，不进版本库，`README.md` 写了怎么重跑）。
+- 导出程序：用仓库里没有改过的 .ts 经 lrelease 编出每种语言的 tnzcore、colorfx、toonzlib 三个 .qm，装上以后导出全部注册样式（tnzcore、colorfx、toonzlib 的）的描述、各参数名、枚举项和扩展名列表，外加新调色板的页名；先不装任何译文导出一遍，再按 11 种语言各导出一遍。
+- 改动前：用 `84f17b336` 的头编译，链接 Phase 2 之前应用包里的库；改动后：用新的头和新构建的库。两份各 3,048 行，逐字节相同。
+- lupdate：对改动前和改动后的源码，照 `translations/update.sh` 的做法，对 colorfx、common、toonzlib 各跑一遍，写进仓库里那些 .ts 的副本（用 `-locations none`，因为仓库里的 .ts 不带位置）。11 种语言的 33 个文件逐字节相同。
+- 注意仓库里的 .ts 本来就不是今天的源码跑 lupdate 会得出的样子，所以比的是"改动前跑一遍"和"改动后跑一遍"，不是和仓库里的文件比。
+
+**结果（x86_64 macOS）。**
+
+- 默认构建的编译命令：已有的编译单元一个都没变，多了三个新源文件和两个测试。
+- 全部测试：486 个通过。
+- 渲染对照：golden 通过；单线程和 8 线程的 554 帧、OpenGL 退路单线程的 277 帧，都与 Phase 2 之前的构建同一天渲的逐字节相同。
+- 无 Qt 构建：三道检查通过，149 个测试通过，iPad 模拟器里 61 个通过。
+
+**结果（Linux 虚拟机）。** 又有 3 个文件在 Linux 上失去了间接带来的 `<cstring>`（trop 的 `tresample.cpp`、`tropcm.cpp`，toonzlib 的 `sandor_fxs/blend.cpp`），补了包含；虚拟机的构建是逐轮查出来的，每次只有一个库报错。之后：全部目标编译通过；460 个测试里 459 个通过，失败的仍是 `golden_fx_sweep_font_a`；GL 画布 32 个、无 Qt 构建 149 个通过。macOS 上补完这几处包含以后又跑了一遍全部测试，486 个通过。
+
 ---
 
 ## 9. 引擎 API 的第一版
@@ -630,6 +675,12 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 3. **返回 Qt 类型的函数照第 4 步的先例加 std 版本**（Q-C）：`getHostNameW`、`getUserNameW`、`getUniqueFileW`，原来的 Qt 版本留在 `tsystem_qt.cpp` 当包装，调用点不改；`getSystemValue`（Windows 注册表）和 `isDLLBlackListed` 留在 Qt 一侧。`showDocument` 照 6b 做成注入的服务，切换点只有一处，并有测试；Qt 构建默认用 `QDesktopServices`，无 Qt 构建默认返回 false。
 
 顺带的两件事：`setWorkingDirectory` 把当前目录转成 Latin-1 的缺陷原样保留，记为已知问题；Haiku 分支留在 `#ifdef HAIKU` 里继续用 Qt，无 Qt 构建不支持 Haiku。
+
+**第 7 步开工时的决定（2026-11-18，所有者委托主会话拍板）。**
+
+1. **样式的界面文字（Q7-A 取 (a)）**：核心公共头里的 `TTranslatableText`，字段只有三项：上下文、UTF-8 的源文本、是否翻译。新增虚函数 `getDescriptionText`、`getParamNameText`、`getParamRangeText` 返回它；原来的 `getDescription`、`getParamNames`、`getParamRange(int, QStringList &)` 改成非虚的 Qt 包装，调用点不改（Q2 的做法）。要翻译的串写成 `TTranslatableText("类名", QT_TRANSLATE_NOOP("类名", "文本"))`，全树统一这一种写法；不改 lupdate 的参数，lupdate 产出的 .ts 必须逐字节不变。MyPaint 这类运行时的串标为不翻译，与现状一致。
+2. **核心存进数据的译文（Q7-B 取 (a)）**：一个窄的翻译服务，照 6b、6c 的做法（可设置的函数指针，唯一切换点，有注入测试）。只给"核心把译文存进数据"的地方用，目前只有 `TPalette` 第一页的名字 "colors"；头注释写明这一限制，免得以后被当成通用的翻译入口。Qt 构建默认 `QCoreApplication::translate`，无 Qt 构建默认原样返回。所以无 Qt 构建和 iPad 在壳注入服务之前，新建调色板的页名是英文的 "colors"；注入它是 iPad 壳要做的事之一。
+3. **验证**：一个导出程序装上每种语言的译文，导出全部注册样式的描述、参数名、枚举项和新调色板的页名。改动前用 Phase 2 之前应用包里的库和 `84f17b336` 的头，改动后用新构建，两份逐字节相同。对新源码跑 lupdate，产出的 .ts 与改动前一样。导出程序和结果放在 `toonz/build-phase1/ab/phase2/`，不进版本库，做成的样子里写明怎么重跑。
 
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
