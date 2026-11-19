@@ -1113,7 +1113,7 @@ void ToolPropertiesPanel::createMyPaintBrushProperties() {
       if (TEnumProperty *mode = dynamic_cast<TEnumProperty *>(prop)) {
         QStringList items;
         const TEnumProperty::Items &enumItems = mode->getItems();
-        for (int j = 0; j < enumItems.size(); ++j) items << enumItems[j].UIName;
+        for (int j = 0; j < enumItems.size(); ++j) items << enumItems[j].getUIName();
         m_propertiesLayout->addWidget(createCollapsibleEnum(
             tr("Eraser Mode"), items, mode->getIndex(), prop->getName()));
       }
@@ -1449,7 +1449,7 @@ void ToolPropertiesPanel::createDrawOrderProperty() {
         QStringList items;
         const TEnumProperty::Items &enumItems = enumProp->getItems();
         for (int j = 0; j < enumItems.size(); ++j) {
-          items << enumItems[j].UIName;
+          items << enumItems[j].getUIName();
         }
         int currentIndex = enumProp->getIndex();
 
@@ -1709,7 +1709,7 @@ void ToolPropertiesPanel::createFrameRangeProperty() {
         QStringList items;
         const TEnumProperty::Items &enumItems = enumProp->getItems();
         for (int j = 0; j < enumItems.size(); ++j) {
-          items << enumItems[j].UIName;
+          items << enumItems[j].getUIName();
         }
         int currentIndex = enumProp->getIndex();
 
@@ -1769,7 +1769,7 @@ void ToolPropertiesPanel::createSnapSensitivityProperty() {
         QStringList items;
         const TEnumProperty::Items &enumItems = enumProp->getItems();
         for (int j = 0; j < enumItems.size(); ++j) {
-          items << enumItems[j].UIName;
+          items << enumItems[j].getUIName();
         }
         int currentIndex = enumProp->getIndex();
 
@@ -3706,8 +3706,8 @@ QStringList collectEnumItemIcons(TTool *tool, TEnumProperty *enumProp) {
   const int count = std::min((int)items.size(), (int)range.size());
   icons.reserve(count);
   for (int i = 0; i < count; ++i) {
-    if (!items[i].iconName.isEmpty())
-      icons << items[i].iconName;
+    if (!items[i].getIconName().isEmpty())
+      icons << items[i].getIconName();
     else
       icons << resolveEnumItemIcon(tool, enumProp->getName(), range[i]);
   }
@@ -3795,7 +3795,7 @@ QWidget *ToolPropertiesPanel::createEnumIconGridPanel(
     btn->setFixedSize(kEnumIconGridBtnSize, kEnumIconGridBtnSize);
     btn->setIconSize(QSize(kEnumIconGridIconSize, kEnumIconGridIconSize));
     btn->setIcon(createQIcon(iconNames[i].toStdString().c_str()));
-    btn->setToolTip(items[i].UIName);
+    btn->setToolTip(items[i].getUIName());
     btn->setCompactIconHighlight(kEnumIconGridIconSize);
     btn->setShowBorders(m_showBorders);
     btn->setShowBackgrounds(m_showBackgrounds);
@@ -3839,7 +3839,7 @@ QWidget *ToolPropertiesPanel::createCollapsibleEnumForProperty(
   if (!enumProp) return nullptr;
 
   QStringList items;
-  for (const auto &item : enumProp->getItems()) items << item.UIName;
+  for (const auto &item : enumProp->getItems()) items << item.getUIName();
   if (items.isEmpty()) return nullptr;
 
   const int index = enumProp->getIndex();
@@ -4678,7 +4678,7 @@ void ToolPropertiesPanel::createPlasticRigidityModeProperties(
 
     if (auto *rigidValue = dynamic_cast<TEnumProperty *>(prop)) {
       QStringList items;
-      for (const auto &item : rigidValue->getItems()) items << item.UIName;
+      for (const auto &item : rigidValue->getItems()) items << item.getUIName();
       if (items.isEmpty()) continue;
 
       const QString rigidLabel = rigidValue->getQStringName();
@@ -6982,7 +6982,7 @@ void ToolPropertiesPanel::updateWidgetFromProperty(QWidget *widget) {
       for (QLabel *label : labels) {
         if (label->objectName() == "valueLabel" &&
             enumProp->getItems().size() > newIndex) {
-          label->setText(enumProp->getItems()[newIndex].UIName);
+          label->setText(enumProp->getItems()[newIndex].getUIName());
           break;
         }
       }

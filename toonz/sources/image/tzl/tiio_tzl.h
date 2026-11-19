@@ -4,7 +4,11 @@
 #define TTIO_TZL_INCLUDED
 
 #include "tlevel_io.h"
+// tproperty.h and tcontenthistory.h no longer bring it
+// (doc/nexttoonz_core_noqt.md, 8d-0)
+#include <QString>
 #include <set>
+
 
 class TImageWriterTzl;
 class TImageReaderTzl;
@@ -149,7 +153,7 @@ Return an image with Reader information
 */
   TImageReaderP getFrameReader(TFrameId fid) override;
 
-  QString getCreator() override;
+  std::wstring getCreatorW() override;
   friend class TImageReaderTzl;
 
   /*!

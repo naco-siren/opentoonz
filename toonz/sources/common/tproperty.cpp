@@ -24,7 +24,7 @@ void TProperty::notifyListeners() const {
 }
 
 void TProperty::assignUIName(TProperty *refP) {
-  m_qstringName = refP->getQStringName();
+  m_uiName = refP->getUINameW();
 }
 
 //=============================================================================
@@ -296,12 +296,12 @@ void TEnumProperty::enableRangeSaving(bool on) { EnumRangeSavingEnabled = on; }
 bool TEnumProperty::isRangeSavingEnabled() { return EnumRangeSavingEnabled; }
 
 void TEnumProperty::assignUIName(TProperty *refP) {
-  setQStringName(refP->getQStringName());
+  setUINameW(refP->getUINameW());
   TEnumProperty *enumRefP = dynamic_cast<TEnumProperty *>(refP);
   if (!enumRefP) return;
   Items refItems = enumRefP->getItems();
   for (int i = 0; i < m_range.size(); i++) {
     int refIndex = enumRefP->indexOf(m_range[i]);
-    if (0 <= refIndex) m_items[i].UIName = refItems[refIndex].UIName;
+    if (0 <= refIndex) m_items[i].m_uiName = refItems[refIndex].m_uiName;
   }
 }

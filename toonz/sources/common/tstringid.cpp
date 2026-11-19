@@ -2,8 +2,7 @@
 
 #include <tstringid.h>
 
-#include <QMutex>
-#include <QMutexLocker>
+#include <mutex>
 
 //---------------------------------------------------------
 
@@ -11,7 +10,7 @@ struct TStringId::StaticData {
   Map map;
   std::vector<Iterator> iterators;
   Iterator none;
-  QMutex mutex;
+  std::mutex mutex;
   StaticData() {
     map[std::string()] = 0;
     none = map.begin();
@@ -37,7 +36,7 @@ TStringId::genIter(const std::string &str) {
   StaticData &data = StaticData::instance();
   if (str.empty()) return data.none;
 
-  QMutexLocker lock(&data.mutex);
+  std::lock_guard<std::mutex> lock(data.mutex);
   Iterator i = data.map.find(str);
   if (i == data.map.end()) {
     i = data.map.insert(std::pair<std::string, int>(str, (int)data.iterators.size())).first;
@@ -53,7 +52,7 @@ TStringId::findIter(int id) {
   StaticData &data = StaticData::instance();
   if (id <= 0) return data.none;
 
-  QMutexLocker lock(&data.mutex);
+  std::lock_guard<std::mutex> lock(data.mutex);
   return id < (int)data.iterators.size() ? data.iterators[id] : data.none;
 }
 
@@ -64,7 +63,7 @@ TStringId::findIter(const std::string &str) {
   StaticData &data = StaticData::instance();
   if (str.empty()) return data.none;
 
-  QMutexLocker lock(&data.mutex);
+  std::lock_guard<std::mutex> lock(data.mutex);
   Iterator i = data.map.find(str);
   return i == data.map.end() ? data.none : i;
 }

@@ -131,6 +131,7 @@ set(SOURCES
     ../common/tcore/threadmessage.cpp
     ../common/tcore/tmathutil.cpp
     ../common/tproperty.cpp
+    ../common/tproperty_qt.cpp
     ../common/tcore/trandom.cpp
     ../common/tcore/tsmartpointer.cpp
     ../common/tcore/tstopwatch.cpp
@@ -154,11 +155,13 @@ set(SOURCES
     ../common/tsystem/cpuextensions.cpp
     ../common/tsystem/tbigmemorymanager.cpp
     ../common/tcontenthistory.cpp
+    ../common/tcontenthistory_qt.cpp
     ../common/tsystem/tfilepath.cpp
     ../common/tsystem/tfilepath_qt.cpp
     ../common/tsystem/tfilepath_io.cpp
     ../common/tsystem/tfiletype.cpp
     ../common/tcache/timagecache.cpp
+    ../common/tcache/timagecache_qt.cpp
     ../common/tsystem/tlogger.cpp
     ../common/tsystem/tpluginmanager.cpp
     ../common/tsystem/tsystem.cpp
@@ -179,7 +182,9 @@ set(SOURCES
     ../common/timage_io/timage_io.cpp
     ../common/timage_io/timage_io_qt.cpp
     ../common/timage_io/tlevel_io.cpp
+    ../common/timage_io/tlevel_io_qt.cpp
     ../common/trasterimage/tcodec.cpp
+    ../common/trasterimage/tcodec_qt.cpp
     ../common/trasterimage/trasterimage.cpp
     ../common/tvrender/tcolorstyles.cpp
     ../common/tvrender/tcolorstyles_qt.cpp

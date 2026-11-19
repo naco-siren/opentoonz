@@ -368,10 +368,10 @@ void ToolOptionCombo::loadEntries() {
   bool hasIcon = false;
   for (int i = 0; i < count; ++i) {
     QString itemStr = QString::fromStdWString(range[i]);
-    if (items[i].iconName.isEmpty())
-      addItem(items[i].UIName, itemStr);
+    if (items[i].getIconName().isEmpty())
+      addItem(items[i].getUIName(), itemStr);
     else {
-      addItem(createQIcon(items[i].iconName.toUtf8()), items[i].UIName,
+      addItem(createQIcon(items[i].getIconName().toUtf8()), items[i].getUIName(),
               itemStr);
       if (!hasIcon) {
         hasIcon = true;
@@ -385,7 +385,7 @@ void ToolOptionCombo::loadEntries() {
                       }");
       }
     }
-    int tmpWidth = fontMetrics().horizontalAdvance(items[i].UIName);
+    int tmpWidth = fontMetrics().horizontalAdvance(items[i].getUIName());
     if (tmpWidth > maxWidth) maxWidth = tmpWidth;
   }
 
@@ -472,9 +472,9 @@ ToolOptionPopupButton::ToolOptionPopupButton(TTool *tool,
   const TEnumProperty::Items &items = m_property->getItems();
   const int count                   = m_property->getCount();
   for (int i = 0; i < count; ++i) {
-    QAction *action = addItem(createQIcon(items[i].iconName.toUtf8()));
+    QAction *action = addItem(createQIcon(items[i].getIconName().toUtf8()));
     // make the tooltip text
-    action->setToolTip(items[i].UIName);
+    action->setToolTip(items[i].getUIName());
   }
   setCurrentIndex(0);
   updateStatus();

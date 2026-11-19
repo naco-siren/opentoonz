@@ -5,13 +5,10 @@
 #include "tiio.h"
 #include "tcontenthistory.h"
 #include "tconvert.h"
-#include "tmsgcore.h"
 
 // STD includes
 #include <map>
 
-// Qt includes
-#include <QDir>
 
 #include "tlevel_io.h"
 
@@ -23,9 +20,14 @@ DEFINE_CLASS_CODE(TLevelWriter, 9)
 
 //-----------------------------------------------------------
 
-typedef std::pair<QString, int> LevelReaderKey;
+// The tables were keyed by QString (doc/nexttoonz_core_noqt.md, 8d-0); for
+// the extensions there are (ASCII) the order of std::string keys is the
+// same, as for timage_io.cpp in step 5. The QString versions of the members
+// that take or give the keys are in tlevel_io_qt.cpp.
+typedef std::pair<std::string, int> LevelReaderKey;
 std::map<LevelReaderKey, TLevelReaderCreateProc *> LevelReaderTable;
-std::map<QString, std::pair<TLevelWriterCreateProc *, bool>> LevelWriterTable;
+std::map<std::string, std::pair<TLevelWriterCreateProc *, bool>>
+    LevelWriterTable;
 // std::map<std::string, TLevelReaderWriterCreateProc*> LevelReaderWriterTable;
 
 //-----------------------------------------------------------
@@ -47,7 +49,8 @@ TLevelReader::~TLevelReader() {
 //-----------------------------------------------------------
 
 TLevelReaderP::TLevelReaderP(const TFilePath &path, int reader) {
-  QString extension = QString::fromStdString(toLower(path.getType()));
+  // QString::fromStdString() of the extension once; equal keys either way
+  std::string extension = toLower(path.getType());
   LevelReaderKey key(extension, reader);
   std::map<LevelReaderKey, TLevelReaderCreateProc *>::iterator it;
   it = LevelReaderTable.find(key);
@@ -159,7 +162,7 @@ TImageReaderP TLevelReader::getFrameReader(TFrameId fid) {
 
 //-----------------------------------------------------------
 
-void TLevelReader::getSupportedFormats(QStringList &names) {
+void TLevelReader::getSupportedFormats(std::vector<std::string> &names) {
   for (std::map<LevelReaderKey, TLevelReaderCreateProc *>::iterator it =
            LevelReaderTable.begin();
        it != LevelReaderTable.end(); ++it) {
@@ -193,8 +196,9 @@ TLevelWriter::~TLevelWriter() {
 //-----------------------------------------------------------
 
 TLevelWriterP::TLevelWriterP(const TFilePath &path, TPropertyGroup *winfo) {
-  QString type = QString::fromStdString(toLower(path.getType()));
-  std::map<QString, std::pair<TLevelWriterCreateProc *, bool>>::iterator it;
+  std::string type = toLower(path.getType());
+  std::map<std::string, std::pair<TLevelWriterCreateProc *, bool>>::iterator
+      it;
   it = LevelWriterTable.find(type);
   if (it != LevelWriterTable.end())
     m_pointer = it->second.first(
@@ -230,9 +234,10 @@ void TLevelWriter::setFrameRate(double fps) { m_frameRate = fps; }
 
 //-----------------------------------------------------------
 
-void TLevelWriter::getSupportedFormats(QStringList &names,
+void TLevelWriter::getSupportedFormats(std::vector<std::string> &names,
                                        bool onlyRenderFormats) {
-  for (std::map<QString, std::pair<TLevelWriterCreateProc *, bool>>::iterator
+  for (std::map<std::string,
+                std::pair<TLevelWriterCreateProc *, bool>>::iterator
            it = LevelWriterTable.begin();
        it != LevelWriterTable.end(); ++it) {
     if (!onlyRenderFormats || it->second.second) names.push_back(it->first);
@@ -264,88 +269,107 @@ void TLevelWriter::setContentHistory(TContentHistory *contentHistory) {
 
 //-----------------------------------------------------------
 
-void TLevelWriter::renumberFids(const std::map<TFrameId, TFrameId> &table) {
+#ifdef QT_CORE_LIB
+// tlevel_io_qt.cpp: the code as it was, with QDir and QFile
+void renumberFidsWithQt(const TFilePath &path,
+                        const std::map<TFrameId, TFrameId> &table);
+#endif
+
+// renumberFidsWithQt() without Qt (doc/nexttoonz_core_noqt.md, 8d-0): the
+// directory read as the QDir of Files there did (the file name filters
+// matched as QDir::match does), the frames removed and renamed as QFile did
+// (a rename never replaces a file). The build with Qt keeps the Qt version;
+// a differential test compares the two.
+void renumberFidsWithoutQt(const TFilePath &path,
+                           const std::map<TFrameId, TFrameId> &table) {
   typedef std::map<TFrameId, TFrameId> Table;
 
   struct locals {
-    static inline QString qstring(const TFilePath &fp) {
-      return QString::fromStdWString(fp.getWideString());
+    static bool remove(const TFilePath &fp) {
+      try {
+        TSystem::deleteFile(fp);
+        return true;
+      } catch (...) {
+        return false;
+      }
     }
-    static inline QString temp(const QString &str) {
-      return str + QString("_");
+    static bool rename(const TFilePath &src, const TFilePath &dst) {
+      if (TFileStatus(dst).doesExist()) return false;
+      try {
+        TSystem::renameFile(dst, src, false);
+        return true;
+      } catch (...) {
+        return false;
+      }
+    }
+    static TFilePath temp(const TFilePath &fp) {
+      return TFilePath(fp.getWideString() + L"_");
     }
   };
 
-  if (m_path.getDots() == "..") {
+  if (path.getDots() == "..") {
     try {
       // Extract all image file paths of the level
-      QDir parentDir(
-          QString::fromStdWString(m_path.getParentDir().getWideString()));
-      parentDir.setFilter(QDir::Files);
+      const std::vector<std::wstring> nameFilters = {
+          // check for both period and underscore
+          path.getWideName() + L".*." + ::to_wstring(path.getType()),
+          path.getWideName() + L"_*." + ::to_wstring(path.getType())};
 
-      QStringList nameFilters;
-      // check for both period and underscore
-      nameFilters << QString::fromStdWString(m_path.getWideName()) + ".*." +
-                         QString::fromStdString(m_path.getType())
-                  << QString::fromStdWString(m_path.getWideName()) + "_*." +
-                         QString::fromStdString(m_path.getType());
-      parentDir.setNameFilters(nameFilters);
-
+      TFilePathSet all;
+      TSystem::readDirectory(all, path.getParentDir(), false, true,
+                             false);  // Could throw
       TFilePathSet fpset;
-      TSystem::readDirectory(fpset, parentDir, false);  // Could throw
+      for (const TFilePath &fp : all)
+        if (matchesWildcardsAsQDir(nameFilters, fp.withoutParentDir().getWideString()))
+          fpset.push_back(fp);
 
       // Traverse each file, trying to match it with a table entry
-      std::vector<QString> storedDstPaths;
+      std::vector<TFilePath> storedDstPaths;
 
       TFilePathSet::iterator st, sEnd(fpset.end());
       for (st = fpset.begin(); st != sEnd; ++st) {
-        const QString &src  = locals::qstring(*st);
-        const TFrameId &fid = st->getFrame();  // Could throw ! (and I'm quite
-                                               // appalled of that  o.o')
+        const TFilePath &src = *st;
+        const TFrameId &fid  = st->getFrame();  // Could throw
 
         Table::const_iterator dt(table.find(fid));
         if (dt == table.end()) {
           // The frame must be removed
-          QFile::remove(src);
+          locals::remove(src);
         } else {
           if (fid == dt->second) continue;
 
           // The frame must be renumbered
-          const QString &dst = locals::qstring(st->withFrame(dt->second));
+          const TFilePath dst = st->withFrame(dt->second);
 
-          if (!QFile::rename(src, dst)) {
+          if (!locals::rename(src, dst)) {
             // Use a temporary file rename to ensure that other frames to be
-            // renumbered
-            // are not overwritten.
-            if (QFile::rename(locals::qstring(*st), locals::temp(dst)))
+            // renumbered are not overwritten.
+            if (locals::rename(*st, locals::temp(dst)))
               storedDstPaths.push_back(dst);
-
-            // If the second rename did not happen, the problem was not on dst,
-            // but on src.
-            // Alas, it means that rename on source is not possible - skip.
           }
         }
       }
 
-      // At this point, temporaries should be restored to originals. In case the
-      // rename of one of those files cannot be finalized, leave the temporary -
-      // as
-      // it may be impossible to roll back (another frame could have been
-      // renumbered
-      // to the would-roll-back frame) !
-
-      std::vector<QString>::iterator dt, dEnd(storedDstPaths.end());
+      std::vector<TFilePath>::iterator dt, dEnd(storedDstPaths.end());
       for (dt = storedDstPaths.begin(); dt != dEnd; ++dt)
-        QFile::rename(locals::temp(*dt), *dt);
+        locals::rename(locals::temp(*dt), *dt);
     } catch (...) {
       // Could not read the directory - skip silently
     }
   }
 }
 
+void TLevelWriter::renumberFids(const std::map<TFrameId, TFrameId> &table) {
+#ifdef QT_CORE_LIB
+  renumberFidsWithQt(m_path, table);
+#else
+  renumberFidsWithoutQt(m_path, table);
+#endif
+}
+
 //============================================================
 
-void TLevelReader::define(QString extension, int reader,
+void TLevelReader::define(const std::string &extension, int reader,
                           TLevelReaderCreateProc *proc) {
   LevelReaderKey key(extension, reader);
   LevelReaderTable[key] = proc;
@@ -354,8 +378,8 @@ void TLevelReader::define(QString extension, int reader,
 
 //-----------------------------------------------------------
 
-void TLevelWriter::define(QString extension, TLevelWriterCreateProc *proc,
-                          bool isRenderFormat) {
+void TLevelWriter::define(const std::string &extension,
+                          TLevelWriterCreateProc *proc, bool isRenderFormat) {
   LevelWriterTable[extension] =
       std::pair<TLevelWriterCreateProc *, bool>(proc, isRenderFormat);
   // cout << "LevelWriter " << extension << " registered" << endl;

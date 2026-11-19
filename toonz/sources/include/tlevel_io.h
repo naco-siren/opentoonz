@@ -7,6 +7,12 @@
 #include "timage_io.h"
 #include "tproperty.h"
 
+#include <string>
+#include <vector>
+
+class QString;
+class QStringList;
+
 #ifdef _MSC_VER
 
 #pragma warning(disable : 4290)
@@ -60,7 +66,10 @@ private:
 
 public:
   virtual TLevelP loadInfo();
-  virtual QString getCreator() { return ""; }
+  //! Who made the level, as the file says (a level format that records it
+  //! overrides this).
+  virtual std::wstring getCreatorW() { return std::wstring(); }
+  QString getCreator();  // tlevel_io_qt.cpp: getCreatorW() as a QString
 
   virtual void doReadPalette(bool) {}
   virtual void enableRandomAccessRead(bool) {}
@@ -76,20 +85,34 @@ public:
 
   TFilePath getFilePath() const { return m_path; }
 
-  static void getSupportedFormats(QStringList &names);
+  static void getSupportedFormats(QStringList &names);  // tlevel_io_qt.cpp
+  static void getSupportedFormats(std::vector<std::string> &names);
 
   enum FormatType { UnsupportedFormat, RasterLevel, VectorLevel };
 
   static FormatType getFormatType(std::string extension);
 
-  static void define(QString extension, int reader,
+  static void define(const std::string &extension, int reader,
                      // nel caso in cui ci siano piu' lettori per lo stesso
                      // formato (es. flash)
 
                      TLevelReaderCreateProc *proc);
+  static void define(QString extension, int reader,
+                     TLevelReaderCreateProc *proc);  // tlevel_io_qt.cpp
+  static void define(const char *extension, int reader,
+                     TLevelReaderCreateProc *proc) {
+    define(std::string(extension), reader, proc);
+  }
 
-  static inline void define(QString extension, TLevelReaderCreateProc *proc) {
+  static inline void define(const std::string &extension,
+                            TLevelReaderCreateProc *proc) {
     define(extension, 0, proc);
+  }
+  static void define(QString extension,
+                     TLevelReaderCreateProc *proc);  // tlevel_io_qt.cpp
+  static inline void define(const char *extension,
+                            TLevelReaderCreateProc *proc) {
+    define(std::string(extension), 0, proc);
   }
 
   //! TLevelReader keeps the ownership of TContentHistory. Don't delete it
@@ -133,7 +156,9 @@ protected:
   double m_frameRate;
   TPropertyGroup *m_properties;
   TContentHistory *m_contentHistory;
-  QString m_creator;
+  std::wstring m_creatorW;
+
+  QString creator() const;  // tlevel_io_qt.cpp: m_creatorW as a QString
 
   // if template is not used, frame number is set to TFrameId::NO_FRAME
   TFrameId m_frameFormatTemplateFId;
@@ -143,7 +168,8 @@ public:
                TPropertyGroup *winfo = 0);  // ottiene l'ownership
   virtual ~TLevelWriter();
 
-  void setCreator(const QString &creator) { m_creator = creator; }
+  void setCreator(const QString &creator);  // tlevel_io_qt.cpp
+  void setCreatorW(const std::wstring &creator) { m_creatorW = creator; }
 
   virtual void setPalette(TPalette *){};
 
@@ -192,7 +218,10 @@ public:
 
   TFilePath getFilePath() const { return m_path; }
 
-  static void getSupportedFormats(QStringList &names, bool onlyRenderFormats);
+  static void getSupportedFormats(QStringList &names,
+                                  bool onlyRenderFormats);  // tlevel_io_qt.cpp
+  static void getSupportedFormats(std::vector<std::string> &names,
+                                  bool onlyRenderFormats);
 
   // note gets the contentHistory. can be 0
   const TContentHistory *getContentHistory() const { return m_contentHistory; }
@@ -203,8 +232,14 @@ public:
   // note. set the content history first
   void setContentHistory(TContentHistory *contentHistory);
 
+  static void define(const std::string &extension,
+                     TLevelWriterCreateProc *proc, bool isRenderFormat);
   static void define(QString extension, TLevelWriterCreateProc *proc,
-                     bool isRenderFormat);
+                     bool isRenderFormat);  // tlevel_io_qt.cpp
+  static void define(const char *extension, TLevelWriterCreateProc *proc,
+                     bool isRenderFormat) {
+    define(std::string(extension), proc, isRenderFormat);
+  }
 
   void setFrameFormatTemplateFId(const TFrameId &tmplFId) {
     m_frameFormatTemplateFId = tmplFId;

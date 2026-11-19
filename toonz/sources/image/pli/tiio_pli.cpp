@@ -598,7 +598,7 @@ void TImageWriterPli::save(const TImageP &img) {
   if (!m_lwp->m_pli) {
     m_lwp->m_pli.reset(new ParsedPli(m_lwp->m_frameNumber, m_precision, 40,
                                      tempVecImg->getAutocloseTolerance()));
-    m_lwp->m_pli->setCreator(m_lwp->m_creator);
+    m_lwp->m_pli->setCreator(m_lwp->creator());
   }
 
   buildPalette(m_lwp->m_pli.get(), img);
@@ -852,12 +852,12 @@ Carico le informazioni relative al livello
 
 void TLevelReaderPli::doReadPalette(bool doReadIt) { m_readPalette = doReadIt; }
 
-QString TLevelReaderPli::getCreator() {
+std::wstring TLevelReaderPli::getCreatorW() {
   loadInfo();
 
-  if (m_pli) return m_pli->getCreator();
+  if (m_pli) return m_pli->getCreator().toStdWString();
 
-  return "";
+  return std::wstring();
 }
 
 TLevelP TLevelReaderPli::loadInfo() {

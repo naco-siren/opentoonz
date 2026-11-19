@@ -1,6 +1,9 @@
 
 
 #include "tiio_plt.h"
+// tproperty.h and tcontenthistory.h no longer bring it
+// (doc/nexttoonz_core_noqt.md, 8d-0)
+#include <QString>
 // #include "tiio.h"
 #include "trastercm.h"
 #include "toonztags.h"
@@ -18,6 +21,7 @@
 extern "C" {
 #include "avl.h"
 #include "tcm.h"
+
 }
 
 //============================================================

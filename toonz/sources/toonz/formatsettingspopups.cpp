@@ -220,7 +220,7 @@ compressioni non vanno..scive male il file
 break;*/
 
     if (nameProp == defaultVal) currIndex = comboBox->count();
-    comboBox->addItem(items[i].UIName, QString::fromStdWString(nameProp));
+    comboBox->addItem(items[i].getUIName(), QString::fromStdWString(nameProp));
   }
   if (currIndex >= 0) comboBox->setCurrentIndex(currIndex);
 

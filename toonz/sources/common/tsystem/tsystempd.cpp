@@ -22,10 +22,8 @@
 #include "tconvert.h"
 #include "tenv.h"
 
-// tsystem.h no longer brings these (doc/nexttoonz_core_noqt.md, step 6a)
-#include <QDateTime>
-#include <QDebug>
-#include <QFileInfo>
+#include <cstdio>
+
 
 // Undefine PLATFORM to avoid conflicts
 #undef PLATFORM
@@ -67,13 +65,6 @@
 #include <mntent.h>
 #include <dlfcn.h>
 #include <sys/time.h>
-
-// Qt headers for Linux
-#include <QDir>
-#include <QFileInfo>
-#include <QStorageInfo>
-#include <QTextStream>
-#include <QUrl>
 #endif
 
 #ifdef FREEBSD
@@ -181,7 +172,9 @@ void TSystem::outputDebug(string s) {
   cerr << s << endl;
 #endif
 #else
-  qDebug("%s", s.c_str());
+  // What qDebug() did with Qt's default message handler (as step 4 did
+  // with qWarning, doc/nexttoonz_core_noqt.md).
+  std::fprintf(stderr, "%s\n", s.c_str());
 #endif
 }
 
@@ -547,6 +540,10 @@ bool TSystem::moveFileOrLevelToRecycleBin(const TFilePath &fp) {
 
 //--------------------------------------------------------------
 
+#if defined(LINUX) && defined(QT_CORE_LIB)
+void moveFileToRecycleBinWithQt(const TFilePath &fp);  // tsystem_qt.cpp
+#endif
+
 void TSystem::moveFileToRecycleBin(const TFilePath &fp) {
 #if defined(_WIN32)
   //
@@ -603,54 +600,13 @@ void TSystem::moveFileToRecycleBin(const TFilePath &fp) {
     }
   }
 #elif defined(LINUX)
-  //
-  // From https://stackoverflow.com/questions/17964439/move-files-to-trash-recycle-bin-in-qt
-  //
-  QString fileToRecycle = fp.getQString();
-  QFileInfo FileName(fileToRecycle);
-
-  QDateTime currentTime(QDateTime::currentDateTime());    // get system time
-
-  // check if the file is on the local drive
-  const QStorageInfo fileStorageInfo(fileToRecycle);
-  const QStorageInfo homeStorageInfo(QDir::homePath());
-  const bool isOnHomeDrive = fileStorageInfo == homeStorageInfo;
-
-  QString trashFilePath = QDir::homePath() + "/.local/share/Trash/files/";    // this folder contains deleted files
-  QString trashInfoPath = QDir::homePath() + "/.local/share/Trash/info/";     // this folder contains information about the deleted files
-
-  // different paths are used for external drives
-  if (!isOnHomeDrive) {
-    //trashFilePath = fileStorageInfo.rootPath() + "/.Trash-1000/files/";
-    //trashInfoPath = fileStorageInfo.rootPath() + "/.Trash-1000/info/";
-
-    // TODO: Implement this... The standard is /.Trash-<UID>/...
-    outputDebug("Deleting files on external drives in Linux is not implemented yet.");
-    return;
-  }
-
-  // check paths exist
-  if( !QDir(trashFilePath).exists() || !QDir(trashInfoPath).exists() ) {
-    outputDebug("Could not find the right paths to send the file to the recycle bin.");
-    return;
-  }
-
-  // create file for the "Trash/info" folder
-  QFile infoFile(trashInfoPath + FileName.completeBaseName() + "." + FileName.completeSuffix() + ".trashinfo");     // filename+extension+.trashinfo
-
-  infoFile.open(QIODevice::ReadWrite);
-
-  QTextStream stream(&infoFile);
-
-  stream << "[Trash Info]" << Qt::endl;
-  stream << "Path=" + QString(QUrl::toPercentEncoding(FileName.absoluteFilePath(), "~_-./")) << Qt::endl;     // convert path to percentage encoded string
-  stream << "DeletionDate=" + currentTime.toString("yyyy-MM-dd") + "T" + currentTime.toString("hh:mm:ss") << Qt::endl;      // get date and time in format YYYY-MM-DDThh:mm:ss
-
-  infoFile.close();
-
-  // move the original file to the "Trash/files" folder
-  QDir file;
-  file.rename(FileName.absoluteFilePath(), trashFilePath+FileName.completeBaseName() + "." + FileName.completeSuffix());  // rename(original path, trash path)
+  // The freedesktop.org trash, written with Qt (tsystem_qt.cpp); the build
+  // without Qt has no recycle bin on Linux (doc/nexttoonz_core_noqt.md, 8d-0).
+#ifdef QT_CORE_LIB
+  moveFileToRecycleBinWithQt(fp);
+#else
+  outputDebug("Moving files to the trash needs Qt on Linux.");
+#endif
 #else
   assert(!"Not implemented yet");
 #endif

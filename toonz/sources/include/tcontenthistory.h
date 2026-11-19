@@ -5,8 +5,11 @@
 
 #include "tcommon.h"
 #include "tfilepath.h"
-#include <QString>
-#include <QDateTime>
+#include <string>
+
+// The QString members are in tcontenthistory_qt.cpp
+// (doc/nexttoonz_core_noqt.md, Q2 and 8d-0).
+class QString;
 #include <map>
 #include <set>
 
@@ -27,10 +30,13 @@
 
 class DVAPI TContentHistory {
   bool m_isLevel;
-  std::map<TFrameId, QDateTime> m_records;
-  QString m_frozenHistory;
+  // When each frame (or the content) was last modified: the start of that
+  // minute in local time, as milliseconds since the epoch, as the QDateTime
+  // there was compared (doc/nexttoonz_core_noqt.md, 8d-0).
+  std::map<TFrameId, long long> m_records;
+  std::wstring m_frozenHistory;
 
-  const QString currentToString() const;
+  std::wstring currentToString() const;
 
 public:
   //! set isLevel=true if you want to keep track of single-frames modifications
@@ -42,10 +48,12 @@ public:
 
   //! history can come only from a deserialization
   //! WARNING! any preexistent history will be erased by calling this method
-  void deserialize(const QString &history);
+  void deserialize(const QString &history);  // tcontenthistory_qt.cpp
+  void deserializeW(const std::wstring &history);
 
   //! the returned string is only for visualitation and serialization
-  const QString serialize() const;
+  const QString serialize() const;  // tcontenthistory_qt.cpp
+  std::wstring serializeW() const;
 
   //! after calling this method, following history info added will not "merge"
   //! with the history until now

@@ -47,9 +47,7 @@
 #endif
 
 // Qt includes
-#include <QMutex>
-#include <QString>
-#include <QThreadStorage>
+#include <memory>
 
 //------------------------------------------------------------------------------
 
@@ -741,9 +739,7 @@ public:
   void add(const std::string &id, const TImageP &img, bool overwrite);
   TFilePath m_rootDir;
 
-#ifndef TNZCORE_LIGHT
-  QThreadStorage<bool *> m_isEnabled;
-#else
+#ifdef TNZCORE_LIGHT
   bool m_isEnabled;
 #endif
 
@@ -1118,15 +1114,24 @@ TImageCache::~TImageCache() {
 
 //------------------------------------------------------------------------------
 
+#ifndef TNZCORE_LIGHT
+namespace {
+// Whether the cache is on, for each thread: unset means on. It was a
+// QThreadStorage<bool *> of the cache's Imp, one value per thread for the
+// one cache there is (TImageCache is a singleton); both free the value when
+// the thread ends, at slightly different moments, which a bool cannot tell
+// (doc/nexttoonz_core_noqt.md, 8d-0).
+thread_local std::unique_ptr<bool> t_isEnabled;
+}  // namespace
+#endif
+
 void TImageCache::setEnabled(bool isEnabled) {
 #ifndef TNZCORE_LIGHT
-  QThreadStorage<bool *> &storage = m_imp->m_isEnabled;
-
-  if (storage.hasLocalData() && *(storage.localData()) == isEnabled) return;
-  if (!storage.hasLocalData())
-    storage.setLocalData(new bool(isEnabled));
+  if (t_isEnabled && *t_isEnabled == isEnabled) return;
+  if (!t_isEnabled)
+    t_isEnabled.reset(new bool(isEnabled));
   else
-    *(storage.localData()) = isEnabled;
+    *t_isEnabled = isEnabled;
 #else
   m_imp->m_isEnabled = isEnabled;
 #endif
@@ -1136,10 +1141,8 @@ void TImageCache::setEnabled(bool isEnabled) {
 
 bool TImageCache::isEnabled() {
 #ifndef TNZCORE_LIGHT
-  QThreadStorage<bool *> &storage = m_imp->m_isEnabled;
-
-  if (!storage.hasLocalData()) return true;
-  return *(storage.localData());
+  if (!t_isEnabled) return true;
+  return *t_isEnabled;
 #else
   return m_isEnabled;
 #endif
@@ -1973,24 +1976,7 @@ void TImageCache::compress(const std::string &id) { m_imp->doCompress(id); }
 
 //------------------------------------------------------------------------------
 
-#ifndef TNZCORE_LIGHT
-
-void TImageCache::add(const QString &id, const TImageP &img, bool overwrite) {
-  if (!isEnabled()) return;
-  m_imp->add(id.toStdString(), img, overwrite);
-}
-
-//------------------------------------------------------------------------------
-
-void TImageCache::remove(const QString &id) { m_imp->remove(id.toStdString()); }
-
-//------------------------------------------------------------------------------
-
-TImageP TImageCache::get(const QString &id, bool toBeModified) const {
-  return get(id.toStdString(), toBeModified);
-}
-
-#endif
+// The QString versions of add, remove and get are in timagecache_qt.cpp.
 
 //*************************************************************************************
 //    TCachedImage implementation

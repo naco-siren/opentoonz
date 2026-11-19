@@ -77,7 +77,8 @@ if(WITH_QT)
     # differential tests (test_*_qt.cpp) that compare it with the new code.
     add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_TEST_SOURCES}
         ${CMAKE_CURRENT_SOURCE_DIR}/core/legacy/legacy_tfilepath.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/core/legacy/legacy_tsystem.cpp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/legacy/legacy_tsystem.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/legacy/legacy_tcontenthistory.cpp)
     target_include_directories(nexttoonz_core_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/core)
     target_link_libraries(nexttoonz_core_tests

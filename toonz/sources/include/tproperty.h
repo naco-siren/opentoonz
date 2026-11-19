@@ -8,8 +8,12 @@
 
 #include <cstdint>
 
-// Qt includes
-#include <QString>
+#include <string>
+#include <vector>
+
+// The QString members are in tproperty_qt.cpp (doc/nexttoonz_core_noqt.md,
+// Q2 and 8d-0).
+class QString;
 
 #undef DVAPI
 #undef DVVAR
@@ -75,16 +79,18 @@ public:
   TProperty(std::string name):
     m_name(name),
     m_visible(true),
-    m_qstringName(QString::fromStdString(name))
+    m_uiName(::to_wstring(name))
     { }
 
   virtual ~TProperty() {}
 
   virtual TProperty *clone() const = 0;
 
-  // Used only for translation in Qt
-  QString getQStringName() const { return m_qstringName; }
-  void setQStringName(const QString &str) { m_qstringName = str; }
+  // The name the interface shows (used only for translation in Qt)
+  QString getQStringName() const;           // tproperty_qt.cpp
+  void setQStringName(const QString &str);  // tproperty_qt.cpp
+  const std::wstring &getUINameW() const { return m_uiName; }
+  void setUINameW(const std::wstring &name) { m_uiName = name; }
   virtual void assignUIName(TProperty *refP);
 
   std::string getName() const { return m_name.str(); }
@@ -106,7 +112,7 @@ public:
 
 private:
   TStringId m_name;
-  QString m_qstringName;
+  std::wstring m_uiName;
   std::string m_id;
   std::vector<Listener *> m_listeners;
   bool m_visible;
@@ -345,13 +351,21 @@ private:
 class DVAPI TEnumProperty final : public TProperty {
 public:
   typedef std::vector<std::wstring> Range;
-  // Used only for translation and styling in Qt
-  struct Item {
-    QString UIName;
-    QString iconName;
+  // Used only for translation and styling in Qt: what the interface shows
+  // for a value, and its icon's name. The interface reads them through
+  // getUIName() and getIconName().
+  struct DVAPI Item {
+    std::wstring m_uiName;
+    std::wstring m_iconName;
 
-    Item(const QString &name = QString(), const QString &icon = QString())
-        : UIName(name), iconName(icon) {}
+    Item() {}
+    Item(const std::wstring &name, const std::wstring &icon = std::wstring())
+        : m_uiName(name), m_iconName(icon) {}
+    Item(const QString &name);                      // tproperty_qt.cpp
+    Item(const QString &name, const QString &icon);  // tproperty_qt.cpp
+
+    QString getUIName() const;    // tproperty_qt.cpp
+    QString getIconName() const;  // tproperty_qt.cpp
   };
   typedef std::vector<Item> Items;
 
@@ -384,20 +398,26 @@ public:
     return ret;
   }
 
-  void addValueWithUIName(std::wstring value, const QString &name, const QString &iconName = QString()) {
+  void addValueWithUINameW(std::wstring value, const std::wstring &name,
+                           const std::wstring &iconName = std::wstring()) {
     if (m_index == -1) m_index = 0;
     m_range.push_back(value);
     m_items.push_back(Item(name, iconName));
   }
+  // tproperty_qt.cpp
+  void addValueWithUIName(std::wstring value, const QString &name);
+  void addValueWithUIName(std::wstring value, const QString &name,
+                          const QString &iconName);
 
-  void addValue(std::wstring value, const QString &iconName = QString())
-    { addValueWithUIName(value, QString::fromStdWString(value), iconName); }
+  void addValue(std::wstring value) { addValueWithUINameW(value, value); }
+  void addValue(std::wstring value, const QString &iconName);  // tproperty_qt.cpp
 
-  void setItemUIName(std::wstring value, const QString &name) {
+  void setItemUINameW(std::wstring value, const std::wstring &name) {
     int index = indexOf(value);
     if (index < 0 || index >= (int)m_items.size()) throw RangeError();
-    m_items[index].UIName = name;
+    m_items[index].m_uiName = name;
   }
+  void setItemUIName(std::wstring value, const QString &name);  // tproperty_qt.cpp
 
   void deleteAllValues() {
     m_range.clear();

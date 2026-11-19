@@ -16,9 +16,9 @@
 #include "lz4frame.h"
 #endif
 
-#include <QDir>
-#include <QProcess>
-#include <QCoreApplication>
+#include <atomic>
+#include <cstring>
+#include <string>
 
 using namespace std;
 
@@ -567,53 +567,52 @@ void TRasterCodecLz4::decompress(const TRasterP &compressedRas,
 //	TRasterCodecLZO
 //------------------------------------------------------------------------------
 
+#ifdef QT_CORE_LIB
+// tcodec_qt.cpp: the lzocompress and lzodecompress helpers, through QProcess
+const TLzoService *lzoServiceWithQt();
+#endif
+
 namespace {
 
-bool lzoCompress(const QByteArray src, QByteArray &dst) {
-#ifdef _WIN32
-  QDir exeDir;
-  if (QCoreApplication::applicationName() == "ToonzPreview") {
-    QStringList paths = QCoreApplication::libraryPaths();
-    exeDir            = QDir(paths.first());
-  } else
-    exeDir = QDir(QCoreApplication::applicationDirPath());
+const TLzoService *builtInLzoService() {
+#ifdef QT_CORE_LIB
+  return lzoServiceWithQt();
 #else
-  QDir exeDir(QCoreApplication::applicationDirPath());
-#endif  // _WIN32
-
-  QString compressExe = exeDir.filePath("lzocompress");
-  QProcess process;
-  process.start(compressExe, QStringList() << QString::number(src.size()));
-  if (!process.waitForStarted()) return false;
-  process.write(src);
-  if (!process.waitForFinished()) return false;
-  dst = process.readAll();
-  return process.exitCode() == 0;
+  return nullptr;
+#endif
 }
 
-bool lzoDecompress(const QByteArray src, int dstSize, QByteArray &dst) {
-#ifdef _WIN32
-  QDir exeDir;
-  if (QCoreApplication::applicationName() == "ToonzPreview") {
-    QStringList paths = QCoreApplication::libraryPaths();
-    exeDir            = QDir(paths.first());
-    exeDir.cdUp();
-  } else
-    exeDir = QDir(QCoreApplication::applicationDirPath());
-#else
-  QDir exeDir(QCoreApplication::applicationDirPath());
-#endif  // _WIN32
-  QString decompressExe = exeDir.filePath("lzodecompress");
-  QProcess process;
-  process.start(decompressExe, QStringList() << QString::number(dstSize)
-                                             << QString::number(src.size()));
-  if (!process.waitForStarted()) return false;
-  process.write(src);
-  if (!process.waitForFinished()) return false;
-  dst = process.readAll();
-  return process.exitCode() == 0 && dst.size() == dstSize;
+std::atomic<const TLzoService *> currentLzoService{nullptr};
+std::atomic<bool> lzoServiceSet{false};
+
+const TLzoService *lzoService() {
+  return lzoServiceSet.load() ? currentLzoService.load() : builtInLzoService();
 }
+
+// What the codec did with the helpers' output, through the service; without
+// one, LZO is not there to use.
+bool lzoCompress(const std::string &src, std::string &dst) {
+  const TLzoService *service = lzoService();
+  if (!service)
+    throw TException("LZO compression is not available in this build");
+  return service->compress(src, dst);
+}
+
+bool lzoDecompress(const std::string &src, int dstSize, std::string &dst) {
+  const TLzoService *service = lzoService();
+  if (!service)
+    throw TException("LZO decompression is not available in this build");
+  return service->decompress(src, dstSize, dst);
+}
+
 }  // namespace
+
+const TLzoService *setLzoService(const TLzoService *service) {
+  const TLzoService *previous = lzoService();
+  currentLzoService.store(service);
+  lzoServiceSet.store(service != nullptr);
+  return previous;
+}
 
 //------------------------------------------------------------------------------
 
@@ -642,8 +641,8 @@ UINT TRasterCodecLZO::doCompress(const TRasterP &inRas, int allocUnit,
   // compress data
   inRas->lock();
   char *inData = (char *)inRas->getRawData();
-  QByteArray compressedBuffer;
-  if (!lzoCompress(QByteArray(inData, inDataSize), compressedBuffer))
+  std::string compressedBuffer;
+  if (!lzoCompress(std::string(inData, inDataSize), compressedBuffer))
     throw TException("LZO compression failed");
 
   inRas->unlock();
@@ -736,8 +735,8 @@ bool TRasterCodecLZO::decompress(const UCHAR *inData, TINT32 inDataSize,
 
   size_t outSize = outDataSize;  // Calculate output buffer size
 
-  QByteArray decompressedBuffer;
-  if (!lzoDecompress(QByteArray(mc, ds), outSize, decompressedBuffer))
+  std::string decompressedBuffer;
+  if (!lzoDecompress(std::string(mc, ds), outSize, decompressedBuffer))
     throw TException("LZO decompression failed");
 
   outRas->lock();
@@ -794,8 +793,8 @@ void TRasterCodecLZO::decompress(const TRasterP &compressedRas,
 
   char *outData = (char *)outRas->getRawData();
 
-  QByteArray decompressedBuffer;
-  if (!lzoDecompress(QByteArray(mc, ds), outSize, decompressedBuffer))
+  std::string decompressedBuffer;
+  if (!lzoDecompress(std::string(mc, ds), outSize, decompressedBuffer))
     throw TException("LZO decompression failed");
   outRas->lock();
   memcpy(outRas->getRawData(), decompressedBuffer.data(),

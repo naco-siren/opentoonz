@@ -85,7 +85,7 @@ Return an image with Reader information
 */
   TImageReaderP getFrameReader(TFrameId fid) override;
 
-  QString getCreator() override;
+  std::wstring getCreatorW() override;
   friend class TImageReaderPli;
 
 private:

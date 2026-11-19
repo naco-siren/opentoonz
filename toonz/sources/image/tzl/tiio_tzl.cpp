@@ -541,9 +541,15 @@ TLevelWriterTzl::TLevelWriterTzl(const TFilePath &path, TPropertyGroup *info)
       throw TSystemException(path, "can't fopen.");
     }
     /*--- TLVファイルのヘッダが正しく読めなかった場合 ---*/
-    if (!readHeaderAndOffsets(m_chan, m_frameOffsTable, m_iconOffsTable, m_res,
-                              m_version, m_creator, &m_frameCount,
-                              &m_offsetTablePos, &m_iconOffsetTablePos, 0)) {
+    // The creator is kept as a std::wstring (tlevel_io.h, 8d-0 of
+    // doc/nexttoonz_core_noqt.md); it is read through a QString as before.
+    QString readCreator = creator();
+    const bool headerRead = readHeaderAndOffsets(
+        m_chan, m_frameOffsTable, m_iconOffsTable, m_res, m_version,
+        readCreator, &m_frameCount, &m_offsetTablePos, &m_iconOffsetTablePos,
+        0);
+    setCreator(readCreator);
+    if (!headerRead) {
       throw TSystemException(path, "can't readHeaderAndOffsets.");
     } else {
       if (m_version >= 12) buildFreeChunksTable();
@@ -567,7 +573,7 @@ TLevelWriterTzl::TLevelWriterTzl(const TFilePath &path, TPropertyGroup *info)
     }
     m_chan = fopen(path, "wb");
     if (!m_chan) return;
-    if (!writeVersionAndCreator(m_chan, m_magic, m_creator)) return;
+    if (!writeVersionAndCreator(m_chan, m_magic, creator())) return;
   }
 }
 
@@ -801,7 +807,7 @@ bool TLevelWriterTzl::convertToLatestVersion() {
     return false;
   m_chan = fopen(m_path, "rb+");
   if (!m_chan) return false;
-  if (!writeVersionAndCreator(m_chan, m_magic, m_creator)) return false;
+  if (!writeVersionAndCreator(m_chan, m_magic, creator())) return false;
   m_creatorWritten = true;
   m_version        = currentVersion();
   TLevelReaderP lr(tempPath);
@@ -886,10 +892,12 @@ bool TLevelWriterTzl::convertToLatestVersion() {
 
   m_chan = fopen(m_path, "rb+");
   if (!m_chan) return false;
-  if (!readHeaderAndOffsets(m_chan, m_frameOffsTable, m_iconOffsTable, m_res,
-                            m_version, m_creator, &m_frameCount,
-                            &m_offsetTablePos, &m_iconOffsetTablePos, 0))
-    return false;
+  QString readCreator = creator();  // see the constructor
+  const bool headerRead = readHeaderAndOffsets(
+      m_chan, m_frameOffsTable, m_iconOffsTable, m_res, m_version,
+      readCreator, &m_frameCount, &m_offsetTablePos, &m_iconOffsetTablePos, 0);
+  setCreator(readCreator);
+  if (!headerRead) return false;
   m_freeChunks.clear();
   buildFreeChunksTable();
   m_headerWritten = true;
@@ -924,7 +932,7 @@ void TLevelWriterTzl::saveImage(const TImageP &img, const TFrameId &_fid,
 
   if (!m_creatorWritten) {
     fseek(m_chan, 0, SEEK_SET);
-    writeVersionAndCreator(m_chan, m_magic, m_creator);
+    writeVersionAndCreator(m_chan, m_magic, creator());
     m_creatorWritten = true;
   }
   if (!m_headerWritten) writeHeader(ti->getSize());
@@ -1538,9 +1546,9 @@ TImageReaderP TLevelReaderTzl::getFrameReader(TFrameId fid) {
 }
 
 //-------------------------------------------------------------------
-QString TLevelReaderTzl::getCreator() {
-  if (m_version < 14) return "";
-  return m_creator;
+std::wstring TLevelReaderTzl::getCreatorW() {
+  if (m_version < 14) return std::wstring();
+  return m_creator.toStdWString();
 }
 
 //-------------------------------------------------------------------

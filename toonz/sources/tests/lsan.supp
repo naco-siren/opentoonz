@@ -51,3 +51,8 @@ leak:LevelUpdater::open
 # Not ours: Qt's xcb event thread can still be inside libxcb when tcomposer
 # exits under xvfb-run.
 leak:xcb_wait_for_event
+
+# Not ours: QString::localeAwareCompare keeps its collator (ICU on Linux) for
+# the rest of the program; TFrameId compares frame letters with it there
+# (tfilepath_qt.cpp, doc/nexttoonz_core_noqt.md, Q9).
+leak:QString::localeAwareCompare_helper

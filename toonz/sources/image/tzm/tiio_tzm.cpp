@@ -70,7 +70,7 @@ namespace {
 
     ~TLevelWriterTzm() {
       try {
-        m_data["creator"].setString( m_creator.toStdString() );
+        m_data["creator"].setString( creator().toStdString() );
         m_data.toStream(*m_stream, true);
         delete m_stream;
       } catch (const std::exception &e) {
@@ -148,8 +148,8 @@ namespace {
       return m_level;
     }
 
-    QString getCreator() override
-      { return QString::fromStdString( m_data["creator"].getString() ); }
+    std::wstring getCreatorW() override
+      { return QString::fromStdString( m_data["creator"].getString() ).toStdWString(); }
 
     TImageP loadFrame(const TFrameId &frameId) {
       const TVariantMap &map = m_data["frames"].getMap();

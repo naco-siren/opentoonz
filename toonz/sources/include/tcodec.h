@@ -133,6 +133,24 @@ private:
 
 //------------------------------------------------------------------------------
 
+//! What TRasterCodecLZO compresses with: an injected service
+//! (doc/nexttoonz_core_noqt.md, 8d-0). In the build with Qt the built-in one
+//! runs the lzocompress and lzodecompress helpers next to the executable,
+//! as it always has (tcodec_qt.cpp); without Qt there is none, and the codec
+//! throws a TException saying LZO is not available. Step 13 is to link the
+//! LZO library instead.
+struct TLzoService {
+  //! Compresses src into dst; false if that failed.
+  bool (*compress)(const std::string &src, std::string &dst);
+  //! Decompresses src into dst, which must come out dstSize bytes long;
+  //! false if that failed.
+  bool (*decompress)(const std::string &src, int dstSize, std::string &dst);
+};
+
+//! The one place the LZO service comes from: sets it and returns the one it
+//! replaces; nullptr restores the built-in one (none without Qt).
+DVAPI const TLzoService *setLzoService(const TLzoService *service);
+
 class DVAPI TRasterCodecLZO final : public TRasterCodec {
 public:
   TRasterCodecLZO(const std::string &name, bool useCache);
