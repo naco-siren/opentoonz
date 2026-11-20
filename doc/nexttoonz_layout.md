@@ -1,6 +1,6 @@
 # NextToonz 仓库与构建布局：现状与现代化方案
 
-版本 0.1，2026-11-19。本文是一份设计稿，不含实现：盘点仓库与本机构建目录现在的样子，给出目标布局和一张可以逐步合并的迁移表，最后是拟加进 `doc/nexttoonz_plan.md` 的路线图条目和需要所有者决定的问题。
+版本 0.2，2026-11-19：第 0 到 3 步已做，实际做成的样子在 5.3 到 5.6 节。版本 0.1 是一份设计稿，不含实现：盘点仓库与本机构建目录现在的样子，给出目标布局和一张可以逐步合并的迁移表，最后是拟加进 `doc/nexttoonz_plan.md` 的路线图条目和需要所有者决定的问题。
 
 调查基线：分支 `nexttoonz/phase0`，提交 `84f17b336`；Phase 2 分支 `wip/phase2-noqt`，提交 `dbd8118e7`（在 `84f17b336` 上 51 个提交，未推送）；上游 `upstream/master`，提交 `075e0329c`（2026-11-19）。标着“实测”的数字来自 git 命令或 `du`，测量方法列在附录；“模拟”是在草稿目录里的一次性克隆上做的搬家加合并，没有碰版本库里的任何分支。本文与同时进行的 `doc/nexttoonz_cli_ci.md`（命令行与 CI/CD）有交集，交集只在第 6 节列出，不替它做决定。
 
@@ -12,7 +12,7 @@
 2. 现状（实测）
 3. 约束
 4. 目标布局
-5. 迁移步骤
+5. 迁移步骤（5.3 到 5.6 节：第 0 到 3 步实际做成的样子）
 6. 与 CLI/CI 文档的交点
 7. 路线图条目（拟加进计划的原文）
 8. 需要所有者决定的问题
@@ -429,6 +429,129 @@ local/
 - **第 0 步**：`git worktree list` 显示新位置，`git worktree prune --dry-run` 无输出；Phase 2 工作树重编后 ctest 全过、无 Qt 构建与 iPad 模拟器测试通过；兼容软链接都能解析；`du` 前后对比。
 - **所有步骤**：第 3 步的文档链接检查通过。
 
+### 5.3 第 0 步实际做成的样子（2026-11-19）
+
+**和 5.1 节的出入。** 做的时候 Phase 2 会话不空闲（它在 `toonz/build-phase1/src` 里做第 9 步，同时在用虚拟机），所以按主会话的约束，凡是它依赖的都没有动，推迟到下一个里程碑（下表“推迟”）；其余照 5.1 节搬，每个旧位置留一个指向新位置的相对软链接。5.1 节标“删”的一律没有删，而是收进 `local/to-delete/<原路径>`，附 `MANIFEST.md`（大小、理由）和一条删除命令，等所有者看过（Q7）。分离的工作树只有一棵（`base-src`）。`samples/reference_project` 按主会话的要求留在原处。
+
+**`local/` 的样子**（主检出根，`.git/info/exclude` 里加了 `/local/`，第 1 步合并后由 `.gitignore` 接手）：
+
+```
+local/
+├── README.md              这个根的规矩与过渡期说明
+├── STEP0_RECORD.tsv       逐项记录：moved（旧路径→新路径，旧路径是软链接）、deferred
+├── cache/                 五项都是指回原位置的软链接（推迟）
+│   ├── skia-pack/m144-e2e6623374-4 -> toonz/build-phase1/skia-pack
+│   ├── vcpkg -> toonz/build-phase1/vcpkg      vcpkg-bincache -> toonz/build-phase1/vcpkg-bincache
+│   ├── opencv/4.10-static-x64 -> toonz/build-phase0/deps/opencv-install
+│   └── venv -> toonz/build-phase0/venv
+├── snapshots/
+│   ├── 2026-11-05_6d043a367_phase0-end/OpenToonz.app     Phase 0 构建目录里的 app
+│   ├── 2026-11-17_84f17b336_before-phase2/OpenToonz.app  原 ab/phase2/bundles/before_phase2_84f17b336
+│   └── 2026-11-19_0d2f9497c_after-tidy/OpenToonz.app     原 ab/phase2/bundles/after_tidy_0d2f9497c
+├── runs/ab/               Phase 2 的对照输出（连同各目录里的小脚本和 README）
+│   └── 2026-11-18_phase2-{d0,glseams,qtadapters,tpl,translations}/  2026-11-19_phase2-d8/
+├── scratch/               空（参考工程的副本暂留 samples/）
+└── to-delete/             MANIFEST.md、symlinks.txt、delete.sh 和收进来的东西
+```
+
+Phase 0 快照的提交：app 的修改时间是 2026-11-05 19:48:19，主检出当时在 `wip/sanitizer-tighten` 上，19:46 的 `0a497f065` 与之后整理出的 `6d043a367` 树完全相同，所以记作 `6d043a367`。三个快照都是自包含的：主程序和库的依赖都是 `@executable_path/…`；包里的程序带着指向构建目录的 `LC_RPATH`，但没有任何 `@rpath/…` 依赖，所以删掉构建目录不影响它们。
+
+**搬了什么。**
+
+| 原位置 | 去处 | 大小 |
+|---|---|---|
+| `toonz/build`、`toonz/build-arm64` | `local/to-delete/` | 399 MB、148 MB |
+| `toonz/build-phase0/base-src`（工作树，干净，没有任何文档、记忆、脚本引用） | `local/to-delete/`，用 `git worktree move`，登记跟着走 | 293 MB |
+| `toonz/build-phase0` 的其余各项（`base-build`、`golden`、`verify`、`review`、构建目录本身、18 个日志），`venv`、`deps`、`vm` 除外 | `local/to-delete/`，逐项留软链接（共 53 项） | 2.2 GB |
+| `toonz/build-phase0/toonz/OpenToonz.app` | `local/snapshots/2026-11-05_6d043a367_phase0-end/` | 45 MB |
+| `toonz/build-phase1/ab/phase2/bundles/*` | `local/snapshots/` 两项 | 131 MB |
+| `toonz/build-phase1/ab/phase2/{d0,d8,glseams,qtadapters,tpl,translations}` | `local/runs/ab/` | 243 MB |
+| `toonz/build-phase1/ab` 的 Phase 1 输出与日志（`*bin*`、`*out*`、`last_*.log`，40 项） | `local/to-delete/` | 451 MB |
+| `toonz/build-phase1/ios-work` | `local/to-delete/` | 23 MB |
+| `samples/review`、`samples/README.md`（第 3 步之后） | `local/to-delete/`；内容已在版本库的 `doc/review/canvas/` | 4.8 MB |
+
+兼容软链接：旧位置共 107 个（指进 `to-delete` 的 99 个，列在 `local/to-delete/symlinks.txt`；指进 `snapshots`、`runs` 的 8 个；`to-delete` 里 Phase 0 构建目录中指向快照的 1 个不算旧位置），全部能解析。
+
+**推迟到下一个里程碑**（Phase 2 会话在用，或属于别的工作）：
+
+| 现在 | 去处 | 为什么推迟 |
+|---|---|---|
+| `toonz/build-phase1/src`（Phase 2 工作树，分支 `wip/phase2-step9`） | `~/Workspace/opentoonz-wt/<分支>/`，四个构建目录重新配置并全量重编 | 会话在用，工作区有未提交的改动 |
+| `toonz/build-phase1/skia-pack`、`vcpkg`、`vcpkg-bincache` | `local/cache/…`（名字已经能用，见上） | 它的构建目录按旧路径引用 |
+| `toonz/build-phase0/deps/opencv-install` | `local/cache/opencv/4.10-static-x64`；`opencv-src`、`opencv-build`、`tiff-ot-include` 删 | 同上 |
+| `toonz/build-phase0/venv` | 重建为 `local/cache/venv`（`tools/setup/bootstrap.sh`） | golden 测试和它的脚本在用 |
+| `toonz/build-phase0/vm`、`toonz/build-phase1/vm` | 已复制进 `tools/vm/`（第 2 步），旧目录到时删 | Phase 2 会话还在往 `build-phase1/vm` 里写新脚本 |
+| `toonz/build-phase1/ab` 的源码与脚本、`ab/phase2/` 的 `README.md`、`ab_tcomposer.py`、`manual/` | `tools/ab/`（命令行与 CI 的工作）；`manual/ACCEPTANCE.md` 进 Phase 2 文档 | 不是本步的范围；`manual/` 是所有者验收用的材料 |
+| `samples/reference_project` | `local/scratch/reference_project` | 主会话要求先留在原处 |
+
+5 份会话记忆里的路径已改为新位置（快照、对照输出、`tools/`、`doc/review/`）；推迟的几项在记忆里仍写旧路径，它们本来就还在那里。
+
+**验证。** `git worktree list` 显示 `base-src` 的新位置，`git worktree prune --dry-run` 没有输出；`STEP0_RECORD.tsv` 的 113 项（108 个 moved，其中 107 个在旧位置；5 个 `cache` 下的新名字）全部能解析；`local/cache/venv/bin/python` 能导入 numpy 和 Pillow。Phase 2 工作树：`cmake --build toonz/build-phase1/src/toonz/build --target nexttoonz_core_tests` 是 “no work to do”（构建图里没有一条依赖路径变了），这个测试程序 226 个测试全过。主检出的 `git status`：被跟踪的文件没有改动；未跟踪的 6 项（`profiles/`、`stuff/config/<用户>_history.txt`、`stuff/profiles/…`、`stuff/sandbox/`）是之前就有的、从版本库里直接运行应用留下的，不属于本步。删除脚本 `local/to-delete/delete.sh` 在一个仿造的小仓库里试过（软链接、工作树登记、目录都清掉，`git worktree list` 干净）。
+
+**磁盘（`du -sh`，主检出）。** 什么都没删，所以总量不变；变的是东西在哪：
+
+| | 之前 | 之后 |
+|---|---|---|
+| 主检出合计 | 11 GB | 11 GB |
+| `toonz/build`、`toonz/build-arm64` | 399 MB、148 MB | 软链接 |
+| `toonz/build-phase0` | 3.0 GB | 450 MB（`venv`、`deps`、`vm`） |
+| `toonz/build-phase1` | 5.7 GB | 4.9 GB（Phase 2 工作树、skia-pack、vcpkg、`ab` 的源码、`vm`；之后随 Phase 2 自己的构建变化） |
+| `local/` | 无 | 3.9 GB：`snapshots` 176 MB、`runs` 243 MB、`to-delete` 3.5 GB（`cache` 只有软链接） |
+| `samples/` | 6.3 MB | 1.5 MB（参考工程的副本） |
+
+所有者运行 `local/to-delete/delete.sh` 之后，主检出的忽略部分少 3.5 GB；下一个里程碑把 Phase 2 工作树移出、OpenCV 的源码与构建删掉之后，就是 5.1 节估计的样子。
+
+### 5.4 第 1 步实际做成的样子（2026-11-19）
+
+`.gitignore` 的 `build*` 换成三行：`/build/`、`/toonz/build*`、`/local/`。过渡期的那一行**不带结尾的斜杠**（5 节的表写的是 `/toonz/build*/`）：第 0 步之后主检出的 `toonz/build`、`toonz/build-arm64` 是兼容软链接，带斜杠的模式只匹配目录，它们会冒出来。没有别的具体名字要补：主检出、Phase 2 工作树和每个 `.claude/worktrees/` 下的工作树里，被 `build*` 忽略的都是 `toonz/build*`；CI 的 workflow 和虚拟机脚本的构建目录也都在 `toonz/build*` 下（`toonz/build`、`build-asan`、`build-noqt`、`build-legacy`）；`thirdparty/tiff-4.0.3/build/` 由原有的 `/thirdparty/tiff-4.0.3` 管着。
+
+**证明。** 在主检出上不改被跟踪的 `.gitignore`，用 `git ls-files --others --ignored --directory --exclude-per-directory=<临时名>`，把新旧两份根规则（和 thirdparty 下 11 份嵌套的规则）各放在临时名下各跑一次：
+
+- 方法本身：旧规则的结果与真实的 `git status --porcelain --ignored` 的 `!!` 项相同（202 项），只差 `.claude/worktrees/` 一项（`git status` 不列含 `.git` 的嵌套检出）；
+- 带着当前的 `.git/info/exclude`：新旧规则忽略的集合逐项相同，没有任何文件变得可见；
+- 去掉第 0 步加进 `info/exclude` 的 `/local/`：唯一的差别是 `local/` 整个被忽略；旧规则下它不被忽略，却有 15 项被 `build*` 零散地藏住，其中 5 个是 `local/runs/ab/*/build.sh`，正是痛点 9 说的那种脚本。
+
+在工作树里：`git check-ignore` 对 `tools/vm/build.sh` 不再命中（第 2 步正好要入库这个名字），对 `toonz/build-x`、`build/dev`、`local/x` 命中各自的新规则。CI 没有跑（没有推送）。
+
+### 5.5 第 2 步实际做成的样子（2026-11-19）
+
+只做本文这一侧：`tools/ab/`、`tools/ci/`、`tools/nt/` 由命令行与 CI 的工作入库，这里没有建。入库的是：
+
+| 文件 | 内容 |
+|---|---|
+| `tools/README.md` | 每个工具一行：做什么、怎样调用、前置 |
+| `tools/setup/bootstrap.sh` | 找到 `local/`（`NEXTTOONZ_LOCAL`，或 git 公共目录的上一级），建 `cache`、`snapshots`、`runs`、`scratch`，补齐缓存：venv（钉住 numpy 2.5.4、Pillow 13.0.0，解释器挑 3.11 以上，默认 3.14，与现有的一致；Apple 自带的 3.9 装不了这个 numpy）、skia-pack（调 `ci-scripts/skia/skia_pack.sh`，Intel Mac 默认 `x64` 和 `iosSim-x64`）、vcpkg（浅取 `ec48c11e`，跑 `bootstrap-vcpkg.sh -disableMetrics`）和二进制缓存目录；`--opencv` 按手工那份的 CMakeCache 重现静态 OpenCV 4.10（源码包钉 SHA-256，只留安装结果）；`--tiff` 在本检出里编自带的 libtiff；`--check` 只报告。已有的项（包括过渡期的软链接）不动，可以反复跑；最后打印 CMake 参数 |
+| `tools/upstream/merge.sh` | `merge.renameLimit=0`、`-X find-renames=25%`、`--no-ff --no-commit`；按种类数 `CONFLICT`，把 “file location” 提示单独存一份待确认；日志在 `local/runs/upstream-merge/`；`--dry-run` 用 `git merge-tree --write-tree` |
+| `tools/docs/check_links.py` | `doc/**/*.md`（被跟踪的和新加未忽略的）里的行内链接与图片、引用式定义、HTML 的 `src`/`href`；跳过带协议的 URL、纯锚点、代码片段和代码块；目标去掉锚点和查询串、解码后必须存在，并且不能是被 git 忽略的文件 |
+| `tools/vm/` | `env.sh`（`NT_CLONE`、`NT_BUILD`、`NT_TARGETS`、`NT_LOGS`，都有默认值）、`provision.sh`、`build.sh`、`sync.sh`、`test.sh`（由 `build-phase0/vm` 的四个参数化而来：分支是参数，克隆来源 `NT_SRC` 默认是脚本所在检出的主检出，测试默认用 CI 的泄漏设置），宿主上的 `run.sh`（在虚拟机里跑其中一个，传 `NT_*` 变量）和 `create.sh`（按现有 `nt-asan` 的配置新建虚拟机） |
+| `tools/vm/records/` | `build-phase1/vm` 的 31 个一次性脚本、`experiment.py`、`toonzlib_main/`，原样入库，只把写死的主检出路径换成 `${NT_MAIN:?…}`（替换可逆，逐字验证过）；`ab_*.cpp` 的副本随 `tools/ab`，输出 `linsk7/` 不入库 |
+| `tools/gltrace/gltrace.c` | 原样；编出来的库写到本检出的 `build/tools/` |
+
+输出一律写到 `local/runs/` 或 `build/`，脚本不往自己的目录写东西。
+
+**验证。**
+
+- bootstrap 在一个空的临时目录上（`--root <空目录> --opencv`，PATH 里 `/usr/bin` 在前）：3 分 40 秒，建出 `cache/{venv,skia-pack/m144-e2e6623374-4/{x64,iosSim-x64},vcpkg,vcpkg-bincache,opencv/4.10-static-x64}` 和 `snapshots`、`runs`、`scratch`；两个 Skia 包过了 SHA-256 校验；OpenCV 的安装与手工那份**文件清单逐项相同**（8 个静态库，37 MB）。用这份缓存配置本工作树（加 `--tiff` 先编 libtiff）成功，编出并跑过 `nexttoonz_canvas_skia_tests`（56/56）。再跑一次：每项都报告 present，只做了 `--tiff`。在主检出上 `--check`：经过渡软链接，六项都找到了。
+- merge.sh：对 `upstream/master`（`075e0329c`，合并基之后 10 个提交）`--dry-run` 干净；在一份 `git clone --shared` 的临时克隆里把 `toonz/sources/include` 整个 `git mv` 走再合并，两种模式都报出 1 个 “file location”（上游新加的 `include/trenderscale.h`），真合并停在提交之前，`merge --abort` 复原。
+- check_links.py：一个故意写坏的文件里，缺的图、缺的引用式目标、被忽略的目标三项都报出来，代码片段和代码块里的不算，锚点和百分号编码能解析。
+- gltrace：重编出的库与原来那份导出相同的符号，`__interpose` 段在；注入一个画一条线的小程序，日志里是 `linewidth 2.5`、`begin LINES (0.000 0.000) (1.000 1.000) 2 verts`。
+- 虚拟机：`nt-asan` 本来就在运行（Phase 2 会话在用），所以没有新建、没有停，也没有动它的克隆 `~/opentoonz`；用 `NT_CLONE=~/nt-layout-check` 另起一份克隆，从宿主经 `tools/vm/run.sh` 依次跑 `provision.sh`、`build.sh`、`test.sh`（本分支）。第一轮暴露了从 `build-phase0/vm` 搬来的 `build.sh` 还是 Phase 1 之前的样子：不带 Skia、少编两个画布测试，16 个测试因此失败；照 `workflow_sanitizers.yml` 改成 `-DWITH_SKIA=ON` 加 vcpkg 的 Skia（`NT_SKIA`，缺了就用 `ci-scripts/skia/vcpkg_skia.sh` 编；这次借用虚拟机里 Phase 1 编好的那份）和 CI 的 7 个目标之后，492 个测试 491 个通过，唯一失败的是已知只在虚拟机里不过的 `golden_fx_sweep_font_a`，与 Phase 2 文档记录的一致。`create.sh` 没有跑（没有新建虚拟机）。验证完删掉了那份克隆。
+- shellcheck（`-S warning`）对所有新脚本干净。
+
+**没有做的**：表里“用入库的 `run_sty.sh` 重跑样式总表、70 张逐字节相同”属于 `tools/ab`，由命令行与 CI 的工作验收（它要和 `local/to-delete/…/ab/out_after` 比，所以那份输出要等它报告之后再删）；bootstrap 不生成 `CMakeUserPresets.json`（要等第 5 步的预设）；iPad 模拟器用的 googletest 源码没有放进缓存（`run_ios_noqt.sh` 用构建目录里 FetchContent 取到的那份就够）。
+
+### 5.6 第 3 步实际做成的样子（2026-11-19）
+
+`samples/review/` 的 29 个文件（21 张图、6 个 README、两个放大用的场景 `flow_a.tnz`、`flow_b.tnz`）原样搬进 `doc/review/canvas/step2/` 到 `step9/`，逐字节相同（`shasum` 对过）。新加：`doc/review/README.md`（规矩，主题表）、`doc/review/canvas/README.md`（`samples/README.md` 里的索引、总量和预算）、`step4/`、`step5/` 的 README（原来只在 `samples/README.md` 里有一行说明）；每一步的 README 末尾加了“图”一节，把图直接嵌进去，GitHub 和 iPad 上打开就能看；`step2/README.md` 里“图在主检出的 `samples/review/step2/`”一句删了。
+
+**大小。** 共 4.99 MB。超过单张 300 KB 的有 4 张，合计 3.39 MB：`step5_stroke_styles.png` 1.75 MB、`step4_region_styles.png` 0.79 MB、`step5_vector_styles_scene.png` 0.46 MB、`step8_camstand.png` 0.38 MB。没有缩小（要所有者同意），而是放在单独的一个提交里，连同引用它们的嵌图行；其余 25 个文件 1.61 MB，最大 0.26 MB。去掉那个提交，树仍然一致，链接检查仍然通过（试过）。这个主题已经结束，预算定为现在的量。
+
+**链接。** 14 处引用改成相对链接：画布 IR 文档 12 处（第 4 到 8 步的并排图、第 5 步的整场景图、第 7 步没有 mipmap 的那张、第 2 步的线重对照、第 3 到 5 步的总括），Phase 1 发布说明 1 处，计划 1 处（计划那句是历史记录，写成“当时在主检出的 `samples/review/`，2026-11-19 起在 `doc/review/canvas/`”）。本文自己提到 `samples/` 的几处是对现状的描述，没有改。
+
+**`samples/README.md` 的去处。** 审阅图的索引进了 `doc/review/canvas/README.md`；参考工程副本的说明（不要直接打开夹具、怎样重新复制）本来就在 `toonz/sources/tests/README.md`，那一节改成只讲副本，并指向 `doc/review/` 和 `local/runs/`。`.git/info/exclude` 里的 `/samples/` 一行还要留着，因为副本暂时还在 `samples/`。主检出的 `samples/review` 和 `samples/README.md` 收进了 `local/to-delete/`（留软链接），等这个分支合并之后删。
+
+**验证。** `tools/docs/check_links.py`：34 个文件、86 个相对链接、0 个问题。
+
 ---
 
 ## 6. 与 CLI/CI 文档的交点
@@ -477,7 +600,7 @@ local/
 
 ## 8. 需要所有者决定的问题
 
-**决定（2026-11-19，所有者委托主会话拍板的部分）：** Q1 取 (a)（`doc/review/`，普通 git，单张 300 KB、按主题定预算，超预算转 (c)）；Q2 取 (a)（主检出里忽略的 `local/`）；Q3 取 (a)（长期工作树放 `~/Workspace/opentoonz-wt/<分支>/`，Phase 2 工作树在其会话空闲、工作区干净时移动并全量重编）；Q6 取 (a)（一次性验收脚本入库到 `tools/*/records/`，不保证以后能跑）；Q8 同意按清单在分叉时删除（toonzfarm、扫描仪、stopmotion 仍按计划待定事项另议）。**留给所有者的：** Q4（源码树的目标形状）、Q5（搬家时机）、Q7（第 0 步的删除清单：约 3.3 GB 本机数据和保留哪几个 app 快照）。下面保留原文作为依据。
+**决定（2026-11-19，所有者委托主会话拍板的部分）：** Q1 取 (a)（`doc/review/`，普通 git，单张 300 KB、按主题定预算，超预算转 (c)）；Q2 取 (a)（主检出里忽略的 `local/`）；Q3 取 (a)（长期工作树放 `~/Workspace/opentoonz-wt/<分支>/`，Phase 2 工作树在其会话空闲、工作区干净时移动并全量重编）；Q6 取 (a)（一次性验收脚本入库到 `tools/*/records/`，不保证以后能跑）；Q8 同意按清单在分叉时删除（toonzfarm、扫描仪、stopmotion 仍按计划待定事项另议）。**留给所有者的：** Q4（源码树的目标形状）、Q5（搬家时机）、Q7（第 0 步的删除清单：约 3.3 GB 本机数据和保留哪几个 app 快照）。第 0 步（5.3 节）没有删任何东西：Q7 的候选都收在主检出的 `local/to-delete/`，`MANIFEST.md` 列着大小和理由，看过之后一条命令删掉；三个 app 快照都留着。第 3 步有 4 张图超出单张 300 KB 的预算，放在单独的提交里（5.6 节），保留还是缩小待定。下面保留原文作为依据。
 
 **Q1 审阅图片放在哪。** (a) 版本库的 `doc/review/`，普通 git，单张 300 KB、按主题定预算；(b) 版本库里走 LFS；(c) 单独的仓库。倾向 (a)，超预算时转 (c)。比较见 4.7 节。
 

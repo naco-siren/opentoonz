@@ -473,6 +473,8 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 
 每一步单独合并，纯搬的步骤以编译命令逐字相同验收（见设计稿 5.2 节）；之后合并上游一律用 `tools/upstream/merge.sh`（改名阈值 25%）。
 
+进展（2026-11-19）：第 0 到 3 步已做，细节在设计稿 5.3 到 5.6 节。第 0 步：主检出里有了本机根 `local/`（缓存、app 快照、对照输出），旧位置都留了兼容软链接；Phase 2 会话正在用的工作树、skia-pack、vcpkg、OpenCV、venv 和两个虚拟机脚本目录推迟到下一个里程碑再搬；要删的约 3.5 GB 收在 `local/to-delete/`，等所有者看过（设计稿 Q7）。第 1 步：`.gitignore` 的 `build*` 收窄为 `/build/`、`/toonz/build*`，加 `/local/`，主检出上忽略的集合不变。第 2 步：`tools/` 下入库 `setup/bootstrap.sh`（在空目录上重建出缓存）、`upstream/merge.sh`、`docs/check_links.py`、`vm/`（含 `records/`）、`gltrace/`；对照工具 `tools/ab/` 由命令行与 CI 的工作入库。第 3 步：画布迁移的对照图进了 `doc/review/canvas/`，文档里 14 处引用改成相对链接，链接检查通过；4 张图超出单张 300 KB 的预算，保留还是缩小待定。
+
 ### 横向工作：命令行与 CI 验收
 
 设计稿：`doc/nexttoonz_cli_ci.md`（2026-11-19）。目标：每个检查点、最好每个 PR 的验收都是"一条命令 → 托管 runner 和所有者的主机计算 → AI 验收写报告 → 人读一页简报"，人工清单只留界面手感那一部分。
