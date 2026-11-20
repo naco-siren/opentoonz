@@ -269,13 +269,13 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 7（已完成，8.9 节） | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名、枚举项改成核心产生 `TTranslatableText`、界面翻译（Q2）；`TPalette` 第一页名字经窄的数据翻译服务；`tvectorimage.h` 的 `QSet` | `ttranslatabletext.cpp`；矢量图和样式的 16 个源文件从此编译时碰不到 Qt 的头，但链接要等第 8 步 | 每个注册样式的描述、参数名、枚举项在 11 种语言下经 Qt 翻译后与改动前逐字相同（导出对照）；lupdate 前后产出的 .ts 相同 |
 | 8（已完成，8.10 到 8.15 节） | 开头先清矢量图和样式里不带 GL 的 Qt（第 7 步之后剩下的）：`tpalette.cpp` 的帧号区间解析与 `QString::number(…, 'g', 17)`、`toDouble`，`tsimplecolorstyles.cpp` 的 `QDir::match`、`sourceFilters`、`QMutexLocker`，`tl2lautocloser.cpp`、`tsegmentadjuster.cpp` 的 `qDebug`；然后 tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzlib、tnzext、tnzstdfx、toonzqt、tnztools、toonz 和要画 GL 的几个程序链接它，也由它链接 `tnzglcanvas`；8c 的做成的样子有列表）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`）；矢量图和样式（第 7 步留下的 16 个源文件和 `tpalette`、`tsimplecolorstyles`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收；`.tpl` 里的数字与 Qt 逐字节相同（大量随机 double 和边界值的差分测试），帧号区间解析与旧代码差分对照，`QDir::match` 的通配规则照 Qt 5.15 对照 |
 | 9 | 线程：`TThread::Executor`/`Runnable` 换成线程池，`TThread::Message` 换成派发器，`QThreadStorage`、`QReadWriteLock`、`QWaitCondition` 换成 std（8d-0 已做一部分：`timagecache.cpp` 的 `QThreadStorage` 和互斥锁）；toonzqt 加 Runnable 的 Qt 适配和 Qt 派发器 | `tthread.cpp`、`threadmessage.cpp`、`timagecache.cpp`… | golden 用 `-nthreads 1` 和 `-nthreads 8` 各渲一遍，与改动前逐字节相同；线程池的单测在 ThreadSanitizer 下跑；应用里人工验收（预览、渲染进度、取消） |
-| 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`tundo.h` 的 `TUndoManager` 去 QObject；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir；stdfx 的线程原语（第 9 步的决定 Q9-B）：`particlesmanager`、`iwa_particlesmanager` 的 `QThreadStorage`，`iwa_bokehfx`、`iwa_bokehreffx`、`iwa_bokeh_advancedfx`、`iwa_bokeh_util`、`iwa_glarefx` 的 `QReadWriteLock`，`iwa_flowblurfx`、`iwa_tangentflowfx` 的 `QtConcurrent`；第 9b 步在 ThreadSanitizer 下找到的老竞争：**第 41 条（动画调色板的当前帧，高优先级：迄今最可能影响用户输出的老问题，先做）**、第 39 条（`TStageObject` 的位置缓存）、第 42 条里 stdfx 的 bokeh（多半是误报，换掉 `QThread`、`QWaitCondition` 以后复核；第 40 条和 `ParticlesManager` 已在第 9 步复核为误报） | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
+| 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir；stdfx 的线程原语（第 9 步的决定 Q9-B）：`particlesmanager`、`iwa_particlesmanager` 的 `QThreadStorage`，`iwa_bokehfx`、`iwa_bokehreffx`、`iwa_bokeh_advancedfx`、`iwa_bokeh_util`、`iwa_glarefx` 的 `QReadWriteLock`，`iwa_flowblurfx`、`iwa_tangentflowfx` 的 `QtConcurrent`；第 9b 步在 ThreadSanitizer 下找到的老竞争：**第 41 条（动画调色板的当前帧，高优先级：迄今最可能影响用户输出的老问题，先做）**、第 39 条（`TStageObject` 的位置缓存）、第 42 条里 stdfx 的 bokeh（多半是误报，换掉 `QThread`、`QWaitCondition` 以后复核；第 40 条和 `ParticlesManager` 已在第 9 步复核为误报） | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
 | 11 | 引擎 API 第一版（第 9 节），tcomposer 改用它 | | tcomposer 的全部 golden 与改动前逐字节相同 |
 | 12 | tnzext：`plasticskeleton` 的骨骼名、`ttexturesstorage` 的 QCache 与 QString 键、`meshtexturizer` 的 QReadWriteLock；它们的 GL 部分移到 `tnzglview`（Q1）；Plastic 求解时 SuperLU 里的竞争（已知问题第 43 条） | tnzext 全部 | `plastic_basic` 的 golden；plastic 场景的读写 round-trip |
 | 13 | 外部进程：LZO 直接链接（8d-0 已做一部分：LZO 经注入的服务，桌面默认仍是外部进程，这一步接上链接库的实现；image 库的 pli 读写器在 8d 本体里已进无 Qt 构建）；ffmpeg 换成编解码服务接口（桌面实现仍是外部进程）；删除 `t32bitsrv`、mov/3gp 代理、QuickTime、`tipc`；`TMsgCore` 移到应用一侧；`tsound_qt` 换成声音输出服务 | sound 全部；image 的格式框架 | tlv、tzl 写出的字节与改动前相同（新写的 round-trip 测试）；含 tlv 的 golden；D10 第 2 条在核心里满足 |
 | 14 | image 的其余：sprite 的 QImage、psd 的 QTextCodec、`Preferences` 的 3 处 | image 全部 | 各格式的读写测试（`test_level_formats.cpp` 加 psd、sprite） |
 | 15 | `Preferences` 换成注入的键值存储（Q4），桌面实现放进 toonzqt、文件格式不变 | `preferences.cpp` 移出或变薄 | 用改动前的构建写一份 preferences.ini，新构建读进再写出，逐字节相同 |
-| 16 | Handle 的信号换成观察者回调，toonzqt 配 Qt 适配器 | 9 个 Handle、`PaletteController` | toonzlib 的单测加 Handle 通知的测试；应用里人工验收（切换场景、帧、列、调色板） |
+| 16 | Handle 的信号换成观察者回调，toonzqt 配 Qt 适配器；`tundo.h` 的 `TUndoManager` 去 QObject（第 10 步盘点后挪过来，Q10-B） | 9 个 Handle、`PaletteController` | toonzlib 的单测加 Handle 通知的测试；应用里人工验收（切换场景、帧、列、调色板） |
 | 17 | 其余 QObject 模型类去 QObject；`QMessageBox`、光标改成回调；`orientation.cpp` 移到 toonzqt；toonzlib 的 viewer 一侧 GL（`Stage::RasterPainter` 的 GL 分支、`OpenGlPainter`、`ImagePainter`、第二个 `renderFrame`）移到 `tnzglview`（Q1）；toonzlib 的线程原语（第 9 步的决定 Q9-B）：`stage.cpp`、`stagevisitor.cpp` 的 `QThreadStorage`，`imagemanager` 的 `QReadWriteLock`（`scriptengine` 的 `QWaitCondition` 随第 19 步的脚本库） | toonzlib 的大部分 | 同第 16 步 |
 | 18 | 文字与字体：`tfont_qt`、toonzlib 里写字的 QPainter、stdfx 的文字特效改成注入的文字服务（Q5），桌面实现仍用 Qt | 剩下的 toonzlib、stdfx 的文字特效 | 字体场景（`fx_sweep_font_*`，只在 Linux 上比较）和片头板在新旧构建下逐字节相同 |
 | 19 | QtScript 绑定移出成单独的可选库（Q7 之外的 Q3） | toonzlib 全部 | 脚本控制台的测试（新写：跑一段脚本加载场景、栅格化） |
@@ -1220,6 +1220,8 @@ tnzcore 里三处线程相关的小地方换成标准库，线程行为不变。
   - 工作线程的调度参数与 `QThread::setPriority()` 设的相同；
   - 经 Qt 派发器的 shutdown：排队的槽在它里面执行，它也等工作线程退出。
 
+**CI 的目标列表。** 新的测试程序 `nexttoonz_thread_tests` 由 ctest 发现，所以凡是只编一个显式目标列表的地方都要加上它，否则 ctest 会把它当成一个失败的 `nexttoonz_thread_tests_NOT_BUILT`。这样的地方有两处：Sanitizers 作业（`workflow_sanitizers.yml`，在本步的末尾补上了）和 `tools/vm/env.sh` 的 `NT_TARGETS`（那个文件随横向分支进了 `nexttoonz/phase0`，这个分支上还没有，合并时补）。新加测试目标时，这两处要同步。
+
 **人工验收（到里程碑时并进 8.6 节的清单）**，都在应用里：
 - 预览：Ctrl+R 和 flipbook，进度条走到头；预览中途取消；
 - 渲染：渲染输出的进度和取消；批处理里加任务、跑、停；
@@ -1436,6 +1438,21 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 - 加 `Executor::liveWorkerCount()` 和"shutdown 返回后计数为 0"的测试。
 
 理由：退出时的释放后使用不是 9c 新加的风险，但现在可以用很小的代价，把它从"碰运气"变成"有界等待"；5 秒对退出应用的用户没有感觉，长任务超时以后行为与今天相同。这是应用退出时机的变化，写进发布说明。
+
+**第 10 步盘点后的决定（2026-11-20，所有者委托主会话拍板）。** 第 10 步按盘点拆成 7 个子步，顺序是 10a → 10b → 10d → 10c → 10e → 10f → 10g：
+- 10a：第 41 条，动画调色板的当前帧（先做）；
+- 10b：`TRenderer` 的等待改经派发器，去掉 `processEvents` 自旋和 `qGuiApp`；
+- 10d：tnzbase 的线程原语换成标准库，并复核第 40 条；
+- 10c：`TRenderSettings` 的离屏表面改成不透明句柄；
+- 10e：stdfx 的线程原语，并复核第 42 条的 bokeh；
+- 10f：`TCacheResource` 的 `QRegion`、缓存池的 `QSettings` 和 `QDir`；
+- 10g：`TFontParam` 和机械的 Qt 容器、字符串。
+
+另外两个问题：
+- Q10-B 取 (b)：`tundo.h` 的 `TUndoManager` 去 QObject 挪到第 16 步，与 Handle 的观察者回调一起做；迁移表已改。
+- Q10-C 取 (a)：`QRegion` 换成一个最小的矩形并集区域类，带与 `QRegion` 的差分测试。
+
+Q10-A（第 41 条的修法会改变输出，单线程下抗锯齿柔化那一步也会）由所有者本人定。在他答复之前，10a 只做可复现的场景，即证明问题存在，不改输出。
 
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
