@@ -40,6 +40,13 @@ jobs:
     # GLIBC_2.38 / GLIBCXX_3.4.32 and will not start on 22.04 (see #7001).
     # Modern-toolchain coverage comes from the Fedora job below.
     runs-on: ubuntu-22.04
+    # Compiler cache (Q5 of doc/nexttoonz_cli_ci.md): paths relative to the
+    # checkout, so moving it does not miss; bounded; statistics of this run
+    # only (zeroed before the build) in the log and in the results artifact.
+    env:
+      CCACHE_DIR: /home/runner/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 500M
     strategy:
       matrix:
         compiler: [gcc, clang]
@@ -62,13 +69,15 @@ jobs:
     - name: Set up cache
       run: mkdir -p /home/runner/.ccache
 
-    - uses: actions/cache@v5
+    # restore + save instead of actions/cache, as in workflow_macos.yml: the
+    # cache is kept when a later step fails. No fallback to the other
+    # compiler's objects: they never hit.
+    - uses: actions/cache/restore@v5
       with:
         path: /home/runner/.ccache
         key: ${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}
-        restore-keys: | 
+        restore-keys: |
           ${{ runner.os }}-${{ matrix.compiler }}-
-          ${{ runner.os }}-
 
     - name: Build libtiff
       run: |
@@ -108,16 +117,28 @@ jobs:
         key: ${{ steps.skia-key.outputs.key }}-${{ hashFiles('ci-scripts/skia/vcpkg.json', 'ci-scripts/skia/vcpkg_skia.sh') }}
 
     - name: Build
+      # ccache is the compiler launcher for C and C++. (CC="ccache gcc" used to
+      # be exported as well; CMake ignores CC when CMAKE_C_COMPILER is given,
+      # so C sources were not cached at all.)
       run: |
-        export CCACHE_DIR=/home/runner/.ccache
-        export CC="ccache ${{ matrix.cc }}"
-        export CXX="ccache ${{ matrix.cxx }}"
+        ccache -z
         cd toonz
         mkdir build
         cd build
-        cmake ../sources -G Ninja -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DCMAKE_C_COMPILER=${{ matrix.cc }} -DWITH_TRANSLATION=OFF \
+        cmake ../sources -G Ninja -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DCMAKE_C_COMPILER=${{ matrix.cc }} -DWITH_TRANSLATION=OFF \
           -DWITH_SKIA=ON -Dunofficial-skia_DIR="$RUNNER_TEMP/skia-vcpkg/x64-linux-release/share/unofficial-skia"
         ninja
+
+    - name: Compiler cache statistics
+      if: always()
+      run: ccache -s
+
+    - name: Save compiler cache
+      if: always()
+      uses: actions/cache/save@v5
+      with:
+        path: /home/runner/.ccache
+        key: ${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}
 
     - name: Test
       run: |
@@ -257,8 +278,9 @@ jobs:
       image: fedora:latest
     steps:
     - name: Install prerequisites
-      # actions/checkout needs git and tar, absent from the base image
-      run: dnf install -y git tar gzip
+      # actions/checkout needs git and tar, absent from the base image;
+      # actions/cache prefers zstd
+      run: dnf install -y git tar gzip zstd
 
     - uses: actions/checkout@v6
 
@@ -272,7 +294,19 @@ jobs:
           qt5-qtbase-devel qt5-qtsvg qt5-qtsvg-devel qt5-qtscript qt5-qtscript-devel \
           qt5-qttools qt5-qttools-devel qt5-qttools-static qt5-qtmultimedia \
           qt5-qtmultimedia-devel qt5-qtserialport-devel qt5-qtwayland \
-          pkgconf-pkg-config
+          pkgconf-pkg-config ccache
+
+    # The job had no compiler cache (Q5 of doc/nexttoonz_cli_ci.md). In a
+    # container job ${{ github.workspace }} is the host's path, so the cache
+    # lives at a path relative to the checkout and the shell uses
+    # $GITHUB_WORKSPACE.
+    - name: Restore compiler cache
+      uses: actions/cache/restore@v5
+      with:
+        path: .ccache
+        key: fedora-${{ github.sha }}
+        restore-keys: |
+          fedora-
 
     - name: Build libtiff
       run: |
@@ -282,6 +316,8 @@ jobs:
 
     - name: Build
       run: |
+        export CCACHE_DIR="$GITHUB_WORKSPACE/.ccache" CCACHE_BASEDIR="$GITHUB_WORKSPACE" CCACHE_MAXSIZE=500M
+        ccache -z
         cd toonz
         mkdir build
         cd build
@@ -289,5 +325,17 @@ jobs:
         # build with. A missing return is only a warning in our default build,
         # so it survives review and breaks packaging instead (see #6940).
         cmake ../sources -G Ninja -DWITH_TRANSLATION=OFF \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DCMAKE_CXX_FLAGS=-Werror=return-type
         ninja
+
+    - name: Compiler cache statistics
+      if: always()
+      run: CCACHE_DIR="$GITHUB_WORKSPACE/.ccache" ccache -s
+
+    - name: Save compiler cache
+      if: always()
+      uses: actions/cache/save@v5
+      with:
+        path: .ccache
+        key: fedora-${{ github.sha }}

@@ -41,6 +41,7 @@ jobs:
     timeout-minutes: 120
     env:
       CCACHE_DIR: /home/runner/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}  # paths relative to the checkout (Q5 of doc/nexttoonz_cli_ci.md)
       CCACHE_MAXSIZE: 1G   # a cold build stores ~600 MB of objects before compression
       # gtest_discover_tests runs every test binary at build time to list its
       # tests, so these must be set for the build step as well as for ctest.
