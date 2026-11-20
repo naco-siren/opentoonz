@@ -483,12 +483,15 @@ cmake -S toonz/sources -B build/tsan-qt -G Ninja \
     -DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=thread \
     -DCMAKE_MODULE_LINKER_FLAGS=-fsanitize=thread \
     <the -D options of the ordinary build: Qt, OpenCV, Boost, Skia>
-ninja -C build/tsan-qt tcomposer nexttoonz_core_tests nexttoonz_toonzlib_tests
-TSAN_OPTIONS=halt_on_error=1 ./build/tsan-qt/tests/nexttoonz_core_tests
-(cd build/tsan-qt/tests/toonzlib && TSAN_OPTIONS=halt_on_error=1 ./nexttoonz_toonzlib_tests)
+ninja -C build/tsan-qt tcomposer nexttoonz_core_tests nexttoonz_toonzlib_tests \
+    nexttoonz_thread_tests
+SUPP=$PWD/toonz/sources/tests/tsan_qt.supp
+TSAN_OPTIONS="halt_on_error=1 suppressions=$SUPP" ./build/tsan-qt/tests/nexttoonz_core_tests
+TSAN_OPTIONS="halt_on_error=1 suppressions=$SUPP" ./build/tsan-qt/tests/thread/nexttoonz_thread_tests
+(cd build/tsan-qt/tests/toonzlib && TSAN_OPTIONS="halt_on_error=1 suppressions=$SUPP" ./nexttoonz_toonzlib_tests)
 ```
 
-Both test binaries report nothing. tcomposer is not in an application bundle
+The test binaries report nothing. tcomposer is not in an application bundle
 here and loads its libraries from beside itself (`@executable_path`): copy it
 and the build's `*.dylib` into one folder first (run from the build folder
 it cannot find them, and dyld aborts).
@@ -512,11 +515,13 @@ shows up as races that are probably not (section 8.19 of
 doc/nexttoonz_core_noqt.md). Data under `TThread::Mutex` or a C++ library
 lock is seen correctly.
 
-Renders still report old races in the render code (known issues 38 to 44);
-anything else is new. None of the reports is inside Qt, so there is no
-suppressions file; if Qt's uninstrumented code ever reports, put the
-suppressions in `tests/tsan_qt.supp` beside `lsan.supp`, with a comment for
-each.
+Pass `suppressions=<checkout>/toonz/sources/tests/tsan_qt.supp` too. It
+holds what is Qt's own synchronization only (a queued signal's arguments,
+copied by the emitting thread and read by the receiving one), each with a
+comment; a race in our code is fixed or recorded as a known issue, never
+suppressed. With it the thread tests report nothing; renders still report
+old races in the render code (known issues 38 to 43), and anything else is
+new.
 
 ## Checksum tables of the vector tests
 

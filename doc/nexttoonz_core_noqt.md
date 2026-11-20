@@ -1140,6 +1140,30 @@ tnzcore 里三处线程相关的小地方换成标准库，线程行为不变。
 - bokeh 的线程靠 `QThread` 和 `QWaitCondition` 交接数据，也一样；
 - 其余几条或者在 `TThread::Mutex`（标准库的锁，TSan 看得见）里，或者根本没有锁，是真的：第 36 到 39 条、第 41 条、第 43 条。
 
+### 8.20 第 9c 步实际做成的样子（2026-11-20）
+
+线程池（`tthread.cpp`）的内部换成标准库。`Runnable` 仍是 QObject，信号、槽和 `runningPriority()` 返回 `QThread::Priority` 都不变，自己的枚举放到 9d。8.19 节的 characterization 测试一字未改，全部通过。
+
+**换了什么。**
+- **工作线程**：`QThread` 换成脱离的 `std::thread`。它从 `run()` 返回以后，在过渡互斥锁里把自己从工作线程表里删掉，再在锁外删掉自己（这时可能放掉任务和 `ExecutorId` 的最后一个引用，而 `ExecutorId` 的析构要加锁）。以前是 `QThread` 的 finished 信号排队到主线程，由 `onTerminated()` 删。第 45 条的修法因此推广到了所有退出路径。
+- **过渡互斥锁**：`QMutex` 换成 `std::mutex`。工作线程睡眠用的 `QWaitCondition` 换成 `std::condition_variable`，等待改成带条件的循环（有任务或被放走才醒），虚假唤醒不会让线程提前退出。以前的 `QWaitCondition` 没有这层保护。
+- **任务队列**：`QMultiMap` 换成 `std::multimap`。插入时放在同优先级已有任务的前面，与 `QMultiMap::insert()` 相同，所以正向、反向遍历的顺序都没变；cancelAll 的顺序测试钉住了这一点。`QMultiMap::remove(key, value)` 照原义实现。
+- **`ExecutorImpSlots` 去掉了**：它是为了让线程在主线程上创建（`QThread` 的规矩），把"重新分配任务"做成一个信号，主线程上直接执行，别的线程上排队到主线程。`std::thread` 在哪个线程上都能创建，现在 `addTask()`、`takeTask()` 在当时所在的线程上、在锁里直接重新分配。新的工作线程因此起得早一些（不用等主线程处理事件），任务的顺序和结果不变。`Executor::init()` 不再需要 `QCoreApplication`，但任务的信号要投递到主线程，仍然需要。
+- **线程优先级**（Q9-C）：`setCurrentThreadPriority()` 照 Qt 5.15 的 `QThread::setPriority()` 做，映射表写在代码注释里。
+  - macOS 和 Linux：保留线程原来的调度策略，按 `(优先级 - 最低) × (max - min) / TimeCritical + min` 缩放到该策略的范围。有 `SCHED_IDLE` 的系统（Linux）上，最低档是 `LowestPriority`，`IdlePriority` 直接设成 `SCHED_IDLE`，失败时退到最低优先级。
+  - macOS 上 `SCHED_OTHER` 的 7 档是 15、20、25、31、36、41、47。
+  - Windows：`SetThreadPriority`，7 档对应 `THREAD_PRIORITY_IDLE` 到 `_TIME_CRITICAL`（只编过，没有在 Windows 上跑）。
+
+**ThreadSanitizer。** 线程池的锁换成标准库以后，TSan 能判断它了。
+- 线程池的测试：改之前 64 次报告，改之后 2 次。这 2 次是 Qt 排队信号的参数交接：发信号的线程复制参数，收的线程读，中间由 Qt 的事件队列和它的 `QMutex` 排序，TSan 看不见。按 Q9-D 记进新的 `tests/tsan_qt.supp`（与 `lsan.supp` 并列，带注释，只放 Qt 内部的同步）；加上它以后是 0 次。
+- Qt 构建的核心测试 240 个、toonzlib 测试 147 个：0 次。
+- tcomposer `-nthreads 8` 渲 28 个场景：`tthread.cpp` 里 0 次。其余的报告对数与 9c 之前相同，都是已经记下的老问题（第 38、39、41、43 条；不同轮次采样到的行号对有出入）。
+- 第 44 条（线程池的 `refreshAssignments` 对 `takeTask`）因此判为"TSan 复核后不成立"：那是旧的 `QMutex` 造成的误报。
+
+**结果（x86_64 macOS）。** 全部测试 553 个通过；characterization 测试整个程序连跑 40 次全过；28 个场景 × `-nthreads` 1 和 8，554 帧与改动前（`37fdccdcc`）逐字节相同；无 Qt 构建三道检查通过，173 个测试，iPad 模拟器里 84 个（`tthread.cpp` 进无 Qt 构建在 9d）。
+
+**结果（Linux 虚拟机，ASan、UBSan、LSan）。** 第一次在虚拟机里跑时，41 个测试失败：线程池的测试，以及每个 golden 场景（tcomposer）。都是 `refreshAssignments` 里的同一个段错误。原来的循环从队尾往前走，把 `--it` 写在 for 的递增部分，所以最后一次在条件检查之前执行。队列被刚才的 erase 删空时，这是对空 map 的 `end()` 做 `--`；走到头时，是对 `begin()` 做 `--`。`QMultiMap` 容得下这两种情况，`std::multimap` 是未定义行为：macOS 的 libc++ 碰巧没事，Linux 的 libstdc++ 崩了。`takeTask` 里也有同样的写法。改成在每一轮开头往前走一步，并以 `it != begin()` 为条件，访问的顺序不变。改了以后：全部目标编译通过；526 个测试里 525 个通过，失败的仍是 `golden_fx_sweep_font_a`，线程池的 12 条测试都过；GL 画布 32 个、无 Qt 构建 173 个通过。macOS 上重跑 553 个测试、554 帧和 TSan 下的线程池测试，结果同上。
+
 ## 9. 引擎 API 的第一版
 
 D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用返回值，不暴露 Qt 类型和 `TRasterPT<T>` 之类的模板实例；C ABI 等第一个非 C++ 消费者出现时从它机械派生。本稿只定第一版覆盖什么、什么时候出现。

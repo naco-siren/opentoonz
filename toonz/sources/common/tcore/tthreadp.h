@@ -34,44 +34,4 @@ public:
   static TThreadMessageDispatcher *instance();
 };
 
-//=====================================================================
-
-namespace TThread {
-// Forward declarations
-class ExecutorId;
-class ExecutorImpSlots;
-}
-
-//=====================================================================
-
-//==============================
-//    ExecutorImpSlots class
-//------------------------------
-
-class TThread::ExecutorImpSlots final : public QObject {
-  Q_OBJECT
-
-public:
-  ExecutorImpSlots();
-  ~ExecutorImpSlots();
-
-  // The following is provided to ensure that point #3 in Qt reference in page
-  // "Thread support in Qt"
-  // is satisfied:
-
-  //      "You must ensure that all objects created in
-  //        a thread are deleted before you delete the QThread."
-
-  // So, specifically, thread creation should happen only in the main thread,
-  // not in worker threads.
-  void emitRefreshAssignments();
-
-Q_SIGNALS:
-  void refreshAssignments();
-
-public Q_SLOTS:
-  void onTerminated();
-  void onRefreshAssignments();
-};
-
 #endif
