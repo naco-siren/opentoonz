@@ -613,7 +613,13 @@ void Worker::run() {
 
         // Upon thread destruction the wait condition is implicitly woken up.
         // If this is the case, m_task == 0 and we return.
-        if (!m_task || shutdownVar) return;
+        if (!m_task || shutdownVar) {
+          // A sleeping dedicated worker stayed in m_workers (onFinish() keeps
+          // it there); once it returns, onTerminated() deletes it, and
+          // shutdown() would read it from the set (known issue 45).
+          globalImp->m_workers.erase(this);
+          return;
+        }
       } else
         return;
     }

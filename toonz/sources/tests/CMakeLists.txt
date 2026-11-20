@@ -156,6 +156,13 @@ if(WITH_QT AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toonzlib/CMakeLists.txt)
 endif()
 
 #-----------------------------------------------------------------------------
+# The thread pool (TThread::Executor), on the Qt implementation for now
+
+if(WITH_QT)
+    add_subdirectory(thread)
+endif()
+
+#-----------------------------------------------------------------------------
 # Pixel tests of the canvas backends: Skia (tnzskia) and OpenGL (tnzglcanvas),
 # and the Phase 1 spike that proved how Skia is linked (off by default, see
 # skia_spike/README.md)
