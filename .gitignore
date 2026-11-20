@@ -8,7 +8,16 @@ GeneratedFiles
 *.sdf
 *.suo
 *.user
-build*
+# Build directories. The target is /build/<preset>/ (doc/nexttoonz_layout.md 4.8);
+# toonz/build* is the inherited place, kept until migration step 5. The transitional
+# pattern has no trailing slash because some old build dirs in the main checkout are
+# compatibility symlinks now. Do not widen this back to build*: it hid any file whose
+# name starts with "build" anywhere in the tree.
+/build/
+/toonz/build*
+# Machine-local state shared by every worktree (caches, app snapshots, A/B runs);
+# exists in the main checkout only.
+/local/
 Thumbs.db
 
 # bundled thirdparty libraries
