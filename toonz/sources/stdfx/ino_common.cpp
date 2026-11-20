@@ -1,3 +1,5 @@
+#include <atomic>
+
 #include "tenv.h"
 #include "tsystem.h"
 
@@ -315,8 +317,9 @@ void ino::Lx_to_wrap( TRasterP ras ) {
 
 //------------------------------------------------------------
 namespace {
-bool enable_sw_ = true;
-bool check_sw_  = true;
+// read and set by the render threads at once (known issue 37)
+std::atomic<bool> enable_sw_(true);
+std::atomic<bool> check_sw_(true);
 }  // namespace
 bool ino::log_enable_sw(void) {
   if (check_sw_) {

@@ -175,8 +175,12 @@ public:
   //! Saves the specified rasters at the specified time; returns whether the
   //! frames were successfully saved, and
   //! the associated time-adjusted level frame.
+  //! \p applyGamma is m_toBeAppliedGamma[frame], read by the caller under
+  //! the mutex (saveFrame runs without it when frames are saved
+  //! concurrently).
   std::pair<bool, int> saveFrame(double frame,
-                                 const std::pair<TRasterP, TRasterP> &rasters);
+                                 const std::pair<TRasterP, TRasterP> &rasters,
+                                 bool applyGamma);
   std::string getRenderCacheId();
 
   // returns board duration in frame
@@ -422,7 +426,8 @@ void MovieRenderer::Imp::postProcessImage(const TRasterImageP &img,
 //---------------------------------------------------------------------
 
 std::pair<bool, int> MovieRenderer::Imp::saveFrame(
-    double frame, const std::pair<TRasterP, TRasterP> &rasters) {
+    double frame, const std::pair<TRasterP, TRasterP> &rasters,
+    bool applyGamma) {
   bool success = false;
 
   // Build the frame number to write to
@@ -476,7 +481,7 @@ std::pair<bool, int> MovieRenderer::Imp::saveFrame(
     /*--- When caching the same raster, gamma only the first one and use the
 result in subsequent frames
 ---*/
-    if (m_renderSettings.m_gamma != 1.0 && m_toBeAppliedGamma[frame]) {
+    if (m_renderSettings.m_gamma != 1.0 && applyGamma) {
       TRop::gammaCorrect(rasterA, m_renderSettings.m_gamma);
       if (rasterB) TRop::gammaCorrect(rasterB, m_renderSettings.m_gamma);
     }
@@ -485,7 +490,7 @@ result in subsequent frames
     try {
       TRasterImageP imgA(rasterA);
       postProcessImage(imgA, has64bitOutputSupport, writeInLinearColorSpace,
-                       m_toBeAppliedGamma[frame], writingGamma,
+                       applyGamma, writingGamma,
                        m_renderSettings.m_colorSpaceGamma,
                        m_renderSettings.m_mark, fid.getNumber());
 
@@ -494,7 +499,7 @@ result in subsequent frames
       if (rasterB) {
         TRasterImageP imgB(rasterB);
         postProcessImage(imgB, has64bitOutputSupport, writeInLinearColorSpace,
-                         m_toBeAppliedGamma[frame], writingGamma,
+                         applyGamma, writingGamma,
                          m_renderSettings.m_colorSpaceGamma,
                          m_renderSettings.m_mark, fid.getNumber());
 
@@ -610,6 +615,10 @@ void MovieRenderer::Imp::doRenderRasterCompleted(const RenderData &renderData) {
     ++m_nextFrameIdxToSave;
     m_toBeSaved.erase(ft);
 
+    // Read under the mutex: other threads add to the map meanwhile (it was
+    // read inside saveFrame, after the unlock below; known issue 36)
+    const bool applyGamma = m_toBeAppliedGamma[frame];
+
     // Save current frame
     std::pair<bool, int> savedFrame;
     {
@@ -634,7 +643,7 @@ void MovieRenderer::Imp::doRenderRasterCompleted(const RenderData &renderData) {
       } unlocker = {requireSeq ? (TThread::MutexLocker *)0
                                : (locker.unlock(), &locker)};
 
-      savedFrame = saveFrame(frame, rasters);
+      savedFrame = saveFrame(frame, rasters, applyGamma);
     }
 
     // Report status and deal with responses
