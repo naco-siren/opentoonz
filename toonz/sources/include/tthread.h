@@ -5,8 +5,6 @@
 
 #include "tsmartpointer.h"
 
-#include <QThread>
-
 #undef DVAPI
 #undef DVVAR
 #ifdef TNZCORE_EXPORTS
@@ -41,6 +39,21 @@ template class DVAPI TSmartPointerT<TThread::Runnable>;
 namespace TThread {
 
 typedef TSmartPointerT<Runnable> RunnableP;
+
+//! The scheduling priority of a worker thread while it runs a task (see
+//! Runnable::runningPriority()). The values are those of QThread::Priority
+//! (checked in tthread_qt.cpp), and so is what each level gives the thread
+//! (tthread.cpp, setCurrentThreadPriority()).
+enum Priority {
+  IdlePriority,
+  LowestPriority,
+  LowPriority,
+  NormalPriority,
+  HighPriority,
+  HighestPriority,
+  TimeCriticalPriority,
+  InheritPriority
+};
 
 //------------------------------------------------------------------------------
 
@@ -116,8 +129,7 @@ complete
 
   \sa Executor class.
 */
-class DVAPI Runnable : public QObject, public TSmartObject {
-  Q_OBJECT
+class DVAPI Runnable : public TSmartObject {
   DECLARE_CLASS_CODE
 
   ExecutorId *m_id;
@@ -128,7 +140,7 @@ class DVAPI Runnable : public QObject, public TSmartObject {
   friend class Executor;     // Needed to confront Executor's and Runnable's ids
   friend class ExecutorImp;  // The internal task manager needs full control
                              // over the task
-  friend class Worker;       // Workers force tasks to emit state signals
+  friend class Worker;       // Workers notify the task of its states
 
 public:
   Runnable();
@@ -139,25 +151,24 @@ public:
 
   virtual int taskLoad();
   virtual int schedulingPriority();
-  virtual QThread::Priority runningPriority();
-
-Q_SIGNALS:
-
-  void started(TThread::RunnableP sender);
-  void finished(TThread::RunnableP sender);
-  void exception(TThread::RunnableP sender);
-  void canceled(TThread::RunnableP sender);
-  void terminated(TThread::RunnableP sender);
-
-public Q_SLOTS:
-
-  virtual void onStarted(TThread::RunnableP sender);
-  virtual void onFinished(TThread::RunnableP sender);
-  virtual void onException(TThread::RunnableP sender);
-  virtual void onCanceled(TThread::RunnableP sender);
-  virtual void onTerminated(TThread::RunnableP sender);
+  virtual Priority runningPriority();
 
 private:
+  //! The task manager tells the task what happens to it, where and when the
+  //! signals of the Qt version (QtRunnable, tthread_qt.h) are emitted:
+  //! started() in the worker thread just before run(), finished() just after
+  //! it, exception() instead of finished() if run() throws; canceled() and
+  //! terminated() in the thread that cancels the task or shuts the manager
+  //! down. Each is called with the manager's mutex held, so it must not block
+  //! nor call the Executor API (see the warnings above). The default does
+  //! nothing. (Until step 9d of doc/nexttoonz_core_noqt.md, Runnable was a
+  //! QObject with those signals.)
+  virtual void notifyStarted() {}
+  virtual void notifyFinished() {}
+  virtual void notifyException() {}
+  virtual void notifyCanceled() {}
+  virtual void notifyTerminated() {}
+
   inline bool needsAccumulation();
   inline bool customConditions();
 };
@@ -218,7 +229,11 @@ public:
   ~Executor();
 
   static void init();
+  //! Cancels every task and waits (processing events) until every worker
+  //! thread has ended, for 5 seconds at most.
   static void shutdown();
+  //! Worker threads started and not ended yet, sleeping ones included.
+  static int liveWorkerCount();
 
   void addTask(RunnableP task);
   void removeTask(RunnableP task);

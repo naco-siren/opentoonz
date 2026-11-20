@@ -533,6 +533,7 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 - **单人项目的阶段跨度。** Phase 2 与 Phase 3 并列最长，各 6 到 9 人月，且 Phase 2 全程用户不可见。缓解：每个子项（线程、路径、模型、命令搬迁）独立合并，每次合并后 golden 必须通过。
 - **x86-64 与 arm64 对未定义行为的不同结果。** 代码里大量 `(int)double` 转换在越界或 NaN 时是未定义行为，两种架构给出不同结果；Phase 0 已遇到一例让 arm64 macOS 的每一帧渲染变成空白（已知问题第 14 条）。缓解：清洁剂 CI 用 UBSan 跑全部 golden 场景并阻塞，macOS arm64 与 x86_64 的 golden 都阻塞合并。
 - **GPU 相关 golden 在 CI 上不可验证。** 托管 runner 的 Metal 可用性未验证。缓解：golden 只走 CPU 路径，GPU 后端用本地截图人工审查。
+- **CI 的显式目标列表容易漏。** Sanitizers 作业和本地虚拟机脚本（`tools/vm/env.sh` 的 `NT_TARGETS`）只编一个写死的目标列表，而 ctest 发现的每个测试程序都必须编出来，否则它算作一个失败的 `<目标>_NOT_BUILT`。Phase 2 第 9 步新加的 `nexttoonz_thread_tests` 差点因此让 Sanitizers 变红（推送前的试合并发现的）。缓解：新加测试目标时同步这两处；以后可以改成从 CMake 导出测试目标列表。
 - **基线只能来自 CI。** 开发机的真实显卡与 CI 的软件渲染结果不同，本机既不能生成基线，也有个别场景过不了比较。新场景的基线要先把分支推上去、从 Linux job 的产物里取，一轮半小时以上。缓解：Phase 1 的 CPU 光栅化完成后本机渲染即可作基线。（2026-11-19）缓解的具体做法见 `doc/nexttoonz_cli_ci.md` 5.4 节：主机出基线、托管 runner 交叉验证。
 
 ---

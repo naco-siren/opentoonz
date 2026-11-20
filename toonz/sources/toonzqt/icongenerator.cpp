@@ -1,6 +1,7 @@
 
 
 // TnzCore includes
+#include "tthread_qt.h"
 #include "tfilepath.h"
 #include "tfiletype.h"
 #include "tstream.h"
@@ -506,7 +507,7 @@ TRaster32P convertToIcon(TImageP image, int frame, const TDimension &iconSize,
 //
 //----------------------------
 
-class IconRenderer : public TThread::Runnable {
+class IconRenderer : public TThread::QtRunnable {
   TRaster32P m_icon;
   TDimension m_iconSize;
   std::string m_id;

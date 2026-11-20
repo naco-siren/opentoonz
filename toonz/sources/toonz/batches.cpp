@@ -4,6 +4,7 @@
 #define _WIN32_WINNT 0x0500  // per CreateJobObject e affini
 #endif
 
+#include "tthread_qt.h"
 #include "tsystem.h"
 #include "mainwindow.h"
 #include "batches.h"
@@ -1178,7 +1179,7 @@ void MyLocalController::taskProgress(const QString &taskId, int step,
 
 void MyLocalController::taskCompleted(const QString &taskId, int exitCode) {}
 
-class MyLocalControllerController final : public TThread::Runnable {
+class MyLocalControllerController final : public TThread::QtRunnable {
   MyLocalController *m_controller;
 
 public:

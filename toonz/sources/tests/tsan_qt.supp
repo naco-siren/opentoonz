@@ -1,0 +1,15 @@
+# ThreadSanitizer suppressions for Qt's own synchronization, which TSan does
+# not see because Qt is not instrumented (tests/README.md, Sanitizers; step 9
+# of doc/nexttoonz_core_noqt.md, decision Q9-D). Only Qt's machinery goes
+# here: a race in our code is fixed or recorded in
+# doc/nexttoonz_known_issues.md, never suppressed.
+#
+#   TSAN_OPTIONS="suppressions=<this file> ..." <program>
+
+# A queued signal's arguments: the emitting thread copies them
+# (QMetaType::create) into the event it posts, the receiver's thread reads
+# them when the event is delivered; QCoreApplication::postEvent and the event
+# loop order the two, under a QMutex. Seen with TThread::Runnable's signals,
+# emitted by the workers and delivered to the task's slots in the main
+# thread.
+race:QtMetaTypePrivate::QMetaTypeFunctionHelper

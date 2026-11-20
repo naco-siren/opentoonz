@@ -14,6 +14,7 @@
 #include "trenderer.h"
 #include "tthreadmessage.h"
 #include "tthread.h"
+#include "tthread_qt.h"
 #include "trop.h"
 
 #include <QTouchDevice>
@@ -151,7 +152,7 @@ class DVAPI SwatchViewer final : public QWidget {
   friend class ContentRender;
 
 public:
-  class ContentRender final : public TThread::Runnable {
+  class ContentRender final : public TThread::QtRunnable {
   public:
     TRasterFxP m_fx;
     TRasterP m_raster;

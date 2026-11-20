@@ -10,10 +10,9 @@
 #include "tconstwrapper.h"
 
 #include <QString>
-#include <QReadLocker>
-#include <QWriteLocker>
-#include <QReadWriteLock>
 
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 
 #undef DVAPI
@@ -197,13 +196,18 @@ public:
 
 class DVAPI TMetaImage final : public TImage {
 public:
-  class Reader: public QReadLocker {
+  // Shared and exclusive locks of the image for their lifetime, as the
+  // QReadLocker and QWriteLocker they were (step 9a of
+  // doc/nexttoonz_core_noqt.md). Like QReadWriteLock in its default mode,
+  // the lock is not recursive.
+  class Reader {
   private:
+    std::shared_lock<std::shared_mutex> m_lock;  // taken first
     const TMetaImage &m_image;
     const TMetaObjectListCW m_objects;
   public:
     Reader(const TMetaImage &image):
-      QReadLocker(&image.m_rwLock),
+      m_lock(image.m_rwLock),
       m_image(image),
       m_objects(image.m_objects) { }
     const TMetaImage& image() const
@@ -216,12 +220,13 @@ public:
       { return &get(); }
   };
 
-  class Writer: public QWriteLocker {
+  class Writer {
   private:
+    std::unique_lock<std::shared_mutex> m_lock;
     TMetaImage &m_image;
   public:
     Writer(TMetaImage &image):
-      QWriteLocker(&image.m_rwLock), m_image(image) { }
+      m_lock(image.m_rwLock), m_image(image) { }
     TMetaImage& image() const
       { return m_image; }
     TMetaObjectList& get() const
@@ -233,7 +238,7 @@ public:
   };
 
 private:
-  mutable QReadWriteLock m_rwLock;
+  mutable std::shared_mutex m_rwLock;
   TMetaObjectList m_objects;
 
   TMetaImage(const TMetaImage &other);

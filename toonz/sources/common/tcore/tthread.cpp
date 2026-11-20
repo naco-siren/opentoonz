@@ -10,22 +10,31 @@
 #include "tatomicvar.h"
 
 #include "tthread.h"
-#include "tthreadp.h"
 
 // STL includes
-#include <set>
+#include <algorithm>
+#include <atomic>
+#include <cerrno>
+#include <chrono>
+#include <condition_variable>
+#include <cstdio>
+#include <cstring>  // memset (it came with Qt's headers on Linux)
 #include <deque>
+#include <map>
+#include <mutex>
+#include <set>
+#include <thread>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <pthread.h>
+#include <sched.h>
+#endif
 
 // tcg includes
 #include "tcg/tcg_pool.h"
 
-// Qt includes
-#include <QMultiMap>
-#include <QMutableMapIterator>
-#include <QMutex>
-#include <QWaitCondition>
-#include <QMetaType>
-#include <QCoreApplication>
 
 //==============================================================================
 
@@ -34,12 +43,13 @@
 //--------------------------------------------------
 
 // Basics:
-//  * Tasks added by Executors are always stored in a global QMultiMap first -
+//  * Tasks added by Executors are always stored in a global multimap first -
 //    ordering primarily being the schedulingPriority(), and insertion instant
 //    (implicit) when they have the same scheduling priority.
-//  * The QMultiMap needs to be reverse-iterated to do that, since values with
-//    the same key are ordered from the most recent to the oldest one (see Qt's
-//    manual).
+//  * The multimap needs to be reverse-iterated to do that, since values with
+//    the same key are ordered from the most recent to the oldest one: each is
+//    inserted before the others of its key, as Qt's QMultiMap did before step
+//    9c of doc/nexttoonz_core_noqt.md.
 //  * Worker threads are stored in a global set.
 //  * When a task is added or a task has been performed, the workers list is
 //    refreshed, possibly adding new Workers for some executable tasks.
@@ -160,9 +170,16 @@ DEFINE_CLASS_CODE(TThread::Runnable, 21)
 //    Global init() initializer function
 //------------------------------------------
 
+#ifdef QT_CORE_LIB
+// tthread_qt.cpp: the Qt dispatcher, and RunnableP for queued signals
+void initThreadQt();
+#endif
+
 void TThread::init() {
   Executor::init();
-  TThreadMessageDispatcher::init();
+#ifdef QT_CORE_LIB
+  initThreadQt();
+#endif
 }
 
 //---------------------------------------------------------------------
@@ -179,21 +196,27 @@ namespace TThread {
 //    Worker Thread class
 //---------------------------
 
-//! A Worker is a specialized QThread that continuously polls Runnable
-//! tasks from a global execution queue to make them work.
-class Worker final : public QThread {
+//! A Worker is a thread that continuously polls Runnable tasks from a global
+//! execution queue to make them work. Since step 9c of
+//! doc/nexttoonz_core_noqt.md it is a detached std::thread, which takes
+//! itself out of the workers list and deletes itself when it ends (it was a
+//! QThread, deleted in the main thread through a queued signal).
+class Worker final {
 public:
   RunnableP m_task;
 
   TSmartPointerT<ExecutorId> m_master;
 
   bool m_exit;
-  QWaitCondition m_waitCondition;
+  ExecutorId *m_sleepingIn;  // whose m_sleepings holds it, while it sleeps
+  std::condition_variable m_waitCondition;  // waited on with the transition
+                                            // mutex
 
   Worker();
   ~Worker();
 
-  void run() override;
+  void start();
+  void run();
 
   inline void takeTask();
   inline bool canAdopt(const RunnableP &task);
@@ -256,7 +279,7 @@ public:
 //! and event-looped thread - typically the main thread in GUI applications.
 class ExecutorImp {
 public:
-  QMultiMap<int, RunnableP> m_tasks;
+  std::multimap<int, RunnableP> m_tasks;
   std::set<Worker *> m_workers;  // Used just for debugging purposes
 
   tcg::indices_pool<> m_executorIdPool;
@@ -265,12 +288,15 @@ public:
   int m_activeLoad;
   int m_maxLoad;
 
-  QMutex m_transitionMutex;  // Workers' transition mutex
+  int m_liveWorkers;  // started and not yet deleted (under the mutex)
+
+  std::mutex m_transitionMutex;  // Workers' transition mutex
 
   ExecutorImp();
   ~ExecutorImp();
 
   inline void insertTask(int schedulingPriority, RunnableP &task);
+  inline bool removeTask(int schedulingPriority, const RunnableP &task);
 
   void refreshAssignments();
 
@@ -288,9 +314,95 @@ public:
 //---------------------------
 
 namespace {
-ExecutorImp *globalImp           = 0;
-ExecutorImpSlots *globalImpSlots = 0;
-bool shutdownVar                 = false;
+ExecutorImp *globalImp = 0;
+bool shutdownVar       = false;
+
+//! Gives the calling thread the scheduling QThread::setPriority() gives a
+//! thread, called in that thread as the workers did (decision Q9-C of step 9
+//! of doc/nexttoonz_core_noqt.md; Qt 5.15, qthread_unix.cpp and
+//! qthread_win.cpp). On macOS and Linux the thread keeps its policy and its
+//! priority is scaled from the enum onto the policy's range:
+//!
+//!   prio = (priority - lowest) * (max - min) / TimeCriticalPriority + min,
+//!          clamped to [min, max]
+//!
+//! where lowest is LowestPriority if the system has SCHED_IDLE (Linux:
+//! IdlePriority then is SCHED_IDLE with priority 0) and IdlePriority if not
+//! (macOS). On macOS, SCHED_OTHER spans 15 to 47: Idle 15, Lowest 20, Low 25,
+//! Normal 31, High 36, Highest 41, TimeCritical 47. On Windows the levels are
+//! THREAD_PRIORITY_IDLE, _LOWEST, _BELOW_NORMAL, _NORMAL, _ABOVE_NORMAL,
+//! _HIGHEST and _TIME_CRITICAL. InheritPriority changes nothing, as
+//! setPriority() refuses it.
+void setCurrentThreadPriority(Priority priority) {
+  if (priority == InheritPriority) return;
+#ifdef _WIN32
+  int prio;
+  switch (priority) {
+  case IdlePriority:
+    prio = THREAD_PRIORITY_IDLE;
+    break;
+  case LowestPriority:
+    prio = THREAD_PRIORITY_LOWEST;
+    break;
+  case LowPriority:
+    prio = THREAD_PRIORITY_BELOW_NORMAL;
+    break;
+  case NormalPriority:
+    prio = THREAD_PRIORITY_NORMAL;
+    break;
+  case HighPriority:
+    prio = THREAD_PRIORITY_ABOVE_NORMAL;
+    break;
+  case HighestPriority:
+    prio = THREAD_PRIORITY_HIGHEST;
+    break;
+  case TimeCriticalPriority:
+    prio = THREAD_PRIORITY_TIME_CRITICAL;
+    break;
+  default:
+    return;
+  }
+  SetThreadPriority(GetCurrentThread(), prio);
+#else
+  pthread_t self = pthread_self();
+  int policy;
+  sched_param param;
+  if (pthread_getschedparam(self, &policy, &param) != 0) return;
+  int prio;
+#ifdef SCHED_IDLE
+  if (priority == IdlePriority) {
+    policy = SCHED_IDLE;
+    prio   = 0;
+  } else
+#endif
+  {
+#ifdef SCHED_IDLE
+    const int lowest = LowestPriority;
+#else
+    const int lowest = IdlePriority;
+#endif
+    const int highest = TimeCriticalPriority;
+    const int prioMin = sched_get_priority_min(policy);
+    const int prioMax = sched_get_priority_max(policy);
+    if (prioMin == -1 || prioMax == -1) return;
+    prio = ((priority - lowest) * (prioMax - prioMin) / highest) + prioMin;
+    prio = std::max(prioMin, std::min(prioMax, prio));
+  }
+  param.sched_priority = prio;
+  int status           = pthread_setschedparam(self, policy, &param);
+#ifdef SCHED_IDLE
+  // were we trying to set to idle priority and failed?
+  if (status == -1 && policy == SCHED_IDLE && errno == EINVAL) {
+    // reset to lowest priority possible
+    pthread_getschedparam(self, &policy, &param);
+    param.sched_priority = sched_get_priority_min(policy);
+    pthread_setschedparam(self, policy, &param);
+  }
+#else
+  (void)status;
+#endif
+#endif
+}
 }
 
 //=====================================================================
@@ -301,6 +413,7 @@ bool shutdownVar                 = false;
 
 ExecutorImp::ExecutorImp()
     : m_activeLoad(0)
+    , m_liveWorkers(0)
     , m_maxLoad(TSystem::getProcessorCount() * 100)
     , m_transitionMutex()  // NOTE: We'll wait on this mutex - so it can't be
                            // recursive
@@ -323,7 +436,25 @@ inline bool ExecutorImp::isExecutable(RunnableP &task) {
 
 inline void ExecutorImp::insertTask(int schedulingPriority, RunnableP &task) {
   task->m_schedulingPriority = schedulingPriority;
-  m_tasks.insert(schedulingPriority, task);
+  // before the others of its priority, as QMultiMap::insert() put it
+  m_tasks.insert(m_tasks.lower_bound(schedulingPriority),
+                 std::make_pair(schedulingPriority, task));
+}
+
+//---------------------------------------------------------------------
+
+// As QMultiMap::remove(key, value): every entry with both.
+inline bool ExecutorImp::removeTask(int schedulingPriority,
+                                    const RunnableP &task) {
+  bool removed = false;
+  auto range   = m_tasks.equal_range(schedulingPriority);
+  for (auto it = range.first; it != range.second;)
+    if (it->second == task) {
+      it      = m_tasks.erase(it);
+      removed = true;
+    } else
+      ++it;
+  return removed;
 }
 
 //=====================================================================
@@ -395,11 +526,9 @@ int Runnable::schedulingPriority() { return 5; }
 
 //---------------------------------------------------------------------
 
-//! Returns the QThread::Priority used by worker threads when they adopt
-//! the task. The default value returned is QThread::Normal.
-QThread::Priority Runnable::runningPriority() {
-  return QThread::NormalPriority;
-}
+//! Returns the Priority used by worker threads when they adopt the task. The
+//! default value returned is NormalPriority.
+Priority Runnable::runningPriority() { return NormalPriority; }
 
 //---------------------------------------------------------------------
 
@@ -481,30 +610,7 @@ inline bool Runnable::customConditions() {
   \sa \b Executor::shutdown static method and \b Runnable::canceled signal.
 */
 
-//! Convenience slot for the started() signal - so it's not necessary to declare
-//! the task in a header file for moc'ing each time. You must both reimplement
-//! \b and connect it to the started() signal to make it work.
-void Runnable::onStarted(RunnableP) {}
-
-//---------------------------------------------------------------------
-
-//! The analogous of onStarted() for the finished() signal.
-void Runnable::onFinished(RunnableP) {}
-
-//---------------------------------------------------------------------
-
-//! The analogous of onStarted() for the exception() signal.
-void Runnable::onException(RunnableP) {}
-
-//---------------------------------------------------------------------
-
-//! The analogous of onStarted() for the canceled() signal.
-void Runnable::onCanceled(RunnableP) {}
-
-//---------------------------------------------------------------------
-
-//! The analogous of onStarted() for the terminated() signal.
-void Runnable::onTerminated(RunnableP) {}
+// (The on*() convenience slots are QtRunnable's, tthread_qt.cpp.)
 
 //=====================================================================
 
@@ -519,7 +625,7 @@ ExecutorId::ExecutorId()
     , m_maxActiveLoad((std::numeric_limits<int>::max)())
     , m_dedicatedThreads(false)
     , m_persistentThreads(false) {
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
 
   m_id = globalImp->m_executorIdPool.acquire();
   globalImp->m_waitingFlagsPool.resize(globalImp->m_executorIdPool.size());
@@ -528,7 +634,7 @@ ExecutorId::ExecutorId()
 //---------------------------------------------------------------------
 
 ExecutorId::~ExecutorId() {
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
 
   if (m_dedicatedThreads) {
     m_persistentThreads = 0;
@@ -552,8 +658,9 @@ void ExecutorId::refreshDedicatedList() {
 
     unsigned int i, size = m_sleepings.size();
     for (i = 0; i < size; ++i) {
-      m_sleepings[i]->m_exit = true;
-      m_sleepings[i]->m_waitCondition.wakeOne();
+      m_sleepings[i]->m_exit       = true;
+      m_sleepings[i]->m_sleepingIn = 0;
+      m_sleepings[i]->m_waitCondition.notify_one();
     }
 
     m_sleepings.clear();
@@ -566,7 +673,7 @@ void ExecutorId::refreshDedicatedList() {
 //      Worker methods
 //---------------------------
 
-Worker::Worker() : QThread(), m_task(0), m_master(0), m_exit(true) {}
+Worker::Worker() : m_task(0), m_master(0), m_exit(true), m_sleepingIn(0) {}
 
 //---------------------------------------------------------------------
 
@@ -574,27 +681,52 @@ Worker::~Worker() {}
 
 //---------------------------------------------------------------------
 
+// Called with the transition mutex locked, as QThread::start() was. When
+// run() returns, the worker leaves the workers list (whatever way it
+// returned: known issue 45 was one it did not) and is deleted outside the
+// mutex, since that may release the last references to a task and to an
+// ExecutorId, whose destructor locks the mutex.
+//
+// The worker counts itself out (m_liveWorkers) only once it is deleted, so
+// that when shutdown() sees no live worker, none of them touches anything
+// any more.
+void Worker::start() {
+  ++globalImp->m_liveWorkers;
+  std::thread([this] {
+    run();
+    {
+      std::lock_guard<std::mutex> lock(globalImp->m_transitionMutex);
+      globalImp->m_workers.erase(this);
+    }
+    delete this;
+    std::lock_guard<std::mutex> lock(globalImp->m_transitionMutex);
+    --globalImp->m_liveWorkers;
+  }).detach();
+}
+
+//---------------------------------------------------------------------
+
 void Worker::run() {
   // Ensure atomicity of worker's state transitions
-  QMutexLocker sl(&globalImp->m_transitionMutex);
+  std::unique_lock<std::mutex> sl(globalImp->m_transitionMutex);
 
   if (shutdownVar) return;
 
   for (;;) {
     // Run the taken task
-    setPriority(m_task->runningPriority());
+    setCurrentThreadPriority(m_task->runningPriority());
 
     try {
-      Q_EMIT m_task->started(m_task);
+      m_task->notifyStarted();
       sl.unlock();
 
       m_task->run();
 
-      sl.relock();
-      Q_EMIT m_task->finished(m_task);
+      sl.lock();
+      m_task->notifyFinished();
     } catch (...) {
-      sl.relock();  // throw must be in the run() block
-      Q_EMIT m_task->exception(m_task);
+      if (!sl.owns_lock()) sl.lock();  // throw must be in the run() block
+      m_task->notifyException();
     }
 
     updateCountsOnRelease();
@@ -608,11 +740,12 @@ void Worker::run() {
       onFinish();
 
       if (!m_exit && !shutdownVar) {
-        // Put the worker to sleep
-        m_waitCondition.wait(sl.mutex());
+        // Put the worker to sleep, until it is given a task (newWorker())
+        // or released (refreshDedicatedList()), which also takes it out of
+        // the sleeping list; a spurious wake-up sleeps again.
+        m_waitCondition.wait(sl, [this] { return m_task || m_exit; });
 
-        // Upon thread destruction the wait condition is implicitly woken up.
-        // If this is the case, m_task == 0 and we return.
+        // Released: m_task == 0 and we return.
         if (!m_task || shutdownVar) return;
       } else
         return;
@@ -643,6 +776,7 @@ inline void Worker::onFinish() {
       m_master->m_persistentThreads) {
     m_exit = false;
     m_master->m_sleepings.push_back(this);
+    m_sleepingIn = m_master.getPointer();
 
     // Unlock the mutex - since eventually invoked ~ExecutorId will relock it...
     globalImp->m_transitionMutex.unlock();
@@ -682,15 +816,10 @@ Executor::~Executor() { m_id->release(); }
 //! <li> No task processing is allowed after event processing stops.
 //! </ul>
 void Executor::init() {
-  // If no global ExecutorImp exists, allocate it now. You may not move this
-  // to a static declaration, since ExecutorImpSlots's connections must be
-  // made once the QCoreApplication has been constructed.
-  if (!globalImp) {
-    globalImp      = new ExecutorImp;
-    globalImpSlots = new ExecutorImpSlots;
-  }
-
-  qRegisterMetaType<TThread::RunnableP>("TThread::RunnableP");
+  // If no global ExecutorImp exists, allocate it now. (The workers no longer
+  // need the QCoreApplication since step 9c; the tasks' signals, delivered
+  // to the main thread, still do.)
+  if (!globalImp) globalImp = new ExecutorImp;
 }
 
 //---------------------------------------------------------------------
@@ -725,7 +854,7 @@ void Executor::init() {
 void Executor::shutdown() {
   {
     // Updating tasks list - lock against state transitions
-    QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+    std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
 
     shutdownVar = true;
 
@@ -734,31 +863,82 @@ void Executor::shutdown() {
     for (it = globalImp->m_workers.begin(); it != globalImp->m_workers.end();
          ++it) {
       RunnableP task = (*it)->m_task;
-      if (task) Q_EMIT task->canceled(task);
+      if (task) task->notifyCanceled();
     }
 
     // Finally, deal with the global queue tasks
-    QMutableMapIterator<int, RunnableP> jt(globalImp->m_tasks);
-    while (jt.hasNext()) {
-      jt.next();
-      RunnableP task = jt.value();
-      Q_EMIT task->canceled(task);
-      jt.remove();
+    auto &tasks = globalImp->m_tasks;
+    for (auto jt = tasks.begin(); jt != tasks.end();) {
+      RunnableP task = jt->second;
+      task->notifyCanceled();
+      jt = tasks.erase(jt);
     }
 
     // Now, send the terminate() signal to all active tasks
     for (it = globalImp->m_workers.begin(); it != globalImp->m_workers.end();
          ++it) {
       RunnableP task = (*it)->m_task;
-      if (task) Q_EMIT task->terminated(task);
+      if (task) task->notifyTerminated();
+    }
+
+    // Release the dedicated workers that sleep for their executor (they
+    // would sleep until it is destroyed): out of its list, and woken.
+    for (it = globalImp->m_workers.begin(); it != globalImp->m_workers.end();
+         ++it) {
+      Worker *worker = *it;
+      if (worker->m_task || !worker->m_sleepingIn) continue;
+      std::deque<Worker *> &sleepings = worker->m_sleepingIn->m_sleepings;
+      sleepings.erase(std::remove(sleepings.begin(), sleepings.end(), worker),
+                      sleepings.end());
+      worker->m_sleepingIn = 0;
+      worker->m_exit       = true;
+      worker->m_waitCondition.notify_one();
     }
   }
 
-  // Just placing a convenience processEvents() to make sure that queued slots
-  // invoked by the
-  // signals above are effectively invoked in this method - without having to
-  // return to an event loop.
-  QCoreApplication::processEvents();
+
+  // Wait for every worker thread to end (decision of 2026-11-20, step 9 of
+  // doc/nexttoonz_core_noqt.md): the running tasks were told to stop, and
+  // the program is about to exit. The wait goes through the main thread
+  // dispatcher, so that events (queued signals, sendBlocking() messages
+  // from the workers) are still processed meanwhile; a helper thread wakes
+  // it every 50 milliseconds. After 5 seconds it returns anyway, as it
+  // always did, with a line on standard error.
+  using Clock                     = std::chrono::steady_clock;
+  const Clock::time_point timeout = Clock::now() + std::chrono::seconds(5);
+  TMainThreadDispatcher *dispatcher = TThread::mainThreadDispatcher();
+  std::atomic<bool> waiting(true);
+  std::thread waker([&] {
+    while (waiting) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      if (waiting) dispatcher->post([] {});
+    }
+  });
+  // The queued slots of the signals above run here too, without a return to
+  // an event loop (it was a QCoreApplication::processEvents()): a marker
+  // posted now runs after them, and the wait lasts at least until then.
+  std::atomic<bool> drained(false);
+  dispatcher->post([&drained] { drained = true; });
+  dispatcher->waitUntil([&] {
+    return drained && (liveWorkerCount() == 0 || Clock::now() >= timeout);
+  });
+  waiting = false;
+  waker.join();
+  if (int left = liveWorkerCount())
+    std::fprintf(stderr,
+                 "NextToonz: TThread::shutdown() returns after 5 seconds with "
+                 "%d worker thread%s still running\n",
+                 left, left == 1 ? "" : "s");
+}
+
+//---------------------------------------------------------------------
+
+//! The worker threads that have been started and have not ended yet, sleeping
+//! ones included.
+int Executor::liveWorkerCount() {
+  if (!globalImp) return 0;
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
+  return globalImp->m_liveWorkers;
 }
 
 //---------------------------------------------------------------------
@@ -789,7 +969,7 @@ void Executor::shutdown() {
 //! </ul>
 
 void Executor::setDedicatedThreads(bool dedicated, bool persistent) {
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
 
   m_id->m_dedicatedThreads  = dedicated;
   m_id->m_persistentThreads = persistent;
@@ -807,17 +987,18 @@ void Executor::addTask(RunnableP task) {
       task->m_id->release();  // invoked ~ExecutorId will lock it
 
     // Updating tasks and workers list - lock against state transitions
-    QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+    std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
 
     task->m_id = m_id;
     m_id->addRef();
 
     globalImp->insertTask(task->schedulingPriority(), task);
-  }
 
-  // If addTask is called in the main thread, the emit works directly -
-  // so it is necessary to unlock the mutex *before* emitting the refresh.
-  globalImpSlots->emitRefreshAssignments();
+    // Workers are std::threads, which any thread may start: the assignments
+    // are refreshed here, in whatever thread adds the task (it was a signal,
+    // direct in the main thread and queued to it from the others).
+    globalImp->refreshAssignments();
+  }
 }
 
 //---------------------------------------------------------------------
@@ -833,12 +1014,12 @@ void Executor::removeTask(RunnableP task) {
   if (task->m_id != m_id) return;
 
   // Updating tasks list - lock against state transitions
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
 
   // Then, look in the global queue - if it is found, emiminate the task and
   // send the canceled signal.
-  if (globalImp->m_tasks.remove(task->m_schedulingPriority, task)) {
-    Q_EMIT task->canceled(task);
+  if (globalImp->removeTask(task->m_schedulingPriority, task)) {
+    task->notifyCanceled();
     return;
   }
 
@@ -846,7 +1027,7 @@ void Executor::removeTask(RunnableP task) {
   std::set<Worker *> &workers = globalImp->m_workers;
   std::set<Worker *>::iterator it;
   for (it = workers.begin(); it != workers.end(); ++it)
-    if (task && (*it)->m_task == task) Q_EMIT task->canceled(task);
+    if (task && (*it)->m_task == task) task->notifyCanceled();
 
   // No need to refresh - tasks were eventually decremented...
 }
@@ -859,7 +1040,7 @@ void Executor::removeTask(RunnableP task) {
 //! \sa \b Runnable::canceled signal and the \b removeTask method.
 void Executor::cancelAll() {
   // Updating tasks list - lock against state transitions
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
 
   // Clear the tasks chronologically. So, first check currently working
   // tasks.
@@ -867,20 +1048,20 @@ void Executor::cancelAll() {
   for (it = globalImp->m_workers.begin(); it != globalImp->m_workers.end();
        ++it) {
     RunnableP task = (*it)->m_task;
-    if (task && task->m_id == m_id) Q_EMIT task->canceled(task);
+    if (task && task->m_id == m_id) task->notifyCanceled();
   }
 
   // Finally, clear the global tasks list from all tasks inserted by this
   // executor
   // NOTE: An easier way here?
-  QMutableMapIterator<int, RunnableP> jt(globalImp->m_tasks);
-  while (jt.hasNext()) {
-    jt.next();
-    if (jt.value()->m_id == m_id) {
-      RunnableP task = jt.value();
-      Q_EMIT task->canceled(task);
-      jt.remove();
-    }
+  auto &tasks = globalImp->m_tasks;
+  for (auto jt = tasks.begin(); jt != tasks.end();) {
+    if (jt->second->m_id == m_id) {
+      RunnableP task = jt->second;
+      task->notifyCanceled();
+      jt = tasks.erase(jt);
+    } else
+      ++jt;
   }
 }
 
@@ -895,7 +1076,7 @@ void Executor::cancelAll() {
 //! added by the same Executor - even if they were scheduled for later
 //! execution.
 void Executor::setMaxActiveTasks(int maxActiveTasks) {
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
 
   if (maxActiveTasks <= 0)
     m_id->m_maxActiveTasks = (std::numeric_limits<int>::max)();
@@ -906,7 +1087,7 @@ void Executor::setMaxActiveTasks(int maxActiveTasks) {
 //---------------------------------------------------------------------
 
 int Executor::maxActiveTasks() const {
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
   return m_id->m_maxActiveTasks;
 }
 
@@ -915,7 +1096,7 @@ int Executor::maxActiveTasks() const {
 //! Declares a maximum overall task load for the tasks added by this Executor.
 //! \b NOTE: The same remark for setMaxActiveTasks() holds here.
 void Executor::setMaxActiveLoad(int maxActiveLoad) {
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
 
   m_id->m_maxActiveLoad = maxActiveLoad;
 }
@@ -923,40 +1104,11 @@ void Executor::setMaxActiveLoad(int maxActiveLoad) {
 //---------------------------------------------------------------------
 
 int Executor::maxActiveLoad() const {
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
   return m_id->m_maxActiveLoad;
 }
 
 //=====================================================================
-
-//==================================
-//     ExecutorImpSlots methods
-//----------------------------------
-
-ExecutorImpSlots::ExecutorImpSlots() {
-  connect(this, SIGNAL(refreshAssignments()), this,
-          SLOT(onRefreshAssignments()));
-}
-
-//---------------------------------------------------------------------
-
-ExecutorImpSlots::~ExecutorImpSlots() {}
-
-//---------------------------------------------------------------------
-
-void ExecutorImpSlots::emitRefreshAssignments() { Q_EMIT refreshAssignments(); }
-
-//---------------------------------------------------------------------
-
-void ExecutorImpSlots::onRefreshAssignments() {
-  QMutexLocker transitionLocker(&globalImp->m_transitionMutex);
-
-  globalImp->refreshAssignments();
-}
-
-//---------------------------------------------------------------------
-
-void ExecutorImpSlots::onTerminated() { delete QObject::sender(); }
 
 //=====================================================================
 //      Task adoption methods
@@ -968,14 +1120,13 @@ inline void ExecutorId::newWorker(RunnableP &task) {
   if (m_sleepings.size()) {
     worker = m_sleepings.front();
     m_sleepings.pop_front();
+    worker->m_sleepingIn = 0;
     worker->m_task = task;
     worker->updateCountsOnTake();
-    worker->m_waitCondition.wakeOne();
+    worker->m_waitCondition.notify_one();
   } else {
     worker = new Worker;
     globalImp->m_workers.insert(worker);
-    QObject::connect(worker, SIGNAL(finished()), globalImpSlots,
-                     SLOT(onTerminated()));
     worker->m_task = task;
     worker->updateCountsOnTake();
     worker->start();
@@ -1021,7 +1172,7 @@ void ExecutorImp::refreshAssignments() {
   // QMutexLocker transitionLocker(&globalImp->m_transitionMutex);  //Already
   // covered
 
-  if (m_tasks.isEmpty()) return;
+  if (m_tasks.empty()) return;
 
   // Erase the id vector data
   assert(m_executorIdPool.size() == m_waitingFlagsPool.size());
@@ -1031,12 +1182,19 @@ void ExecutorImp::refreshAssignments() {
   int e, executorsCount = m_executorIdPool.acquiredSize();
 
   int i, tasksCount = m_tasks.size();
-  QMultiMap<int, RunnableP>::iterator it;
-  for (i = 0, e = 0, it = m_tasks.end() - 1;
-       i < tasksCount && e < executorsCount; ++i, --it) {
+  // From the last task back, as the QMultiMap was. The step back is taken at
+  // the start of each pass, never from begin() or from the end() of a map
+  // that the erase below has emptied (QMultiMap let the loop do both; a
+  // std::multimap does not). After an erase, `it` is the task after the
+  // erased one, so the step back lands on the one before it.
+  std::multimap<int, RunnableP>::iterator it = m_tasks.end();
+  for (i = 0, e = 0; i < tasksCount && e < executorsCount &&
+                     it != m_tasks.begin();
+       ++i) {
+    --it;
     // std::cout<< "global tasks-refreshAss" << std::endl;
     // Take the task
-    RunnableP task = it.value();
+    RunnableP task = it->second;
     task->m_load   = task->taskLoad();
 
     UCHAR &idWaitingForAnotherTask = m_waitingFlagsPool[task->m_id->m_id];
@@ -1101,12 +1259,15 @@ inline void Worker::takeTask() {
   int e, executorsCount = executorIdPool.acquiredSize();
 
   int i, tasksCount = globalImp->m_tasks.size();
-  QMultiMap<int, RunnableP>::iterator it;
-  for (i = 0, e = 0, it = globalImp->m_tasks.end() - 1;
-       i < tasksCount && e < executorsCount; ++i, --it) {
+  // (stepping back as in ExecutorImp::refreshAssignments())
+  std::multimap<int, RunnableP>::iterator it = globalImp->m_tasks.end();
+  for (i = 0, e = 0; i < tasksCount && e < executorsCount &&
+                     it != globalImp->m_tasks.begin();
+       ++i) {
+    --it;
     // std::cout<< "global tasks-takeTask" << std::endl;
     // Take the first task
-    RunnableP task = it.value();
+    RunnableP task = it->second;
     task->m_load   = task->taskLoad();
 
     UCHAR &idWaitingForAnotherTask = waitingFlagsPool[task->m_id->m_id];
@@ -1117,8 +1278,9 @@ inline void Worker::takeTask() {
     // In case the worker was captured for dedication, check the task
     // compatibility.
     if (!canAdopt(task)) {
-      // some other worker may still take the task...
-      globalImpSlots->emitRefreshAssignments();
+      // some other worker may still take the task... (refreshed here and now:
+      // it was a signal queued to the main thread)
+      globalImp->refreshAssignments();
       break;
     }
 
@@ -1130,7 +1292,7 @@ inline void Worker::takeTask() {
       adoptTask(task);
       it = globalImp->m_tasks.erase(it);
 
-      globalImpSlots->emitRefreshAssignments();
+      globalImp->refreshAssignments();
       break;
     }
   }

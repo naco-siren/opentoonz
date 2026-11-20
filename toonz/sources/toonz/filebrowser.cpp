@@ -1,5 +1,6 @@
 
 
+#include "tthread_qt.h"
 #include "filebrowser.h"
 
 // Tnz6 includes
@@ -98,7 +99,7 @@ using namespace DVGui;
 //    FrameCountTask class
 //-----------------------------------------------------------------------------
 
-class FrameCountTask final : public TThread::Runnable {
+class FrameCountTask final : public TThread::QtRunnable {
   bool m_started;
 
   TFilePath m_path;
@@ -109,7 +110,7 @@ public:
   ~FrameCountTask();
 
   void run() override;
-  QThread::Priority runningPriority() override;
+  TThread::Priority runningPriority() override;
 
 public slots:
   void onStarted(TThread::RunnableP thisTask) override;
@@ -2363,8 +2364,8 @@ void FrameCountTask::run() {
 
 //-----------------------------------------------------------------------------
 
-QThread::Priority FrameCountTask::runningPriority() {
-  return QThread::LowPriority;
+TThread::Priority FrameCountTask::runningPriority() {
+  return TThread::LowPriority;
 }
 
 //-----------------------------------------------------------------------------

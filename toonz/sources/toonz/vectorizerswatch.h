@@ -8,6 +8,7 @@
 
 // Toonz includes
 #include "tthread.h"
+#include "tthread_qt.h"
 #include "timage.h"
 
 #include "toonz/tcenterlinevectorizer.h"
@@ -90,7 +91,7 @@ protected:
 //    VectorizationSwatchTask declaration   -   Private class
 //*****************************************************************************
 
-class VectorizationSwatchTask final : public TThread::Runnable {
+class VectorizationSwatchTask final : public TThread::QtRunnable {
   Q_OBJECT
 
   int m_row, m_col;

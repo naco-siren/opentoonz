@@ -8,7 +8,9 @@
 #include "tconvert.h"
 #include "tsystem_qtsemantics.h"
 
+#include <chrono>
 #include <set>
+#include <thread>
 
 #include <QDateTime>
 #include <QStringList>
@@ -146,17 +148,12 @@ TFilePath TSystem::getUniqueFileW(const std::wstring &wfield) {
   return TFilePath(path.toStdString());
 }
 
-class LocalThread final : public QThread {
-public:
-  static LocalThread *currentThread() {
-    QThread *current = QThread::currentThread();
-    return dynamic_cast<LocalThread *>(current);  // Safer cast
-  }
-  void sleep(TINT64 delay) { msleep(static_cast<unsigned long>(delay)); }
-};
-
+// As on the other platforms (tsystem.cpp). It went through
+// dynamic_cast<LocalThread *>(QThread::currentThread()), null on every thread
+// that is not a LocalThread, and called QThread::msleep on that: it worked
+// only because msleep is static (known issue 35).
 void TSystem::sleep(TINT64 delay) {
-  LocalThread::currentThread()->sleep(delay);
+  std::this_thread::sleep_for(std::chrono::milliseconds(delay));
 }
 
 int TSystem::getProcessorCount() { return QThread::idealThreadCount(); }

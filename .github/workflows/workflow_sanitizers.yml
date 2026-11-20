@@ -126,9 +126,10 @@ jobs:
       # tcomposer (with the lzo helpers it spawns for tlv levels) renders the
       # golden scenes; the GUI executable is not needed. Every test target
       # ctest knows of has to be built: an unbuilt one is a failing
-      # <target>_NOT_BUILT test.
+      # <target>_NOT_BUILT test. A new test target goes here and in
+      # tools/vm/env.sh (NT_TARGETS).
       run: |
-        targets="nexttoonz_core_tests nexttoonz_toonzlib_tests nexttoonz_canvas_tests nexttoonz_canvas_skia_tests tcomposer lzocompress lzodecompress"
+        targets="nexttoonz_core_tests nexttoonz_toonzlib_tests nexttoonz_thread_tests nexttoonz_canvas_tests nexttoonz_canvas_skia_tests tcomposer lzocompress lzodecompress"
         echo "Building: $targets"
         ccache -z
         ninja -k 0 $targets

@@ -473,6 +473,61 @@ It reports nothing; any report is a new race (known issue 33 lists the ones
 it found and that were fixed). The checksums of the vector tests are the
 same in this Debug build.
 
+The build with Qt has a ThreadSanitizer variant too, for the threading of
+step 9 (doc/nexttoonz_core_noqt.md, 8.18): the core and toonzlib tests, and
+tcomposer rendering scenes in several threads. It lives in the checkout's
+`build/tsan-qt` (doc/nexttoonz_layout.md, 4.8). Configure it with the
+options of the ordinary build plus the sanitizer:
+
+```
+cmake -S toonz/sources -B build/tsan-qt -G Ninja \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_CXX_FLAGS="-DGL_SILENCE_DEPRECATION -fsanitize=thread -g" \
+    -DCMAKE_C_FLAGS="-fsanitize=thread -g" \
+    -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread \
+    -DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=thread \
+    -DCMAKE_MODULE_LINKER_FLAGS=-fsanitize=thread \
+    <the -D options of the ordinary build: Qt, OpenCV, Boost, Skia>
+ninja -C build/tsan-qt tcomposer nexttoonz_core_tests nexttoonz_toonzlib_tests \
+    nexttoonz_thread_tests
+SUPP=$PWD/toonz/sources/tests/tsan_qt.supp
+TSAN_OPTIONS="halt_on_error=1 suppressions=$SUPP" ./build/tsan-qt/tests/nexttoonz_core_tests
+TSAN_OPTIONS="halt_on_error=1 suppressions=$SUPP" ./build/tsan-qt/tests/thread/nexttoonz_thread_tests
+(cd build/tsan-qt/tests/toonzlib && TSAN_OPTIONS="halt_on_error=1 suppressions=$SUPP" ./nexttoonz_toonzlib_tests)
+```
+
+The test binaries report nothing. tcomposer is not in an application bundle
+here and loads its libraries from beside itself (`@executable_path`): copy it
+and the build's `*.dylib` into one folder first (run from the build folder
+it cannot find them, and dyld aborts).
+
+On macOS, ThreadSanitizer ends a run that reported anything with `abort()`
+(`abort_on_error=1` is its default there, unlike Linux), and every abort
+leaves a crash report in `~/Library/Logs/DiagnosticReports` and may put up
+the crash dialog: one pass over the reference scenes left 28 of them. So
+always pass `abort_on_error=0` (and `exitcode=0` if a script should not
+treat the reports as failures), with `log_path=<dir>/tsan` to keep each
+process's reports in a file instead of on standard error:
+
+```
+TSAN_OPTIONS="halt_on_error=0 abort_on_error=0 exitcode=0 log_path=/tmp/tsan" \
+    <folder>/tcomposer <scene>.tnz -o <out>.png -nthreads 8 -TOONZROOT <stuff>
+```
+
+ThreadSanitizer does not see the locking of Qt, which is not instrumented:
+data under a `QMutex` or handed over through `QWaitCondition` or `QThread`
+shows up as races that are probably not (section 8.19 of
+doc/nexttoonz_core_noqt.md). Data under `TThread::Mutex` or a C++ library
+lock is seen correctly.
+
+Pass `suppressions=<checkout>/toonz/sources/tests/tsan_qt.supp` too. It
+holds what is Qt's own synchronization only (a queued signal's arguments,
+copied by the emitting thread and read by the receiving one), each with a
+comment; a race in our code is fixed or recorded as a known issue, never
+suppressed. With it the thread tests report nothing; renders still report
+old races in the render code (known issues 38 to 43), and anything else is
+new.
+
 ## Checksum tables of the vector tests
 
 `core/test_vector_noqt.cpp` compares what it computes, writes and draws

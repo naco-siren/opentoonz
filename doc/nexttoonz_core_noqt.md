@@ -269,17 +269,17 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 7（已完成，8.9 节） | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名、枚举项改成核心产生 `TTranslatableText`、界面翻译（Q2）；`TPalette` 第一页名字经窄的数据翻译服务；`tvectorimage.h` 的 `QSet` | `ttranslatabletext.cpp`；矢量图和样式的 16 个源文件从此编译时碰不到 Qt 的头，但链接要等第 8 步 | 每个注册样式的描述、参数名、枚举项在 11 种语言下经 Qt 翻译后与改动前逐字相同（导出对照）；lupdate 前后产出的 .ts 相同 |
 | 8（已完成，8.10 到 8.15 节） | 开头先清矢量图和样式里不带 GL 的 Qt（第 7 步之后剩下的）：`tpalette.cpp` 的帧号区间解析与 `QString::number(…, 'g', 17)`、`toDouble`，`tsimplecolorstyles.cpp` 的 `QDir::match`、`sourceFilters`、`QMutexLocker`，`tl2lautocloser.cpp`、`tsegmentadjuster.cpp` 的 `qDebug`；然后 tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzlib、tnzext、tnzstdfx、toonzqt、tnztools、toonz 和要画 GL 的几个程序链接它，也由它链接 `tnzglcanvas`；8c 的做成的样子有列表）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`）；矢量图和样式（第 7 步留下的 16 个源文件和 `tpalette`、`tsimplecolorstyles`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收；`.tpl` 里的数字与 Qt 逐字节相同（大量随机 double 和边界值的差分测试），帧号区间解析与旧代码差分对照，`QDir::match` 的通配规则照 Qt 5.15 对照 |
 | 9 | 线程：`TThread::Executor`/`Runnable` 换成线程池，`TThread::Message` 换成派发器，`QThreadStorage`、`QReadWriteLock`、`QWaitCondition` 换成 std（8d-0 已做一部分：`timagecache.cpp` 的 `QThreadStorage` 和互斥锁）；toonzqt 加 Runnable 的 Qt 适配和 Qt 派发器 | `tthread.cpp`、`threadmessage.cpp`、`timagecache.cpp`… | golden 用 `-nthreads 1` 和 `-nthreads 8` 各渲一遍，与改动前逐字节相同；线程池的单测在 ThreadSanitizer 下跑；应用里人工验收（预览、渲染进度、取消） |
-| 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`tundo.h` 的 `TUndoManager` 去 QObject；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
+| 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir；stdfx 的线程原语（第 9 步的决定 Q9-B）：`particlesmanager`、`iwa_particlesmanager` 的 `QThreadStorage`，`iwa_bokehfx`、`iwa_bokehreffx`、`iwa_bokeh_advancedfx`、`iwa_bokeh_util`、`iwa_glarefx` 的 `QReadWriteLock`，`iwa_flowblurfx`、`iwa_tangentflowfx` 的 `QtConcurrent`；第 9b 步在 ThreadSanitizer 下找到的老竞争：**第 41 条（动画调色板的当前帧，高优先级：迄今最可能影响用户输出的老问题，先做）**、第 39 条（`TStageObject` 的位置缓存）、第 42 条里 stdfx 的 bokeh（多半是误报，换掉 `QThread`、`QWaitCondition` 以后复核；第 40 条和 `ParticlesManager` 已在第 9 步复核为误报） | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
 | 11 | 引擎 API 第一版（第 9 节），tcomposer 改用它 | | tcomposer 的全部 golden 与改动前逐字节相同 |
-| 12 | tnzext：`plasticskeleton` 的骨骼名、`ttexturesstorage` 的 QCache 与 QString 键、`meshtexturizer` 的 QReadWriteLock；它们的 GL 部分移到 `tnzglview`（Q1） | tnzext 全部 | `plastic_basic` 的 golden；plastic 场景的读写 round-trip |
+| 12 | tnzext：`plasticskeleton` 的骨骼名、`ttexturesstorage` 的 QCache 与 QString 键、`meshtexturizer` 的 QReadWriteLock；它们的 GL 部分移到 `tnzglview`（Q1）；Plastic 求解时 SuperLU 里的竞争（已知问题第 43 条） | tnzext 全部 | `plastic_basic` 的 golden；plastic 场景的读写 round-trip |
 | 13 | 外部进程：LZO 直接链接（8d-0 已做一部分：LZO 经注入的服务，桌面默认仍是外部进程，这一步接上链接库的实现；image 库的 pli 读写器在 8d 本体里已进无 Qt 构建）；ffmpeg 换成编解码服务接口（桌面实现仍是外部进程）；删除 `t32bitsrv`、mov/3gp 代理、QuickTime、`tipc`；`TMsgCore` 移到应用一侧；`tsound_qt` 换成声音输出服务 | sound 全部；image 的格式框架 | tlv、tzl 写出的字节与改动前相同（新写的 round-trip 测试）；含 tlv 的 golden；D10 第 2 条在核心里满足 |
 | 14 | image 的其余：sprite 的 QImage、psd 的 QTextCodec、`Preferences` 的 3 处 | image 全部 | 各格式的读写测试（`test_level_formats.cpp` 加 psd、sprite） |
 | 15 | `Preferences` 换成注入的键值存储（Q4），桌面实现放进 toonzqt、文件格式不变 | `preferences.cpp` 移出或变薄 | 用改动前的构建写一份 preferences.ini，新构建读进再写出，逐字节相同 |
-| 16 | Handle 的信号换成观察者回调，toonzqt 配 Qt 适配器 | 9 个 Handle、`PaletteController` | toonzlib 的单测加 Handle 通知的测试；应用里人工验收（切换场景、帧、列、调色板） |
-| 17 | 其余 QObject 模型类去 QObject；`QMessageBox`、光标改成回调；`orientation.cpp` 移到 toonzqt；toonzlib 的 viewer 一侧 GL（`Stage::RasterPainter` 的 GL 分支、`OpenGlPainter`、`ImagePainter`、第二个 `renderFrame`）移到 `tnzglview`（Q1） | toonzlib 的大部分 | 同第 16 步 |
+| 16 | Handle 的信号换成观察者回调，toonzqt 配 Qt 适配器；`tundo.h` 的 `TUndoManager` 去 QObject（第 10 步盘点后挪过来，Q10-B） | 9 个 Handle、`PaletteController` | toonzlib 的单测加 Handle 通知的测试；应用里人工验收（切换场景、帧、列、调色板） |
+| 17 | 其余 QObject 模型类去 QObject；`QMessageBox`、光标改成回调；`orientation.cpp` 移到 toonzqt；toonzlib 的 viewer 一侧 GL（`Stage::RasterPainter` 的 GL 分支、`OpenGlPainter`、`ImagePainter`、第二个 `renderFrame`）移到 `tnzglview`（Q1）；toonzlib 的线程原语（第 9 步的决定 Q9-B）：`stage.cpp`、`stagevisitor.cpp` 的 `QThreadStorage`，`imagemanager` 的 `QReadWriteLock`（`scriptengine` 的 `QWaitCondition` 随第 19 步的脚本库） | toonzlib 的大部分 | 同第 16 步 |
 | 18 | 文字与字体：`tfont_qt`、toonzlib 里写字的 QPainter、stdfx 的文字特效改成注入的文字服务（Q5），桌面实现仍用 Qt | 剩下的 toonzlib、stdfx 的文字特效 | 字体场景（`fx_sweep_font_*`，只在 Linux 上比较）和片头板在新旧构建下逐字节相同 |
 | 19 | QtScript 绑定移出成单独的可选库（Q7 之外的 Q3） | toonzlib 全部 | 脚本控制台的测试（新写：跑一段脚本加载场景、栅格化） |
-| 20 | 收口：核心库的默认目标不链接 Qt；`<库>_NOQT_SOURCES` 删掉；无 Qt 的 CI job 改为阻塞，核心库不链接桌面 GL，全部核心单测在 iPad 模拟器里通过（Q1） | 全部 | Phase 2 的完成判据（第 4 节） |
+| 20 | 收口：核心库的默认目标不链接 Qt；`<库>_NOQT_SOURCES` 删掉；无 Qt 的 CI job 改为阻塞，核心库不链接桌面 GL，全部核心单测在 iPad 模拟器里通过（Q1）；Qt 的派发器和 `TThread::QtRunnable`（第 9 步放在 tnzcore 的 `*_qt.cpp` 里，Q9-A）搬出 tnzcore，放进界面一侧的适配库 | 全部 | Phase 2 的完成判据（第 4 节） |
 | 21 | 界面里的编辑命令搬进库、配 characterization 测试；插件宿主的渲染适配器搬到核心。按 Q7 只做 iPad MVP 需要的命令（cell、column、level 的基本编辑），其余放到 Phase 3 | | 命令的单测；应用里人工验收 |
 
 几点说明：
@@ -1038,6 +1038,231 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 - 测试多了一个开关 `NEXTTOONZ_HASHES_FILE=<文件>`：每个测试把它的校验和按表的格式追加进这个文件。macOS 的 workflow 在测试失败时把它作为产物上传，以后新平台的表可以直接从 CI 拿。说明在 `tests/README.md` 里。
 - iPad 模拟器在 Apple 芯片的 Mac 上（arm64）会用到 arm64 的表，但那里用的是 iOS 的 Skia 包，没有验证过。CI 的 iPad 作业在 Intel 运行器上，用 x86_64 的表。
 
+### 8.17 第 9a 步实际做成的样子（2026-11-20）
+
+tnzcore 里三处线程相关的小地方换成标准库，线程行为不变。
+
+- **`TThread::isMainThread()`**（`threadmessage.cpp`）：以前比较 `QThread::currentThread()` 和静态初始化时记下的那一个，现在比较 `std::this_thread::get_id()` 和静态初始化时记下的 id。主线程照旧是运行静态初始化的那个线程。原来那个导出的全局变量 `MainThread` 树里没有别人用，去掉了。
+- **`TSystem::sleep`**（Windows）：macOS 和 Linux 从第 6a 步起已经用 `std::this_thread::sleep_for`（`tsystem.cpp`）。Windows 上它还在 `tsystem_qt.cpp` 里，经一个永远是空指针的 `dynamic_cast` 调用 `QThread::msleep`（已知问题第 35 条），现在也改用 `sleep_for`。盘点时以为三个平台都是这样，实际只有 Windows。`getProcessorCount` 在 macOS 和 Linux 上也早就不用 Qt 了；Windows 上照旧是 `QThread::idealThreadCount()`，这一步不动它。
+- **`TMetaImage` 的读写锁**（`tmetaimage.h`，公共头）：`QReadWriteLock` 换成 `std::shared_mutex`。`Reader` 和 `Writer` 原来是 `QReadLocker` 和 `QWriteLocker` 的子类，现在各自持有一个 `std::shared_lock` 和 `std::unique_lock`，构造时上锁、析构时解锁。锁是第一个成员，所以照旧先上锁、再复制对象列表。树里没有人调它们继承来的 `unlock()`、`relock()`，接口上的差别不影响调用者。两者都不可重入，与 `QReadWriteLock` 的默认模式相同。
+  - 有一个差别：有写者在等时，新来的读者等不等。Qt 和 macOS 的 libc++ 都让新读者等，写者不会饿死；Linux 上 libstdc++ 的 `shared_mutex` 用 pthread 的读写锁，默认读者优先。这只在争用下影响谁先拿到锁，不影响结果。用它的是助手工具和 tzm 读写器，争用很少。
+
+**新测试**（`tests/core/test_tthreadmain.cpp`，Qt 构建的核心测试）：主线程判断（主线程是、`std::thread` 里不是）；`TMetaImage` 两个读者可以同时持有；读者持有时写者等待；写者持有时读者等待。
+
+**结果（x86_64 macOS）。** 全部测试 531 个通过（新加 4 个）；28 个场景各用 `-nthreads 1` 和 `8` 渲染，554 帧与改动前（`37fdccdcc` 的应用包）逐字节相同；无 Qt 构建三道检查通过，167 个测试，iPad 模拟器里 78 个。
+
+**结果（Linux 虚拟机）。** 全部目标编译通过；504 个测试里 503 个通过，失败的仍是只在虚拟机里失败的 `golden_fx_sweep_font_a`；GL 画布 32 个、无 Qt 构建 167 个通过。
+
+### 8.18 第 9b 步实际做成的样子（2026-11-20）
+
+**派发器。** `tthreadmessage.h`（本来就不带 Qt）里加了接口 `TMainThreadDispatcher`，有三个方法：
+- `post(task)`：以后在主线程上执行，同一个线程投递的按顺序执行；
+- `isMainThread()`；
+- `waitUntil(done)`：在主线程上等到 `done()` 成立，等的时候照样执行投递来的工作，Qt 的实现里还处理所有事件。
+
+`TThread::setMainThreadDispatcher` 安装，`TThread::mainThreadDispatcher()` 取。没有安装时用内置的那个：工作在投递的线程上立刻执行；它的 `waitUntil` 在每次执行完投递的工作后醒来，另外每 5 毫秒再看一次。
+
+**`TThread::Message` 经派发器投递。** 行为不变：
+- 在主线程上 `send()` 和 `sendBlocking()` 立刻执行 `onDeliver()`；
+- 别的线程上 `send()` 投递一个副本，在主线程上执行完删掉；
+- `sendBlocking()` 投递以后等到执行完才返回（`onDeliver()` 抛异常时也放发送方走，异常照旧在主线程上抛出）。
+
+`threadmessage.cpp` 不再带 Qt，进了无 Qt 构建（tnzcore 不用 Qt 的源文件 78 个），它的测试也在 iPad 模拟器里跑。
+
+**Qt 的派发器**（Q9-A，`threadmessage_qt.cpp`，只在 Qt 构建里编，第 20 步搬出 tnzcore）：
+- 还是 `tthreadp.h` 里的 `TThreadMessageDispatcher` 那个 QObject，现在实现上面的接口。`TThread::init()` 照旧在主线程上建它，并装为派发器。
+- `post` 是 `QMetaObject::invokeMethod(this, task, Qt::QueuedConnection)`，在主线程的事件队列里放一个 `QMetaCallEvent`，与原来的排队信号是同一种事件，排在已有事件之后。
+- `sendBlocking` 等投递完，等价于原来的 `Qt::BlockingQueuedConnection`。
+- `waitUntil` 照 `TRenderer` 今天的写法：`processEvents(AllEvents | WaitForMoreEvents)`，直到条件成立。条件变真时必须有事件把它叫醒，投递一个空任务就行。`TRenderer` 改用它在第 10 步。
+
+**与原来不同的一处。** 不调 `TThread::init()` 的程序（tconverter、tcleanup、单测）原来根本没有派发器：在别的线程上 `send()` 会碰到空指针。现在落到内置的那个，在发送的线程上立刻执行。这一条写进了发布说明（`doc/nexttoonz_phase2_release_note.md` 的"行为的变化"）。
+
+**新测试。**
+- `test_tthreaddispatcher.cpp`，两种构建和 iPad 都跑，6 个：
+  - 没有派发器时在投递的线程上立刻执行；
+  - 主线程上立刻送达，不经派发器；
+  - 8 个线程各发 200 条，在主线程上按各自的顺序送达，每个副本都删掉了；
+  - `sendBlocking` 在主线程送达之前不返回；
+  - 内置派发器的 `waitUntil` 被投递的工作叫醒。
+- `test_tthreaddispatcher_qt.cpp`，Qt 构建，4 个：
+  - 用真的 Qt 派发器，自己建 `QCoreApplication`，用完删掉，`TSystemNoQCoreApplication` 仍然看不到它；
+  - 事件循环跑之前没有送达，跑之后按各发送方的顺序送达；
+  - 投递的工作排在已有事件之后；
+  - `sendBlocking` 加上 `waitUntil`；
+  - `TThread::init()` 装上的是 Qt 派发器。
+
+**ThreadSanitizer（Q9-D）。** 本地的 Qt 加 TSan 构建在检出根下的 `build/tsan-qt/`（RelWithDebInfo，`-fsanitize=thread`；`tests/README.md` 的 Sanitizers 一节写了怎么建、怎么跑）。
+- Qt 构建的核心测试 240 个、toonzlib 测试 147 个在 TSan 下全过，没有报告。
+- tcomposer 用 `-nthreads 8` 渲 28 个场景，报告全在我们自己的老代码里。没有一个落在派发器或 `TThread::Message` 上，也没有一个在 Qt 内部，所以不需要 Qt 的 suppressions 文件。
+- 37 对冲突的位置，照所有者的原则处理：
+  - **修了**（只加锁或改 `std::atomic`，单线程行为逐字节不变，单独一个提交）：
+    - `MovieRenderer::Imp::saveFrame` 在放开互斥锁以后读 `m_toBeAppliedGamma[frame]`，别的线程同时在锁里往这张表里插（已知问题第 36 条）；
+    - stdfx 的 `ino::log_enable_sw` 的两个静态开关（第 37 条）。
+  - **只影响剖析的**：`TStopWatch::global` 的计时器，几个渲染线程同时 start、stop。标志和时间字段都在竞争，不是一行 atomic 能修的，记为第 38 条，不加抑制。
+  - **要改结构或语义不确定的**，记为已知问题，列进第 10 步，第 9 步不动：
+    - `TStageObject` 的位置缓存：`getPlacement`、`computeLocalPlacement`、`invalidate`，以及其中 `TAffine` 的复制，次数最多，第 39 条；
+    - fx 缓存：`ResourceBuilder::build`、`TPredictiveCacheManager`、`TCacheResource`，第 40 条；
+    - 动画调色板的当前帧：`TPalette::getFrame`/`setFrame` 和 `TLevelColumnFx::applyTzpFxs`，第 41 条；
+    - stdfx 的 bokeh 线程和 `ParticlesManager::data`，第 42 条；
+    - Plastic 的 SuperLU 求解（`dpanel_bmod`、`dcolumn_dfs`），第 43 条。
+  - **线程池自己的**：`ExecutorImp::refreshAssignments` 对 `Worker::takeTask`，第 44 条。由 9c 处理，它重写的正是这段，characterization 测试先钉住。
+- `toonz_raster_basic` 在 TSan 下 40 分钟没渲完，超时，不是报错。
+- 修了两处以后重渲：这两对冲突不再出现，也没有新的冲突对出现（37 对变成 34 对，少的第三对是线程池那一对，它是偶发的，只在第一轮里出现过一次）；554 帧在 1 和 8 个线程下与改动前逐字节相同，541 个测试、无 Qt 173 个、iPad 84 个都通过。
+
+**结果（x86_64 macOS）。** 全部测试 541 个通过（新加 10 个）；28 个场景 × `-nthreads` 1 和 8，554 帧与改动前（`37fdccdcc`）逐字节相同；无 Qt 构建三道检查通过，173 个测试，iPad 模拟器里 84 个。
+
+**结果（Linux 虚拟机，含上面两处竞争的修复）。** 全部目标编译通过；514 个测试里 513 个通过，失败的仍是 `golden_fx_sweep_font_a`；GL 画布 32 个、无 Qt 构建 173 个通过。
+
+### 8.19 第 9c 步之前：线程池的 characterization 测试（2026-11-20）
+
+照决定，9c 动手之前先把线程池今天的行为钉住，在旧实现（Qt 的 `QThread`、`QWaitCondition`、`QMutex`）上跑通，单独提交。测试是一个独立的程序 `tests/thread/`（`nexttoonz_thread_tests`，标签 `thread`）：它的 `main` 自己建 `QCoreApplication` 并调 `TThread::init()`；`Executor::shutdown()` 对整个进程有效，那条测试排在最后，ctest 下每条测试各在自己的进程里跑。
+
+12 条测试，钉住的是：
+- 同一个执行器的任务按调度优先级执行，同优先级的按加入顺序；默认一次只跑一个（`maxActiveTasks` 为 1）；
+- `setMaxActiveTasks(2)` 时同时最多两个；非正数表示不限；
+- `setMaxActiveLoad(100)` 时，负载 60 的任务同时只跑一个，负载 50 的同时跑两个；
+- `removeTask`：排队的任务立刻在调用线程上收到 canceled，从队列里拿掉、不会执行；正在跑的只收到 canceled，照样跑完；别的执行器的任务不受影响；
+- `cancelAll`：先给正在跑的发 canceled，再按队列的存放顺序给排队的发（同优先级的后加入的在前），都在调用线程上；别的执行器的任务不受影响；
+- 专用的常驻线程：任务做完以后线程睡着等，下一个任务还是它来做；别的执行器的任务不会交给它；
+- started、finished 在工作线程上、紧挨着 `run()` 前后发出；任务自己的槽（排队连接）在主线程上收到；
+- `run()` 抛异常时发 exception，不发 finished，exception 在 finished 应该出现的位置发出；执行器接着做下一个任务；
+- `runningPriority()`：工作线程的调度策略和优先级，与 `QThread::setPriority()` 在线程里设出来的完全相同。macOS 上 7 个级别分别是 SCHED_OTHER 的 15、20、25、31、36、41、47（Q9-C：9c 照这张映射做，测试用 Qt 自己设的值作参照，所以 9c 之后照样有效）；
+- `shutdown()`：先给正在跑的发 canceled，再给排队的发 canceled（同优先级的后加入的在前）、不再执行它们，最后给正在跑的发 terminated，都在调用线程上；正在跑的不被打断，跑完照样发 finished。
+
+**测试先查出一个崩溃**（已知问题第 45 条，已修复，单独一个提交）：专用常驻线程在它的执行器析构以后退出时，没有从线程池的工作线程表里删掉自己。之后任何执行器的 `cancelAll()`、`removeTask()`，以及 `shutdown()`，都会读到已经释放的内存。应用里样本查看器和图标生成器用专用线程，关掉一个样本查看器面板以后，取消图标、渲染时，以及退出时，都可能崩溃。修法是线程退出前在它本来就持有的互斥锁里把自己从表里删掉。专门的测试在修之前 8 次崩 5 次，修之后 0 次。
+
+**结果。** 修了第 45 条之后，整个程序连跑 40 次全过，ctest 下 12 条都过，TSan 构建下也都过。
+
+**TSan 看不见 `QMutex`。** 旧线程池在 TSan 下报了 64 次，几乎全在 `tthread.cpp`，访问的都是在过渡互斥锁里的数据。过渡互斥锁是 `QMutex`，Qt 没有插桩，TSan 看不见它的加锁，所以这些多半是误报。这是 9c 的基线：9c 换成 `std::mutex` 以后，TSan 就能判断线程池了。
+
+由此回头看 8.18 节记的老竞争：
+- 第 40 条（fx 缓存）、第 42 条里 `ParticlesManager::data` 的那一处、第 44 条（线程池）的数据都在 `QMutex` 里，多半是误报，已在已知问题里注明；
+- bokeh 的线程靠 `QThread` 和 `QWaitCondition` 交接数据，也一样；
+- 其余几条或者在 `TThread::Mutex`（标准库的锁，TSan 看得见）里，或者根本没有锁，是真的：第 36 到 39 条、第 41 条、第 43 条。
+
+### 8.20 第 9c 步实际做成的样子（2026-11-20）
+
+线程池（`tthread.cpp`）的内部换成标准库。`Runnable` 仍是 QObject，信号、槽和 `runningPriority()` 返回 `QThread::Priority` 都不变，自己的枚举放到 9d。8.19 节的 characterization 测试一字未改，全部通过。
+
+**换了什么。**
+- **工作线程**：`QThread` 换成脱离的 `std::thread`。它从 `run()` 返回以后，在过渡互斥锁里把自己从工作线程表里删掉，再在锁外删掉自己（这时可能放掉任务和 `ExecutorId` 的最后一个引用，而 `ExecutorId` 的析构要加锁）。以前是 `QThread` 的 finished 信号排队到主线程，由 `onTerminated()` 删。第 45 条的修法因此推广到了所有退出路径。
+- **过渡互斥锁**：`QMutex` 换成 `std::mutex`。工作线程睡眠用的 `QWaitCondition` 换成 `std::condition_variable`，等待改成带条件的循环（有任务或被放走才醒），虚假唤醒不会让线程提前退出。以前的 `QWaitCondition` 没有这层保护。
+- **任务队列**：`QMultiMap` 换成 `std::multimap`。插入时放在同优先级已有任务的前面，与 `QMultiMap::insert()` 相同，所以正向、反向遍历的顺序都没变；cancelAll 的顺序测试钉住了这一点。`QMultiMap::remove(key, value)` 照原义实现。
+- **`ExecutorImpSlots` 去掉了**：它是为了让线程在主线程上创建（`QThread` 的规矩），把"重新分配任务"做成一个信号，主线程上直接执行，别的线程上排队到主线程。`std::thread` 在哪个线程上都能创建，现在 `addTask()`、`takeTask()` 在当时所在的线程上、在锁里直接重新分配。新的工作线程因此起得早一些（不用等主线程处理事件），任务的顺序和结果不变。`Executor::init()` 不再需要 `QCoreApplication`，但任务的信号要投递到主线程，仍然需要。
+- **线程优先级**（Q9-C）：`setCurrentThreadPriority()` 照 Qt 5.15 的 `QThread::setPriority()` 做，映射表写在代码注释里。
+  - macOS 和 Linux：保留线程原来的调度策略，按 `(优先级 - 最低) × (max - min) / TimeCritical + min` 缩放到该策略的范围。有 `SCHED_IDLE` 的系统（Linux）上，最低档是 `LowestPriority`，`IdlePriority` 直接设成 `SCHED_IDLE`，失败时退到最低优先级。
+  - macOS 上 `SCHED_OTHER` 的 7 档是 15、20、25、31、36、41、47。
+  - Windows：`SetThreadPriority`，7 档对应 `THREAD_PRIORITY_IDLE` 到 `_TIME_CRITICAL`（只编过，没有在 Windows 上跑）。
+
+**ThreadSanitizer。** 线程池的锁换成标准库以后，TSan 能判断它了。
+- 线程池的测试：改之前 64 次报告，改之后 2 次。这 2 次是 Qt 排队信号的参数交接：发信号的线程复制参数，收的线程读，中间由 Qt 的事件队列和它的 `QMutex` 排序，TSan 看不见。按 Q9-D 记进新的 `tests/tsan_qt.supp`（与 `lsan.supp` 并列，带注释，只放 Qt 内部的同步）；加上它以后是 0 次。
+- Qt 构建的核心测试 240 个、toonzlib 测试 147 个：0 次。
+- tcomposer `-nthreads 8` 渲 28 个场景：`tthread.cpp` 里 0 次。其余的报告对数与 9c 之前相同，都是已经记下的老问题（第 38、39、41、43 条；不同轮次采样到的行号对有出入）。
+- 第 44 条（线程池的 `refreshAssignments` 对 `takeTask`）因此判为"TSan 复核后不成立"：那是旧的 `QMutex` 造成的误报。
+- 第 40 条和第 42 条里的锁不在第 9 步的范围内（tnzbase、stdfx，第 10 步），用一次不提交的实验复核：只在 TSan 构建里，把 fx 缓存（`TFxCacheManager::Imp`、`TPredictiveCacheManager::Imp`、`TCacheResource`）和 `ParticlesManager` 的 `QMutex` 换成 `std::mutex`、`QMutexLocker` 换成 `std::unique_lock`，28 个场景 8 线程重渲。
+  - 这些位置的报告一对都没有了：第 40 条和第 42 条里 `ParticlesManager` 的那一处也判为"TSan 复核后不成立"。
+  - 改动随即从提交里还原。
+  - 第 42 条的 bokeh 靠 `QThread` 和 `QWaitCondition` 交接，换起来要改结构，仍记为"多半是误报，未复核"，等第 10 步。
+  - 真的老竞争剩下第 38、39、41、43 条。
+
+**结果（x86_64 macOS）。** 全部测试 553 个通过；characterization 测试整个程序连跑 40 次全过；28 个场景 × `-nthreads` 1 和 8，554 帧与改动前（`37fdccdcc`）逐字节相同；无 Qt 构建三道检查通过，173 个测试，iPad 模拟器里 84 个（`tthread.cpp` 进无 Qt 构建在 9d）。
+
+**结果（Linux 虚拟机，ASan、UBSan、LSan）。** 第一次在虚拟机里跑时，41 个测试失败：线程池的测试，以及每个 golden 场景（tcomposer）。都是 `refreshAssignments` 里的同一个段错误。原来的循环从队尾往前走，把 `--it` 写在 for 的递增部分，所以最后一次在条件检查之前执行。队列被刚才的 erase 删空时，这是对空 map 的 `end()` 做 `--`；走到头时，是对 `begin()` 做 `--`。`QMultiMap` 容得下这两种情况，`std::multimap` 是未定义行为：macOS 的 libc++ 碰巧没事，Linux 的 libstdc++ 崩了。`takeTask` 里也有同样的写法。改成在每一轮开头往前走一步，并以 `it != begin()` 为条件，访问的顺序不变。改了以后：全部目标编译通过；526 个测试里 525 个通过，失败的仍是 `golden_fx_sweep_font_a`，线程池的 12 条测试都过；GL 画布 32 个、无 Qt 构建 173 个通过。macOS 上重跑 553 个测试、554 帧和 TSan 下的线程池测试，结果同上。
+
+### 8.21 第 9c 步之后：`shutdown()` 等工作线程退出（2026-11-20）
+
+照第 10 节的决定：
+- **计数**：线程池在过渡互斥锁里数活着的工作线程。线程启动时加一；退出时先从工作线程表里删掉自己、再删掉自己，最后才减一。所以计数为 0 时，已经没有工作线程会再碰任何东西。
+- **`shutdown()`**：发完 canceled 和 terminated、处理完一遍事件以后，经派发器的 `waitUntil` 等计数归零。一个辅助线程每 50 毫秒投递一个空任务，把等待叫醒；它在 `shutdown()` 返回之前就 join 掉了。5 秒以后照旧返回，并在标准错误上记一行剩余线程数。
+- **睡着的专用线程**：以前它们一直睡到自己的执行器析构。现在 `shutdown()` 把它们从执行器的睡眠表里拿出来、叫醒放走。为此工作线程记下自己在哪个执行器的睡眠表里，执行器以后析构时也就不会再碰到已经删掉的线程。
+- `Executor::liveWorkerCount()` 给测试和日志用。执行器析构不等，语义不变。
+- **谁调 `shutdown()`**：树里只有应用的 `MainWindow::closeEvent`。tcomposer、tconverter、tcleanup 和农场的程序都不调，它们的退出路径不变；554 帧的对照照样逐字节相同。
+
+**测试。** shutdown 那条测试改成：
+- 先让一个专用执行器的线程睡着，再让一个任务卡在门闩上；
+- `shutdown()` 开始等的时候，由一个计时器（事件）放开门闩；
+- `shutdown()` 返回时，那个任务已经跑完并发了 finished，活着的线程数为 0（睡着的专用线程也退出了），等了约 0.1 秒，远不到 5 秒。
+
+超时那条路径没有自动测试：`shutdown()` 一个进程只能调一次，而这个程序整个跑时所有测试在同一个进程里。
+
+**结果。** 线程池的测试整个程序连跑 30 次全过，TSan 下也全过，0 次报告；全部测试 553 个通过；28 个场景 × `-nthreads` 1 和 8，554 帧与改动前逐字节相同；无 Qt 构建 173 个、iPad 模拟器里 84 个。Linux 虚拟机（ASan、UBSan、LSan）：526 个里 525 个通过（照旧只有 `golden_fx_sweep_font_a`），线程池的测试都过；GL 画布 32 个、无 Qt 构建 173 个通过。
+
+### 8.22 第 9d 步实际做成的样子（2026-11-20）
+
+`TThread::Runnable` 不再是 QObject，`tthread.h` 不再包含 Qt，线程池（`tthread.cpp`）进了无 Qt 构建和 iPad。
+
+**核心的 `Runnable`。**
+- 原来的五个信号换成五个私有虚函数 `notifyStarted()`、`notifyFinished()`、`notifyException()`、`notifyCanceled()`、`notifyTerminated()`，默认什么都不做。线程池在原来发信号的同一位置、同一线程、同一把锁里调用它们：started 和 finished 在工作线程上紧挨着 `run()` 前后，`run()` 抛异常时用 exception 代替 finished；canceled 和 terminated 在取消或关闭的那个线程上。
+- `runningPriority()` 返回自己的枚举 `TThread::Priority`。各值与 `QThread::Priority` 相同，`tthread_qt.cpp` 里用 `static_assert` 钉住。
+- 原来的 `on*()` 槽只在 Qt 一侧有意义，搬到了 `QtRunnable`。
+- `TThread::init()`：核心部分只建线程池。Qt 构建里（`QT_CORE_LIB`，同 Q2 的做法）它还调 `tthread_qt.cpp` 的 `initThreadQt()`：装 Qt 派发器，并登记 `RunnableP`，让它能作排队信号的参数。
+- `shutdown()` 里原来的那次 `QCoreApplication::processEvents()`（让排队的槽在 shutdown 里执行）换成：往派发器投递一个记号，等待至少持续到记号执行。Qt 派发器上记号排在已有事件之后，效果相同；没有派发器时立刻执行。
+
+**`TThread::QtRunnable`**（`include/tthread_qt.h`、`common/tcore/tthread_qt.cpp`，Q9-A：放在 tnzcore 的 Qt 一侧，第 20 步搬出去）：
+- 一个 QObject 加 `Runnable`，信号和槽与原来的 `Runnable` 完全相同。它实现那五个钩子，在钩子里发对应的信号，信号参数照旧是持有任务本身的 `RunnableP`。
+- 连到住在主线程的对象上的信号，照旧排队过去。
+- `TThread::toPriority()` 把 `QThread::Priority` 换成新的枚举。
+
+**换了基类的子类。** 用到信号、槽或 `Q_OBJECT` 的 8 个换成 `QtRunnable`，此外只多一行 include：
+- tnzbase 的 `RenderTask`、toonzlib 的样式管理器任务；
+- toonzqt 的 `IconRenderer`、`SwatchViewer::ContentRender`；
+- 应用里的 `FrameCountTask`、`VectorizationSwatchTask`、`MyLocalControllerController`，以及 `tnzcamera.h` 的 `ImageProcessing`。
+
+其余 8 个（农场的 6 个、批处理的 `TaskRunner`、两个声音录制任务）什么信号都不用，留在核心的 `Runnable` 上，一行没改。`FrameCountTask::runningPriority()` 改用 `TThread::LowPriority`。
+
+**测试拆成两部分。**
+- 线程池本身：`tests/core/test_executor.cpp`，11 条，不带 Qt。两种构建的核心测试和 iPad 模拟器里都跑。任务经钩子记录事件，测试只调 `Executor::init()`，没有派发器（主线程的工作立刻执行）。shutdown 那条排在这个文件的最后；核心测试里别的测试都不用线程池。
+- Qt 一侧：`tests/thread/test_qtrunnable.cpp`，6 条，只在 Qt 构建里。程序自己建 `QCoreApplication` 并调 `TThread::init()`。测的是：
+  - 信号在工作线程上发、经排队到主线程上的槽；
+  - 抛异常时发 exception、不发 finished；
+  - 按名字连到重写的 `on*()` 槽，照旧能用；
+  - canceled 排队给另一个对象，如 IconRenderer 之于 IconGenerator；
+  - 工作线程的调度参数与 `QThread::setPriority()` 设的相同；
+  - 经 Qt 派发器的 shutdown：排队的槽在它里面执行，它也等工作线程退出。
+
+**CI 的目标列表。** 新的测试程序 `nexttoonz_thread_tests` 由 ctest 发现，所以凡是只编一个显式目标列表的地方都要加上它，否则 ctest 会把它当成一个失败的 `nexttoonz_thread_tests_NOT_BUILT`。这样的地方有两处：Sanitizers 作业（`workflow_sanitizers.yml`，在本步的末尾补上了）和 `tools/vm/env.sh` 的 `NT_TARGETS`（那个文件随横向分支进了 `nexttoonz/phase0`，这个分支上还没有，合并时补）。新加测试目标时，这两处要同步。
+
+**人工验收（到里程碑时并进 8.6 节的清单）**，都在应用里：
+- 预览：Ctrl+R 和 flipbook，进度条走到头；预览中途取消；
+- 渲染：渲染输出的进度和取消；批处理里加任务、跑、停；
+- 图标：调色板和关卡条的图标都能生成；滚动时取消的图标后来照样补上；
+- 文件浏览器：一个装满关卡的文件夹，帧数一个个出来，中途离开该文件夹不卡；
+- 矢量化：矢量化对话框的样例预览；
+- 样本查看器（已知问题第 45 条）：开、关样本查看器面板几次以后，再取消图标、取消渲染，不崩；
+- 退出（8.21 节）：后台在渲染或生成图标时退出，最多等 5 秒，不崩；没有后台任务时立刻退出。
+
+**结果（x86_64 macOS）。** 全部测试 558 个通过；核心测试和 Qt 一侧的线程测试各连跑 20 次全过；28 个场景 × `-nthreads` 1 和 8，554 帧与改动前（`37fdccdcc`）逐字节相同；无 Qt 构建三道检查通过（tnzcore 不用 Qt 的源文件 79 个），184 个测试，iPad 模拟器里 95 个（线程池的 11 条在内）；TSan 下 Qt 构建的核心测试 251 个、Qt 一侧的线程测试 6 个、无 Qt 构建的核心测试都是 0 次报告。
+
+**结果（Linux 虚拟机，ASan、UBSan、LSan）。** 第一次编不过：`tthread.cpp` 用的 `memset`，原来经 Qt 的头带进 `<cstring>`，去掉 Qt 以后要自己包含，与第 4 步以来的同类问题一样。补上以后全部目标编译通过；531 个测试里 530 个通过（照旧只有 `golden_fx_sweep_font_a`），两部分线程测试都过；GL 画布 32 个、无 Qt 构建 184 个通过。
+
+### 8.23 第 10a 步之前：复现第 41 条（2026-11-20）
+
+照决定，10a 在所有者答复 Q10-A 之前只做复现，不改输出。
+
+**场景。** 三个场景，每个 8 帧：
+- 两个 Toonz 栅格关卡：在一个框里，用一个"每帧都有一个关键帧颜色"的样式填满（红、绿、蓝……共 8 种）；关卡设置里一个开抗锯齿柔化（1），一个不开；
+- 一个矢量关卡：一个圆，用同样的样式填充。
+
+它们由参考工程生成器加三个场景函数生成，只生成到本机的 `local/scratch/2026-11-20_issue41/project/`，没有进参考工程。生成器的改动存成补丁 `gen_animated_palette.patch`，生成器本身已还原。
+
+**结果**（`37fdccdcc` 之后的现行代码；tcomposer 以 `-nthreads 1` 和 `8` 各渲 5 次，比每帧中心的颜色与该帧关键帧的颜色）：
+
+| 场景 | 1 线程 | 8 线程 |
+|---|---|---|
+| Toonz 栅格，抗锯齿柔化 1 | 5 次都是每帧都显示第 1 帧的颜色（8 帧错 7 帧） | 4 次同左；1 次 8 帧全显示第 3 帧的颜色 |
+| Toonz 栅格，不开柔化 | 全对 | 全对 |
+| 矢量 | 全对 | 全对 |
+
+两处的作用都看到了：
+- 第 (2) 处：柔化那一步不切帧，单线程就确定地错；
+- 第 (1) 处：在锁外读"原来的帧"，让调色板停在别的帧上，所以多线程时错成哪一帧随运行变化。
+
+不开柔化的路径和矢量关卡在锁里切帧，这几次都对。
+
+做的过程中还发现生成器的一个用法陷阱：给 Toonz 栅格关卡改了关卡属性以后再调一次 `sl->save()`，会把 tlv 写成空的，因为帧已经不在内存里。关卡属性存在场景文件里，不需要再存关卡。补丁里已按此写。
+
+修法要不要做、输出变化接不接受，等所有者定（Q10-A）；定了以后，这三个场景连同修好以后的 golden 一起进参考工程（`Fixtures-Update:`）。
+
 ## 9. 引擎 API 的第一版
 
 D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用返回值，不暴露 Qt 类型和 `TRasterPT<T>` 之类的模板实例；C ABI 等第一个非 C++ 消费者出现时从它机械派生。本稿只定第一版覆盖什么、什么时候出现。
@@ -1220,6 +1445,43 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 
 做的时候有一处与上面的字面不同：几何项就是原来的整项，整数和坐标的位都在里面，改名为 `…/exact`。这样它在 arm64 上的值日志里已经有了。如果只哈希坐标的位，那是新的值，日志里没有，又要多走一轮 CI。结构项相同的平台上，整项不同就等于坐标不同，两种做法查出的东西一样。
 
+**第 9 步开工时的决定（2026-11-20，所有者委托主会话拍板）。** 第 9 步拆成 9a 到 9d：
+- 9a：tnzcore 里换成标准库的小地方，不改线程行为。`isMainThread` 改用 `std::thread::id`；`TSystem::sleep` 改用 `std::this_thread::sleep_for`，顺带修掉已知问题第 35 条（经空指针调用）；`getProcessorCount` 改用 `hardware_concurrency`；`tmetaimage.h` 的读写锁改用 `std::shared_mutex`。
+- 9b：主线程派发器 `TMainThreadDispatcher`（`post`、`isMainThread`、`waitUntil`），`TThread::Message` 经它投递。
+- 9c：`Executor` 的内部去掉 Qt：工作线程改用 `std::thread` 和条件变量；`Runnable` 仍是 QObject，信号不变。动手之前，先单独提交 `Executor` 的 characterization 测试，并在旧代码上跑通。覆盖：按优先级和插入顺序调度、`maxActiveTasks` 与 `maxActiveLoad`、`removeTask`/`cancelAll` 的 canceled 信号、专用线程、`shutdown` 的 terminated 信号、信号的先后和投递线程、任务抛异常时 exception 与 finished 的先后、`shutdown` 时还没开始的任务的 canceled 投递。
+- 9d：`Runnable` 去掉 QObject。核心的 `Runnable` 改为通知钩子，在今天发信号的同一位置调用；`TThread::QtRunnable`（QObject，信号和槽与今天相同）给 Qt 一侧用，19 个子类机械地换基类。之后 `tthread.cpp` 和 `threadmessage.cpp` 进无 Qt 构建和 iPad。
+- 验证：每个子步都跑 golden，加 28 个场景 × `-nthreads` 1 和 8，与改动前逐字节相同；改变线程行为的子步（9b 到 9d）的单测和渲染都在 ThreadSanitizer 下跑。9d 的人工验收（预览、渲染进度与取消、图标、文件浏览器的帧数、矢量化样例、批处理）到里程碑时与 8.6 节的清单合并。
+
+四个问题都取了倾向：
+- Q9-A (a)：Qt 的派发器和 `TThread::QtRunnable` 照 Q2 放在 tnzcore 的 `*_qt.cpp` 里，Qt 构建内置。各程序的 `main` 不用改，tnzbase 和 toonzlib 的子类也能用。第 20 步搬出 tnzcore，已写进迁移表。
+- Q9-B (ii)：toonzlib 和 stdfx 的线程原语留给各自的步。迁移表里已加明确条目：stdfx 的在第 10 步，toonzlib 的在第 17 步。tnzbase 的在第 10 步、tnzext 的在第 12 步，本来就在表里。第 9 步只做 tnzcore 和 Qt 适配。
+- Q9-C (a)：线程优先级照 `QThread::setPriority` 在 macOS 和 Linux 上的实际映射做，不改调度行为。映射表写进代码注释和"做成的样子"；风险里记一条"iPad 上线程优先级尚未按 QoS 调整"。
+- Q9-D：可以有一个本地的 Qt 加 ThreadSanitizer 构建，照 `doc/nexttoonz_layout.md` 4.8 节放在检出根下的 `build/tsan-qt/`。Qt 本身没有插桩，Qt 内部的报告用一份 suppressions 文件压掉，与 `lsan.supp` 并列入库、带注释；`tests/README.md` 的 Sanitizers 一节补上 TSan 的跑法。
+
+**第 9c 步之后的决定（2026-11-20，所有者委托主会话拍板）：`TThread::shutdown()` 等工作线程退出。** 9c 把工作线程改成了脱离的 `std::thread`，它们不能 join。`shutdown()` 和执行器析构原来都不等线程退出，9c 之前的 Qt 版本也不等。选项有三个：(a) `shutdown()` 有界地等；(b) 无限期地等；(c) 保持现状、只加测试。取 (a)：
+- `shutdown()` 发完 canceled 和 terminated 以后，经派发器的 `waitUntil` 等所有工作线程退出。等的时候照常处理事件，`sendBlocking()` 和排队的投递都能进行，不会死锁。
+- 超时 5 秒，到了照旧返回，并在标准错误上记一行，写明还剩几个线程。
+- 睡着的专用线程同时叫醒、放走。
+- 执行器析构不等，语义不变。
+- 加 `Executor::liveWorkerCount()` 和"shutdown 返回后计数为 0"的测试。
+
+理由：退出时的释放后使用不是 9c 新加的风险，但现在可以用很小的代价，把它从"碰运气"变成"有界等待"；5 秒对退出应用的用户没有感觉，长任务超时以后行为与今天相同。这是应用退出时机的变化，写进发布说明。
+
+**第 10 步盘点后的决定（2026-11-20，所有者委托主会话拍板）。** 第 10 步按盘点拆成 7 个子步，顺序是 10a → 10b → 10d → 10c → 10e → 10f → 10g：
+- 10a：第 41 条，动画调色板的当前帧（先做）；
+- 10b：`TRenderer` 的等待改经派发器，去掉 `processEvents` 自旋和 `qGuiApp`；
+- 10d：tnzbase 的线程原语换成标准库，并复核第 40 条；
+- 10c：`TRenderSettings` 的离屏表面改成不透明句柄；
+- 10e：stdfx 的线程原语，并复核第 42 条的 bokeh；
+- 10f：`TCacheResource` 的 `QRegion`、缓存池的 `QSettings` 和 `QDir`；
+- 10g：`TFontParam` 和机械的 Qt 容器、字符串。
+
+另外两个问题：
+- Q10-B 取 (b)：`tundo.h` 的 `TUndoManager` 去 QObject 挪到第 16 步，与 Handle 的观察者回调一起做；迁移表已改。
+- Q10-C 取 (a)：`QRegion` 换成一个最小的矩形并集区域类，带与 `QRegion` 的差分测试。
+
+Q10-A（第 41 条的修法会改变输出，单线程下抗锯齿柔化那一步也会）由所有者本人定。在他答复之前，10a 只做可复现的场景，即证明问题存在，不改输出。
+
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
 下面每个问题都写了选项和本稿的倾向。
@@ -1270,6 +1532,7 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 - **定义在别的库里的成员函数**（第 6 节的补充）。`tfilepath_qt.cpp` 现在在 tnzcore 里，到第 20 步核心不链接 Qt 时，它要搬进界面一侧的库。在 macOS 和 Linux 上，一个类的成员定义在另一个动态库里没有问题；在 Windows 上 `TFilePath` 整个类是 `__declspec(dllimport)` 的，成员必须从 tnzcore 的 DLL 导出，搬走就链接不上。那时要么给这几个成员单独去掉导入标记，要么在 Windows 上把它们留在一个链接 Qt 的小库里。Windows 的地位待定，记下，不在现在处理。
 - **无 Qt 构建里内容历史的日期**（8d-0）：Qt 构建照旧用系统语言环境的月份名；无 Qt 构建用英文月份名，只在英文语言环境下与桌面相同，存进关卡和场景的历史记录会不同。iPad 壳要不要按语言环境写，到 iPad 时再定。
 - **`qWarning` 换成了 `fprintf(stderr, ...)`**（第 4 步，`tfilepath.cpp` 的四处警告）。在默认的 Qt 消息处理下两者都写到标准错误；Qt 在 macOS 上没有控制台时会改写系统日志，这几条警告在应用里因此可能换了去处。只是警告，不是行为。
+- **iPad 上线程优先级尚未按 QoS 调整**（第 9 步，Q9-C）。线程池的优先级照 `QThread::setPriority` 在 macOS 和 Linux 上的映射做，桌面的调度行为不变；iPadOS 上照样走 pthread 的调度参数，没有按 Apple 建议的 QoS 类设定。要不要改、改成什么，iPad 壳的性能调优时再定。
 - **工作量。** 计划给 Phase 2 估的是 6 到 9 人月；第 7 节的 21 步里，第 9、10、16、17、21 步各自可能就是几周。Q7 的选择对总量影响最大。
 
 ---
