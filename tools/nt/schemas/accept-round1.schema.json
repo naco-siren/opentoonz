@@ -1,0 +1,56 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.accept-round1/1",
+ "title": "The AI acceptance's blind first round (accept/round1.json)",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "items"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.accept-round1/1"
+  },
+  "items": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "item",
+     "description",
+     "changed_side",
+     "assessment"
+    ],
+    "properties": {
+     "item": {
+      "type": "string",
+      "pattern": "^R[0-9]{2}$"
+     },
+     "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Chinese: what differs, where"
+     },
+     "changed_side": {
+      "enum": [
+       "X",
+       "Y",
+       "unsure"
+      ],
+      "description": "which side looks like the changed build"
+     },
+     "assessment": {
+      "enum": [
+       "defect",
+       "benign",
+       "unsure"
+      ]
+     }
+    }
+   }
+  }
+ }
+}

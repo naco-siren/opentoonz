@@ -1,0 +1,156 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.diff-tree/1",
+ "title": "nexttoonz diff tree / ab_tcomposer.py compare (summary.json)",
+ "type": "object",
+ "required": [
+  "schema",
+  "tool",
+  "host",
+  "ok",
+  "result",
+  "warnings"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.diff-tree/1"
+  },
+  "tool": {
+   "type": "object",
+   "required": [
+    "name",
+    "version"
+   ],
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "version": {
+     "type": "string"
+    },
+    "git": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "build": {
+     "type": "object",
+     "properties": {
+      "program": {
+       "type": "string"
+      },
+      "program_sha256": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "skia": {
+       "type": [
+        "boolean",
+        "null"
+       ]
+      },
+      "default_rasterizer": {
+       "enum": [
+        "skia",
+        "gl"
+       ]
+      }
+     }
+    }
+   }
+  },
+  "host": {
+   "type": "object",
+   "required": [
+    "os",
+    "arch"
+   ],
+   "properties": {
+    "os": {
+     "type": "string"
+    },
+    "arch": {
+     "type": "string"
+    }
+   }
+  },
+  "ok": {
+   "type": "boolean"
+  },
+  "result": {
+   "type": "object",
+   "required": [
+    "a",
+    "b",
+    "counts",
+    "scenes",
+    "different_frames"
+   ],
+   "properties": {
+    "a": {
+     "type": "object"
+    },
+    "b": {
+     "type": "object"
+    },
+    "threads": {
+     "type": "array",
+     "items": {
+      "type": "integer"
+     }
+    },
+    "counts": {
+     "type": "object",
+     "required": [
+      "frames",
+      "identical",
+      "different",
+      "different_unstable",
+      "missing_in_b",
+      "only_in_b"
+     ],
+     "additionalProperties": {
+      "type": "integer"
+     }
+    },
+    "scenes": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "scene",
+       "threads",
+       "status",
+       "counts"
+      ]
+     }
+    },
+    "different_frames": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "scene",
+       "threads",
+       "frame",
+       "determinism"
+      ]
+     }
+    }
+   }
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "timing_ms": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "integer"
+   }
+  }
+ }
+}

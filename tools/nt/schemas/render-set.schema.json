@@ -1,0 +1,250 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.render-set/1",
+ "title": "A render tree: every scene x thread count (render.json)",
+ "type": "object",
+ "required": [
+  "schema",
+  "tool",
+  "host",
+  "ok",
+  "result",
+  "warnings"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.render-set/1"
+  },
+  "tool": {
+   "type": "object",
+   "required": [
+    "name",
+    "version"
+   ],
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "version": {
+     "type": "string"
+    },
+    "git": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "build": {
+     "type": "object",
+     "properties": {
+      "program": {
+       "type": "string"
+      },
+      "program_sha256": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "skia": {
+       "type": [
+        "boolean",
+        "null"
+       ]
+      },
+      "default_rasterizer": {
+       "enum": [
+        "skia",
+        "gl"
+       ]
+      }
+     }
+    }
+   }
+  },
+  "host": {
+   "type": "object",
+   "required": [
+    "os",
+    "arch"
+   ],
+   "properties": {
+    "os": {
+     "type": "string"
+    },
+    "arch": {
+     "type": "string"
+    }
+   }
+  },
+  "ok": {
+   "type": "boolean"
+  },
+  "result": {
+   "type": "object",
+   "required": [
+    "threads",
+    "rasterizer",
+    "scenes",
+    "failed"
+   ],
+   "properties": {
+    "label": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "project": {
+     "type": "string"
+    },
+    "threads": {
+     "type": "array",
+     "items": {
+      "type": "integer"
+     }
+    },
+    "rasterizer": {
+     "type": "object",
+     "required": [
+      "requested",
+      "effective"
+     ],
+     "properties": {
+      "requested": {
+       "enum": [
+        "default",
+        "skia",
+        "gl"
+       ]
+      },
+      "effective": {
+       "enum": [
+        "skia",
+        "gl"
+       ]
+      }
+     }
+    },
+    "scenes": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "scene",
+       "threads",
+       "ok",
+       "frames"
+      ],
+      "properties": {
+       "scene": {
+        "type": "string"
+       },
+       "threads": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "rc": {
+        "type": [
+         "integer",
+         "null"
+        ]
+       },
+       "seconds": {
+        "type": "number"
+       },
+       "timed_out": {
+        "type": "boolean"
+       },
+       "skipped": {
+        "type": "string"
+       },
+       "ok": {
+        "type": "boolean"
+       },
+       "determinism": {
+        "enum": [
+         "exact",
+         "tolerant",
+         "pinned",
+         "unstable"
+        ]
+       },
+       "log_tail": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       "frames": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "required": [
+          "frame",
+          "pixels"
+         ],
+         "properties": {
+          "frame": {
+           "type": "integer",
+           "minimum": 0
+          },
+          "file": {
+           "type": "string"
+          },
+          "width": {
+           "type": "integer"
+          },
+          "height": {
+           "type": "integer"
+          },
+          "pixels": {
+           "type": "string",
+           "pattern": "^sha256:[0-9a-f]{64}$",
+           "description": "sha256 of 'RGBA8p <w> <h>\\n' + premultiplied RGBA8 pixels"
+          },
+          "png": {
+           "type": "string",
+           "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "nonblank": {
+           "type": "integer"
+          },
+          "determinism": {
+           "enum": [
+            "exact",
+            "tolerant",
+            "pinned",
+            "unstable"
+           ]
+          }
+         }
+        }
+       }
+      }
+     }
+    },
+    "failed": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "rendered": {
+     "type": "string",
+     "description": "local date and time the renders started (ISO 8601)"
+    }
+   }
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "timing_ms": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "integer"
+   }
+  }
+ }
+}

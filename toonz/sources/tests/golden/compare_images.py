@@ -28,6 +28,7 @@ Exit status is 0 on pass, 1 on fail, 2 on usage or I/O error.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 
@@ -55,17 +56,45 @@ def load_rgba(path: Path) -> np.ndarray:
     return np.rint(premultiplied).astype(np.int16)
 
 
+def pixel_hash(pixels: np.ndarray) -> str:
+    """Identity of what was rendered, independent of the PNG encoding.
+
+    sha256 over the ASCII header ``RGBA8p <width> <height>\n`` followed by
+    the premultiplied pixels of load_rgba() as 8-bit RGBA, row by row. Two
+    files with the same pixels and different PNG bytes (compression level,
+    chunks) get the same hash. doc/nexttoonz_cli.md defines it; every tool
+    that writes a "pixels" field computes it here.
+    """
+    height, width = pixels.shape[:2]
+    digest = hashlib.sha256(f"RGBA8p {width} {height}\n".encode("ascii"))
+    digest.update(np.ascontiguousarray(pixels, dtype=np.uint8).tobytes())
+    return "sha256:" + digest.hexdigest()
+
+
 def compare(
     expected: Path,
     actual: Path,
     max_channel_diff: int = DEFAULT_MAX_CHANNEL_DIFF,
     max_diff_fraction: float = DEFAULT_MAX_DIFF_FRACTION,
     diff_out: Path | None = None,
+    metrics: dict | None = None,
 ) -> tuple[bool, str]:
-    """Return (passed, human readable summary)."""
+    """Return (passed, human readable summary).
+
+    When `metrics` is a dict it receives the numbers behind the summary:
+    the pixel hashes of both frames, the fraction of pixels over the
+    tolerance, the peak channel difference and the non-blank pixel counts
+    (run_golden.py writes them to its JSON result).
+    """
     e = load_rgba(expected)
     a = load_rgba(actual)
+    if metrics is not None:
+        metrics["expected_pixels"] = pixel_hash(e)
+        metrics["pixels"] = pixel_hash(a)
+        metrics["identical"] = metrics["expected_pixels"] == metrics["pixels"]
     if e.shape != a.shape:
+        if metrics is not None:
+            metrics["same_size"] = False
         return False, f"size mismatch: expected {e.shape[1]}x{e.shape[0]}, actual {a.shape[1]}x{a.shape[0]}"
 
     per_pixel = np.abs(e - a).max(axis=2)
@@ -92,11 +121,21 @@ def compare(
         f"peak channel diff {peak}, {fraction * 100:.4f}% of pixels over "
         f"tolerance {max_channel_diff} (limit {max_diff_fraction * 100:.4f}%)"
     )
+    # A pixel is blank when every channel is (near) zero: transparent black.
+    blank_e = int((e.max(axis=2) <= max_channel_diff).sum())
+    blank_a = int((a.max(axis=2) <= max_channel_diff).sum())
+    total = e.shape[0] * e.shape[1]
+    if metrics is not None:
+        metrics.update({
+            "same_size": True,
+            "pixels_differing": int((per_pixel > 0).sum()),
+            "pixels_over_tolerance": int(over.sum()),
+            "fraction_over_tolerance": round(fraction, 6),
+            "peak": peak,
+            "nonblank_expected": total - blank_e,
+            "nonblank": total - blank_a,
+        })
     if not passed:
-        # A pixel is blank when every channel is (near) zero: transparent black.
-        blank_e = int((e.max(axis=2) <= max_channel_diff).sum())
-        blank_a = int((a.max(axis=2) <= max_channel_diff).sum())
-        total = e.shape[0] * e.shape[1]
         summary += f"; non-blank pixels expected {total - blank_e}, actual {total - blank_a}"
         if blank_a == total:
             summary += " (actual frame is entirely blank)"

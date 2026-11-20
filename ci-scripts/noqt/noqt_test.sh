@@ -12,6 +12,7 @@
 #   is an unpacked skia-pack for the simulator (ci-scripts/skia/skia_pack.sh
 #   iosSim-x64): since step 8d the core draws vector images with Skia there
 #   too.
+#   With NEXTTOONZ_CTEST_JUNIT set, ctest also writes a JUnit report there.
 
 set -euo pipefail
 
@@ -52,7 +53,8 @@ done
 echo "ok: $(echo $libs | wc -w | tr -d ' ') libraries, no Qt"
 
 echo "--- tests"
-(cd "$build" && ctest --output-on-failure --no-tests=error --timeout 300)
+(cd "$build" && ctest --output-on-failure --no-tests=error --timeout 300 \
+    ${NEXTTOONZ_CTEST_JUNIT:+--output-junit "$NEXTTOONZ_CTEST_JUNIT"})
 
 if [ "$gtest_src" != "-" ]; then
     if [ "$ios_skia" = "-" ]; then

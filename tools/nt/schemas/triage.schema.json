@@ -1,0 +1,134 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.triage/1",
+ "title": "Machine triage of a results bundle, as the AI acceptance sees it (triage.json)",
+ "type": "object",
+ "required": [
+  "schema",
+  "gates",
+  "counts",
+  "unexplained",
+  "known",
+  "review"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.triage/1"
+  },
+  "suite": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "label": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "test": {
+   "type": [
+    "object",
+    "null"
+   ]
+  },
+  "base": {
+   "type": [
+    "object",
+    "null"
+   ]
+  },
+  "platform": {
+   "type": "string"
+  },
+  "gates": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "name",
+     "status",
+     "summary"
+    ]
+   }
+  },
+  "counts": {
+   "type": "object",
+   "required": [
+    "differences",
+    "known",
+    "unexplained",
+    "unstable_not_judged"
+   ]
+  },
+  "ab": {
+   "type": [
+    "object",
+    "null"
+   ]
+  },
+  "golden": {
+   "type": "object"
+  },
+  "known": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "frames",
+     "scenes"
+    ]
+   }
+  },
+  "unexplained": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "comparison",
+     "scene",
+     "status"
+    ]
+   }
+  },
+  "review": {
+   "type": "array",
+   "maxItems": 10,
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "comparison",
+     "scene",
+     "frame",
+     "known",
+     "metrics",
+     "sheet"
+    ],
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^R[0-9]{2}$"
+     },
+     "known": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "sheet": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "not_covered": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  }
+ }
+}

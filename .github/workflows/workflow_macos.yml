@@ -14,6 +14,7 @@ on:
       - '!**/.github/**'                        # Exclude everything in .github folder
       - '.github/workflows/workflow_macos.yml'  # Include MacOs workflow file
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '**/*'
       - '!appveyor.yml'
@@ -23,14 +24,30 @@ on:
       - '.github/workflows/workflow_macos.yml'
   workflow_dispatch:
 
+# Packages (.AppImage, .app/.dmg, the Windows folder) are made only where
+# someone uses them: pushes to master, runs started by hand, and pull
+# requests labelled "package" (Q4 of doc/nexttoonz_cli_ci.md). Labelling a
+# pull request "package" starts a run that packages.
+env:
+  NEXTTOONZ_PACKAGE: ${{ github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'package') }}
+
 jobs:
   # The core libraries without Qt (WITH_QT=OFF; doc/nexttoonz_core_noqt.md):
   # what has been moved off Qt so far, built where no Qt is installed, with
   # its unit tests, also in the iPad simulator. x86_64 only, by the owner's
   # platform order (Q8 of that document).
   macOS-noqt:
+    # A label other than "package" changes nothing to build.
+    if: github.event.action != 'labeled' || github.event.label.name == 'package'
     timeout-minutes: 60
     runs-on: macos-15-intel
+    # Compiler cache (Q5 of doc/nexttoonz_cli_ci.md): paths relative to the
+    # checkout, so moving it does not miss; bounded; statistics of this run
+    # only (zeroed before the build) in the log and in the results artifact.
+    env:
+      CCACHE_DIR: /Users/runner/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 500M
     steps:
       - uses: actions/checkout@v6
 
@@ -40,7 +57,7 @@ jobs:
         run: |
           # The libraries the configuration looks for, as in the macOS job,
           # but no Qt: nothing of the build may find it.
-          for pkg in pkg-config glew lz4 libjpeg libpng lzo boost libusb libmypaint jpeg-turbo ninja opencv@4 googletest; do
+          for pkg in pkg-config glew lz4 libjpeg libpng lzo boost libusb libmypaint jpeg-turbo ninja opencv@4 googletest ccache; do
             brew ls --versions "$pkg" >/dev/null || brew install "$pkg"
           done
           if brew list --formula | grep -q '^qt'; then
@@ -83,18 +100,56 @@ jobs:
           path: ${{ runner.temp }}/skia-pack-ios/*.zip
           key: skia-pack-iosSim-x64-${{ hashFiles('ci-scripts/skia/skia_pack.sh') }}
 
+      - uses: actions/cache/restore@v5
+        with:
+          path: /Users/runner/.ccache
+          key: macOS-noqt-x86_64-${{ github.sha }}
+          restore-keys: macOS-noqt-x86_64-
+
       - name: GoogleTest sources for the iPad simulator
         run: git clone --quiet --depth 1 --branch v1.17.0 https://github.com/google/googletest.git "$RUNNER_TEMP/googletest"
 
       - name: Build and test without Qt
+        env:
+          NEXTTOONZ_CTEST_JUNIT: ${{ runner.temp }}/results/junit/ctest.xml
         run: |
+          mkdir -p "$RUNNER_TEMP/results/junit"
           export PKG_CONFIG_PATH="$(brew --prefix jpeg-turbo)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          ccache -z
           ci-scripts/noqt/noqt_test.sh toonz/build-noqt "$RUNNER_TEMP/googletest" "$IOS_SKIA_PACK_DIR" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_PREFIX_PATH="$(brew --prefix googletest)" \
             -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4 \
             -DWITH_SKIA=ON -DNEXTTOONZ_SKIA_PACK_DIR="$SKIA_PACK_DIR"
 
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache -s
+
+      - name: Save compiler cache
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: /Users/runner/.ccache
+          key: macOS-noqt-x86_64-${{ github.sha }}
+
+      - name: Collect results
+        # Uploaded on every run: JUnit, golden JSON, the renders and contact
+        # sheets, ccache statistics (doc/nexttoonz_cli_ci.md, 4.3 and Q3).
+        if: always()
+        run: tools/ci/collect_results.sh toonz/build-noqt "$RUNNER_TEMP/results"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: results-macos-noqt-${{ github.sha }}
+          path: ${{ runner.temp }}/results
+          if-no-files-found: ignore
+
   macOS:
+    # A label other than "package" changes nothing to build.
+    if: github.event.action != 'labeled' || github.event.label.name == 'package'
     timeout-minutes: 180 # Stop job if it exceeds expected build time
     # NextToonz builds macOS arm64 and x86_64 at parity (doc/nexttoonz_plan.md, D5).
     # - `macos-15` is an Apple Silicon (arm64, M1 3-vCPU) image.
@@ -113,6 +168,13 @@ jobs:
             arch: x86_64
             skia_arch: x64
     runs-on: ${{ matrix.runner }}
+    # Compiler cache (Q5 of doc/nexttoonz_cli_ci.md): paths relative to the
+    # checkout, so moving it does not miss; bounded; statistics of this run
+    # only (zeroed before the build) in the log and in the results artifact.
+    env:
+      CCACHE_DIR: /Users/runner/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 500M
     steps:
       - uses: actions/checkout@v6
 
@@ -192,16 +254,15 @@ jobs:
           path: ${{ runner.temp }}/skia-pack/*.zip
           key: skia-pack-${{ matrix.skia_arch }}-${{ hashFiles('ci-scripts/skia/skia_pack.sh') }}
       - name: Build
-        env:
-          CCACHE_DIR: /Users/runner/.ccache
         run: |
           export PKG_CONFIG_PATH="$(brew --prefix jpeg-turbo)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          ccache -z
           cd toonz
           rm -rf build
           mkdir -p build
           cd build
           cmake ../sources -G Ninja \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DQT_PATH=$(brew --prefix qt@5)/lib \
             -DQt5_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5 \
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)/lib/cmake/Qt5;$(brew --prefix googletest)" \
@@ -209,6 +270,9 @@ jobs:
             -DWITH_TRANSLATION=OFF \
             -DWITH_SKIA=ON -DNEXTTOONZ_SKIA_PACK_DIR="$SKIA_PACK_DIR"
           ninja -j $(sysctl -n hw.ncpu)
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache -s
       - name: Save cache
         if: always()
         uses: actions/cache/save@v5
@@ -222,8 +286,9 @@ jobs:
           NEXTTOONZ_HASHES_FILE: ${{ runner.temp }}/vector_hashes.inc
         run: |
           python3 -m pip install --quiet --break-system-packages numpy pillow || python3 -m pip install --quiet numpy pillow
+          mkdir -p "$RUNNER_TEMP/results/junit"
           cd toonz/build
-          ctest --output-on-failure --timeout 600
+          ctest --output-on-failure --timeout 600 --output-junit "$RUNNER_TEMP/results/junit/ctest.xml"
       - name: Upload vector checksums on failure
         if: failure()
         uses: actions/upload-artifact@v6
@@ -240,7 +305,24 @@ jobs:
             toonz/build/golden/*/out/*.png
             toonz/build/golden/*/diff/*.png
           if-no-files-found: ignore
+      - name: Collect results
+        # Uploaded on every run: JUnit, golden JSON, the renders and contact
+        # sheets, ccache statistics (doc/nexttoonz_cli_ci.md, 4.3 and Q3).
+        if: always()
+        run: tools/ci/collect_results.sh toonz/build "$RUNNER_TEMP/results"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: results-macos-${{ matrix.arch }}-${{ github.sha }}
+          path: ${{ runner.temp }}/results
+          if-no-files-found: ignore
+      - name: Packaging skipped
+        if: env.NEXTTOONZ_PACKAGE != 'true'
+        run: echo "No .app/.dmg on this run (only master, manual runs and PRs labelled package)."
       - name: Introduce Libraries and Stuff
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         run: |
           cd toonz/build/toonz
           cp -pr ../../../stuff OpenToonz.app/portablestuff
@@ -253,6 +335,7 @@ jobs:
             -executable=OpenToonz.app/Contents/MacOS/tfarmcontroller \
             -executable=OpenToonz.app/Contents/MacOS/tfarmserver
       - name: Modify Library Paths
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         run: |
           cd toonz/build/toonz/OpenToonz.app/Contents/Frameworks
           for TARGETLIB in *.dylib; do
@@ -264,6 +347,7 @@ jobs:
             done
           done
       - name: Create Artifact
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         run: |
           cd toonz/build/toonz
           echo "Creating DMG..."
@@ -280,6 +364,7 @@ jobs:
           done
           echo "DMG created successfully."
       - uses: actions/upload-artifact@v6
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         with:
           name: Opentoonz-${{ runner.os }}-${{ matrix.arch }}-${{ github.sha }}
           path: toonz/build/toonz/OpenToonz.dmg

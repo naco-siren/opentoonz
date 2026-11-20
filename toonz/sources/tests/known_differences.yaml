@@ -1,0 +1,112 @@
+# Known differences: render differences that are understood and accepted.
+#
+# doc/nexttoonz_cli_ci.md, section 4.4. A difference is "known" only when an
+# entry here matches it by program (tools/nt/ntpy/known.py, used by
+# `nexttoonz test` and tools/ci/triage.py): every condition under applies_to
+# holds and every measured value is within bounds. Over a bound it is not
+# known and is reported like any other difference. The AI acceptance may
+# propose entries; a person approves them, and a change to this file is a
+# change of the acceptance tools (flagged as such in the brief).
+#
+# Conditions (all optional but scenes):
+#   comparison   ab (two builds, same machine) | golden (a render against its baseline)
+#   scenes       glob patterns of scene names
+#   frames       frame numbers
+#   threads      thread counts
+#   platforms    glob patterns of <os>-<arch>, e.g. darwin-x86_64, linux-x86_64
+#   rasterizers  the effective vector rasterisers of the two sides, in any
+#                order: [gl, skia] means one side used OpenGL and the other Skia
+#                (golden: [<render's>] alone)
+#   same_day     whether both sides were rendered the same day (ab)
+#   status       different (default) | render-failed | skipped
+# Bounds (on the frame's metrics; see doc/nexttoonz_cli.md):
+#   fraction_over_tolerance, fraction_differing, peak
+#
+# Each entry also says why, which known issue or document explains it, and
+# when to look at it again. The file is read by a small YAML loader: block
+# mappings and lists, [flow, lists], quoted or plain one-line scalars.
+
+version: 1
+entries:
+  - id: KD-1
+    title: "Phase 1 vector rasterisation: Skia on the CPU against the OpenGL path"
+    applies_to:
+      comparison: ab
+      rasterizers: [gl, skia]
+      # every scene with vector levels, or a vector-drawn fx (plastic mesh,
+      # default particles, flow paint brush), measured 2026-11-19
+      scenes:
+        - vector_basic
+        - vector_cmapped_fx
+        - plastic_basic
+        - stage_showcase
+        - sound_column
+        - subxsheet
+        - pegbar_hierarchy
+        - particles_basic
+        - fx_blur_over_colorcard
+        - fx_gallery_cpu
+        - fx_sweep_iwa_a
+    bounds:
+      fraction_over_tolerance: 0.025
+    reason: "Phase 1 replaced OpenGL antialiasing of vector levels with Skia's CPU rasteriser: stroke and fill edges move by up to a pixel; nothing else changes. Measured on x86_64 macOS: at most 2.0% of the pixels over 2 levels per frame."
+    see: "doc/nexttoonz_canvas_ir.md, step 9; doc/nexttoonz_phase1_release_note.md"
+    review: "when the OpenGL fallback is removed"
+
+  - id: KD-2
+    title: "vector_styles: the special colour styles, Skia against OpenGL"
+    applies_to:
+      comparison: ab
+      rasterizers: [gl, skia]
+      scenes: [vector_styles]
+    bounds:
+      fraction_over_tolerance: 0.13
+    reason: "The colorfx styles (textures, patterns, generated strokes) were redrawn on the canvas IR; they differ from the OpenGL drawing far more than plain strokes. Measured on x86_64 macOS: up to 12.3% of the pixels over 2 levels, peak 234."
+    see: "doc/nexttoonz_canvas_ir.md, sections 5.6 and 7.3"
+    review: "when the OpenGL fallback is removed"
+
+  - id: KD-3
+    title: "vector_styles: macOS Skia render against the Linux baseline"
+    applies_to:
+      comparison: golden
+      scenes: [vector_styles]
+      platforms: ["darwin-*"]
+    bounds:
+      fraction_over_tolerance: 0.03
+      peak: 49
+    reason: "Drawn with Skia, macOS and Linux still differ on up to 2.8% of the pixels, by at most 49 levels, spread over many styles; not traced yet. The golden test compares this scene on Linux only."
+    see: "toonz/sources/tests/golden/CMakeLists.txt; doc/nexttoonz_cli_ci.md 3.4"
+    review: "Phase 2 arm64 checksum table, or when the cause is found"
+
+  - id: KD-4
+    title: "Text fxs follow the machine's font state, which changes overnight"
+    applies_to:
+      comparison: ab
+      scenes: ["fx_sweep_font_*"]
+      same_day: false
+    reason: "fx_sweep_font_a draws with the system's default font; on macOS its rendering changed between 2026-11-17 and 2026-11-18 with the same build. Render both sides the same day."
+    see: "toonz/build-phase1/ab/phase2/README.md (now tools/ab); doc/nexttoonz_cli_ci.md 3.4 (pinned)"
+    review: "Phase 2 step 18 (fonts without Qt)"
+
+  - id: KD-5
+    title: "Dash phase of dashed lines on the AMD driver (OpenGL fallback)"
+    applies_to:
+      comparison: golden
+      rasterizers: [gl]
+      platforms: ["darwin-x86_64"]
+      scenes: ["*"]
+    bounds:
+      fraction_over_tolerance: 0.01
+    reason: "Through OpenGL, glLineStipple's phase on this Mac's AMD driver differs from Mesa's; the six offscreen-function pictures of the canvas A/B showed it. Bounds not measured on tcomposer renders yet."
+    see: "doc/nexttoonz_canvas_ir.md, step 9 results; doc/nexttoonz_phase1_release_note.md"
+    review: "when the OpenGL fallback is removed"
+
+  - id: KD-6
+    title: "fx_sweep_gpuin_a: GLSL fxs with input ports crash tcomposer on macOS"
+    applies_to:
+      scenes: [fx_sweep_gpuin_a]
+      platforms: ["darwin-*"]
+      status: [render-failed, skipped]
+    reason: "glTransformFeedbackVaryings is a null pointer in macOS's GL context; ShaderInterface::makeProgram calls it. The tools skip the fx_sweep_gpu* scenes on macOS by default."
+    see: "doc/nexttoonz_known_issues.md, item 15"
+    review: "when the shader fxs move off OpenGL"

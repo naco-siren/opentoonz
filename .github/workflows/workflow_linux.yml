@@ -15,6 +15,7 @@ on:
       - '.github/workflows/workflow_linux.yml'  # Include Linux workflow file
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '**/*'
       - '!appveyor.yml'
@@ -23,13 +24,29 @@ on:
       - '!**/.github/**'
       - '.github/workflows/workflow_linux.yml'
 
+# Packages (.AppImage, .app/.dmg, the Windows folder) are made only where
+# someone uses them: pushes to master, runs started by hand, and pull
+# requests labelled "package" (Q4 of doc/nexttoonz_cli_ci.md). Labelling a
+# pull request "package" starts a run that packages.
+env:
+  NEXTTOONZ_PACKAGE: ${{ github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'package') }}
+
 jobs:
   Ubuntu:
+    # A label other than "package" changes nothing to build.
+    if: github.event.action != 'labeled' || github.event.label.name == 'package'
     # Build on the oldest supported LTS: glibc/libstdc++ symbol versioning is
     # backward compatible only, so an AppImage built on 24.04 requires
     # GLIBC_2.38 / GLIBCXX_3.4.32 and will not start on 22.04 (see #7001).
     # Modern-toolchain coverage comes from the Fedora job below.
     runs-on: ubuntu-22.04
+    # Compiler cache (Q5 of doc/nexttoonz_cli_ci.md): paths relative to the
+    # checkout, so moving it does not miss; bounded; statistics of this run
+    # only (zeroed before the build) in the log and in the results artifact.
+    env:
+      CCACHE_DIR: /home/runner/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 500M
     strategy:
       matrix:
         compiler: [gcc, clang]
@@ -52,13 +69,15 @@ jobs:
     - name: Set up cache
       run: mkdir -p /home/runner/.ccache
 
-    - uses: actions/cache@v5
+    # restore + save instead of actions/cache, as in workflow_macos.yml: the
+    # cache is kept when a later step fails. No fallback to the other
+    # compiler's objects: they never hit.
+    - uses: actions/cache/restore@v5
       with:
         path: /home/runner/.ccache
         key: ${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}
-        restore-keys: | 
+        restore-keys: |
           ${{ runner.os }}-${{ matrix.compiler }}-
-          ${{ runner.os }}-
 
     - name: Build libtiff
       run: |
@@ -98,21 +117,34 @@ jobs:
         key: ${{ steps.skia-key.outputs.key }}-${{ hashFiles('ci-scripts/skia/vcpkg.json', 'ci-scripts/skia/vcpkg_skia.sh') }}
 
     - name: Build
+      # ccache is the compiler launcher for C and C++. (CC="ccache gcc" used to
+      # be exported as well; CMake ignores CC when CMAKE_C_COMPILER is given,
+      # so C sources were not cached at all.)
       run: |
-        export CCACHE_DIR=/home/runner/.ccache
-        export CC="ccache ${{ matrix.cc }}"
-        export CXX="ccache ${{ matrix.cxx }}"
+        ccache -z
         cd toonz
         mkdir build
         cd build
-        cmake ../sources -G Ninja -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DCMAKE_C_COMPILER=${{ matrix.cc }} -DWITH_TRANSLATION=OFF \
+        cmake ../sources -G Ninja -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DCMAKE_C_COMPILER=${{ matrix.cc }} -DWITH_TRANSLATION=OFF \
           -DWITH_SKIA=ON -Dunofficial-skia_DIR="$RUNNER_TEMP/skia-vcpkg/x64-linux-release/share/unofficial-skia"
         ninja
 
+    - name: Compiler cache statistics
+      if: always()
+      run: ccache -s
+
+    - name: Save compiler cache
+      if: always()
+      uses: actions/cache/save@v5
+      with:
+        path: /home/runner/.ccache
+        key: ${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}
+
     - name: Test
       run: |
+        mkdir -p "$RUNNER_TEMP/results/junit"
         cd toonz/build
-        ctest --output-on-failure --timeout 900
+        ctest --output-on-failure --timeout 900 --output-junit "$RUNNER_TEMP/results/junit/ctest.xml"
 
     - name: Upload golden renders on failure
       if: failure()
@@ -124,11 +156,34 @@ jobs:
           toonz/build/golden/*/diff/*.png
         if-no-files-found: ignore
 
-    - name: Create Artifact
+    - name: Collect results
+      # Uploaded on every run: JUnit, golden JSON, the renders and contact
+      # sheets, ccache statistics (doc/nexttoonz_cli_ci.md, 4.3 and Q3).
+      if: always()
+      run: tools/ci/collect_results.sh toonz/build "$RUNNER_TEMP/results"
+
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: results-linux-${{ matrix.compiler }}-${{ github.sha }}
+        path: ${{ runner.temp }}/results
+        if-no-files-found: ignore
+
+    - name: Install
+      # The installed tree is what the smoke test below runs.
       run: |
         cd toonz/build
         sudo ninja install
 
+    - name: Packaging skipped
+      if: env.NEXTTOONZ_PACKAGE != 'true'
+      run: echo "No AppImage on this run (only master, manual runs and PRs labelled package)."
+
+    - name: Create Artifact
+      if: env.NEXTTOONZ_PACKAGE == 'true'
+      run: |
+        cd toonz/build
         mkdir -p appdir/usr
         cp -r /opt/opentoonz/* appdir/usr
         cp appdir/usr/share/applications/*.desktop appdir
@@ -206,6 +261,7 @@ jobs:
         grep -q '^TOONZPROFILES=/keep/me$' "$HOME/$CONF/SystemVar.ini"
 
     - uses: actions/upload-artifact@v6
+      if: env.NEXTTOONZ_PACKAGE == 'true'
       with:
         name: Opentoonz-${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}
         path: toonz/build/Opentoonz-${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}.tar.gz
@@ -215,13 +271,16 @@ jobs:
   # Built without Skia (WITH_SKIA is off by default), so it also keeps the
   # OpenGL-only configuration compiling; it runs no golden tests.
   Fedora:
+    # A label other than "package" changes nothing to build.
+    if: github.event.action != 'labeled' || github.event.label.name == 'package'
     runs-on: ubuntu-latest
     container:
       image: fedora:latest
     steps:
     - name: Install prerequisites
-      # actions/checkout needs git and tar, absent from the base image
-      run: dnf install -y git tar gzip
+      # actions/checkout needs git and tar, absent from the base image;
+      # actions/cache prefers zstd
+      run: dnf install -y git tar gzip zstd
 
     - uses: actions/checkout@v6
 
@@ -235,7 +294,19 @@ jobs:
           qt5-qtbase-devel qt5-qtsvg qt5-qtsvg-devel qt5-qtscript qt5-qtscript-devel \
           qt5-qttools qt5-qttools-devel qt5-qttools-static qt5-qtmultimedia \
           qt5-qtmultimedia-devel qt5-qtserialport-devel qt5-qtwayland \
-          pkgconf-pkg-config
+          pkgconf-pkg-config ccache
+
+    # The job had no compiler cache (Q5 of doc/nexttoonz_cli_ci.md). In a
+    # container job ${{ github.workspace }} is the host's path, so the cache
+    # lives at a path relative to the checkout and the shell uses
+    # $GITHUB_WORKSPACE.
+    - name: Restore compiler cache
+      uses: actions/cache/restore@v5
+      with:
+        path: .ccache
+        key: fedora-${{ github.sha }}
+        restore-keys: |
+          fedora-
 
     - name: Build libtiff
       run: |
@@ -245,6 +316,8 @@ jobs:
 
     - name: Build
       run: |
+        export CCACHE_DIR="$GITHUB_WORKSPACE/.ccache" CCACHE_BASEDIR="$GITHUB_WORKSPACE" CCACHE_MAXSIZE=500M
+        ccache -z
         cd toonz
         mkdir build
         cd build
@@ -252,5 +325,17 @@ jobs:
         # build with. A missing return is only a warning in our default build,
         # so it survives review and breaks packaging instead (see #6940).
         cmake ../sources -G Ninja -DWITH_TRANSLATION=OFF \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DCMAKE_CXX_FLAGS=-Werror=return-type
         ninja
+
+    - name: Compiler cache statistics
+      if: always()
+      run: CCACHE_DIR="$GITHUB_WORKSPACE/.ccache" ccache -s
+
+    - name: Save compiler cache
+      if: always()
+      uses: actions/cache/save@v5
+      with:
+        path: .ccache
+        key: fedora-${{ github.sha }}

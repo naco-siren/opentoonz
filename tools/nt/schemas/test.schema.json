@@ -1,0 +1,142 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.test/1",
+ "title": "nexttoonz test",
+ "type": "object",
+ "required": [
+  "schema",
+  "tool",
+  "host",
+  "ok",
+  "result",
+  "warnings"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.test/1"
+  },
+  "tool": {
+   "type": "object",
+   "required": [
+    "name",
+    "version"
+   ],
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "version": {
+     "type": "string"
+    },
+    "git": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "build": {
+     "type": "object",
+     "properties": {
+      "program": {
+       "type": "string"
+      },
+      "program_sha256": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "skia": {
+       "type": [
+        "boolean",
+        "null"
+       ]
+      },
+      "default_rasterizer": {
+       "enum": [
+        "skia",
+        "gl"
+       ]
+      }
+     }
+    }
+   }
+  },
+  "host": {
+   "type": "object",
+   "required": [
+    "os",
+    "arch"
+   ],
+   "properties": {
+    "os": {
+     "type": "string"
+    },
+    "arch": {
+     "type": "string"
+    }
+   }
+  },
+  "ok": {
+   "type": "boolean"
+  },
+  "result": {
+   "type": "object",
+   "required": [
+    "bundle",
+    "gates"
+   ],
+   "properties": {
+    "bundle": {
+     "type": "string"
+    },
+    "gates": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "status",
+       "summary"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "status": {
+        "enum": [
+         "pass",
+         "fail",
+         "known",
+         "skipped"
+        ]
+       },
+       "summary": {
+        "type": "string"
+       },
+       "threshold": {
+        "type": "string"
+       },
+       "evidence": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "timing_ms": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "integer"
+   }
+  }
+ }
+}

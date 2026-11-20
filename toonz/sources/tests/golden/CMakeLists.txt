@@ -2,7 +2,8 @@
 #
 # One ctest per scene found in fixtures/reference_project/scenes/*.tnz.
 # Each test renders the scene with the freshly built tcomposer and compares
-# the frames with tests/golden/expected/<scene>/ (see run_golden.py).
+# the frames with tests/golden/expected/<scene>/ (see run_golden.py), and
+# writes the outcome, frame by frame, to <build>/golden/<scene>.json.
 #
 # In a build with Skia (WITH_SKIA) vector levels are rasterised on the CPU,
 # and the baselines of the scenes that have vectors are such renders
@@ -88,6 +89,7 @@ foreach(_scene ${_scenes})
             --scene ${_scene}
             --expected ${CMAKE_CURRENT_SOURCE_DIR}/expected/${_name}
             --work ${_golden_work}/${_name}
+            --json ${_golden_work}/${_name}.json
             ${_xvfb_arg}
     )
     set_tests_properties(golden_${_name} PROPERTIES

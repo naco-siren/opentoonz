@@ -1,0 +1,168 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.accept/1",
+ "title": "The AI acceptance's verdict (accept/verdict.json), doc/nexttoonz_cli_ci.md 4.4",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "sha",
+  "base",
+  "verdict",
+  "gates_respected",
+  "findings",
+  "checked",
+  "not_verified",
+  "questions_for_owner"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.accept/1"
+  },
+  "sha": {
+   "type": "string",
+   "description": "the tested build, as manifest.json names it"
+  },
+  "base": {
+   "type": "string",
+   "description": "the base build, as manifest.json names it"
+  },
+  "verdict": {
+   "enum": [
+    "accept",
+    "needs-human",
+    "reject"
+   ]
+  },
+  "gates_respected": {
+   "type": "boolean",
+   "description": "true: the verdict is not accept while a gate fails"
+  },
+  "findings": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "rank",
+     "kind",
+     "item",
+     "claim",
+     "evidence",
+     "expected_by_pr",
+     "needs_human",
+     "human_check"
+    ],
+    "properties": {
+     "rank": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "kind": {
+      "enum": [
+       "unexpected-pixel-change",
+       "known-difference",
+       "flaky",
+       "perf",
+       "log-anomaly",
+       "tool-change",
+       "not-covered"
+      ]
+     },
+     "item": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^R[0-9]{2}$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "the review item (triage.json review[].id), if any"
+     },
+     "claim": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Chinese, one sentence, with the numbers"
+     },
+     "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "string",
+       "minLength": 3
+      },
+      "description": "paths relative to the view directory, optionally with #anchor"
+     },
+     "cited": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "number"
+      },
+      "description": "metric name -> value as written in triage.json for this item"
+     },
+     "expected_by_pr": {
+      "type": [
+       "boolean",
+       "null"
+      ],
+      "description": "null in round 1 or when unclear"
+     },
+     "needs_human": {
+      "type": "boolean",
+      "description": "a person has to look before merging"
+     },
+     "human_check": {
+      "type": "string",
+      "description": "Chinese: what exactly to open and look at"
+     }
+    }
+   }
+  },
+  "checked": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "item",
+     "why_ok"
+    ],
+    "properties": {
+     "item": {
+      "type": "string",
+      "pattern": "^R[0-9]{2}$"
+     },
+     "why_ok": {
+      "type": "string",
+      "minLength": 6
+     }
+    }
+   }
+  },
+  "canary": {
+   "type": "object",
+   "description": "ignored: check_verdict.py decides"
+  },
+  "not_verified": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "questions_for_owner": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "proposed_known_differences": {
+   "type": "array",
+   "items": {
+    "type": "object"
+   },
+   "description": "entries the AI suggests for tests/known_differences.yaml; a person decides"
+  }
+ }
+}

@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""nexttoonz: the Python front end of doc/nexttoonz_cli.md (see ntpy/cli.py)."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ntpy.cli import main  # noqa: E402
+
+sys.exit(main())
