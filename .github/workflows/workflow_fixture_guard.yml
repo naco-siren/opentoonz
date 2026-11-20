@@ -1,0 +1,60 @@
+name: Fixture Guard
+
+# Every commit a pull request or a push to nexttoonz/** brings in is checked
+# by .githooks/fixture-guard.sh: a change to the test fixtures or baselines
+# (toonz/sources/tests/fixtures/reference_project/, golden/expected/, the
+# checksum tables) needs a "Fixtures-Update: <reason>" line in its message,
+# or in the merge commit that brings it in, or the label "fixtures-update"
+# on the pull request. Backups, scene icons and .DS_Store under those folders
+# fail whatever the message or label. The same rules run locally in the
+# hooks (tools/setup-hooks.sh); see toonz/sources/tests/README.md.
+#
+# No build: a checkout with history and a shell.
+
+on:
+  pull_request:
+    # labeled/unlabeled so that adding the label re-runs the check
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches:
+      - 'nexttoonz/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.head_ref != '' }}
+
+jobs:
+  fixture-guard:
+    name: Fixture Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          lfs: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Check the commits
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'fixtures-update') }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+          PUSH_REF: ${{ github.ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            # By hand: only the tree of the branch.
+            sh .githooks/fixture-guard.sh tree HEAD
+          else
+            sh .githooks/fixture-guard.sh ci
+          fi
+
+      - name: Test the hooks
+        run: sh toonz/sources/tests/hooks/test_fixture_guard.sh
