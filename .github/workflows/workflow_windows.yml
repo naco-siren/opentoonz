@@ -18,6 +18,7 @@ on:
       - '!**/.github/**'                          # Exclude everything in .github folder
       - '.github/workflows/workflow_windows.yml'  # Include Windows workflow file
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '**/*'
       - '!appveyor.yml'
@@ -26,8 +27,17 @@ on:
       - '!**/.github/**'
       - '.github/workflows/workflow_windows.yml'
 
+# Packages (.AppImage, .app/.dmg, the Windows folder) are made only where
+# someone uses them: pushes to master, runs started by hand, and pull
+# requests labelled "package" (Q4 of doc/nexttoonz_cli_ci.md). Labelling a
+# pull request "package" starts a run that packages.
+env:
+  NEXTTOONZ_PACKAGE: ${{ github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'package') }}
+
 jobs:
   Windows:
+    # A label other than "package" changes nothing to build.
+    if: github.event.action != 'labeled' || github.event.label.name == 'package'
     runs-on: windows-2025
     env:
       # QT related variable
@@ -120,7 +130,13 @@ jobs:
         shell: cmd
 
       # Create the package
+      - name: Packaging skipped
+        if: env.NEXTTOONZ_PACKAGE != 'true'
+        run: echo "No package on this run (only master, manual runs and PRs labelled package)."
+        shell: bash
+
       - name: Create Package
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         run: |
           @echo on
           cd toonz\build
@@ -152,6 +168,7 @@ jobs:
 
       # Create artifact from the build
       - name: Create Artifact
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         run: |
           mkdir artifact
           xcopy toonz\build\Opentoonz artifact\ /E /H /Y
@@ -159,6 +176,7 @@ jobs:
 
       # Upload the generated artifact
       - name: Upload Artifact
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: Opentoonz-${{ runner.os }}-${{ github.sha }}

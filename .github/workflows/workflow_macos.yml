@@ -14,6 +14,7 @@ on:
       - '!**/.github/**'                        # Exclude everything in .github folder
       - '.github/workflows/workflow_macos.yml'  # Include MacOs workflow file
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '**/*'
       - '!appveyor.yml'
@@ -23,12 +24,21 @@ on:
       - '.github/workflows/workflow_macos.yml'
   workflow_dispatch:
 
+# Packages (.AppImage, .app/.dmg, the Windows folder) are made only where
+# someone uses them: pushes to master, runs started by hand, and pull
+# requests labelled "package" (Q4 of doc/nexttoonz_cli_ci.md). Labelling a
+# pull request "package" starts a run that packages.
+env:
+  NEXTTOONZ_PACKAGE: ${{ github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'package') }}
+
 jobs:
   # The core libraries without Qt (WITH_QT=OFF; doc/nexttoonz_core_noqt.md):
   # what has been moved off Qt so far, built where no Qt is installed, with
   # its unit tests, also in the iPad simulator. x86_64 only, by the owner's
   # platform order (Q8 of that document).
   macOS-noqt:
+    # A label other than "package" changes nothing to build.
+    if: github.event.action != 'labeled' || github.event.label.name == 'package'
     timeout-minutes: 60
     runs-on: macos-15-intel
     steps:
@@ -112,6 +122,8 @@ jobs:
           if-no-files-found: ignore
 
   macOS:
+    # A label other than "package" changes nothing to build.
+    if: github.event.action != 'labeled' || github.event.label.name == 'package'
     timeout-minutes: 180 # Stop job if it exceeds expected build time
     # NextToonz builds macOS arm64 and x86_64 at parity (doc/nexttoonz_plan.md, D5).
     # - `macos-15` is an Apple Silicon (arm64, M1 3-vCPU) image.
@@ -271,7 +283,11 @@ jobs:
           name: results-macos-${{ matrix.arch }}-${{ github.sha }}
           path: ${{ runner.temp }}/results
           if-no-files-found: ignore
+      - name: Packaging skipped
+        if: env.NEXTTOONZ_PACKAGE != 'true'
+        run: echo "No .app/.dmg on this run (only master, manual runs and PRs labelled package)."
       - name: Introduce Libraries and Stuff
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         run: |
           cd toonz/build/toonz
           cp -pr ../../../stuff OpenToonz.app/portablestuff
@@ -284,6 +300,7 @@ jobs:
             -executable=OpenToonz.app/Contents/MacOS/tfarmcontroller \
             -executable=OpenToonz.app/Contents/MacOS/tfarmserver
       - name: Modify Library Paths
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         run: |
           cd toonz/build/toonz/OpenToonz.app/Contents/Frameworks
           for TARGETLIB in *.dylib; do
@@ -295,6 +312,7 @@ jobs:
             done
           done
       - name: Create Artifact
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         run: |
           cd toonz/build/toonz
           echo "Creating DMG..."
@@ -311,6 +329,7 @@ jobs:
           done
           echo "DMG created successfully."
       - uses: actions/upload-artifact@v6
+        if: env.NEXTTOONZ_PACKAGE == 'true'
         with:
           name: Opentoonz-${{ runner.os }}-${{ matrix.arch }}-${{ github.sha }}
           path: toonz/build/toonz/OpenToonz.dmg

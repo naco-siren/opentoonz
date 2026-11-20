@@ -15,6 +15,7 @@ on:
       - '.github/workflows/workflow_linux.yml'  # Include Linux workflow file
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '**/*'
       - '!appveyor.yml'
@@ -23,8 +24,17 @@ on:
       - '!**/.github/**'
       - '.github/workflows/workflow_linux.yml'
 
+# Packages (.AppImage, .app/.dmg, the Windows folder) are made only where
+# someone uses them: pushes to master, runs started by hand, and pull
+# requests labelled "package" (Q4 of doc/nexttoonz_cli_ci.md). Labelling a
+# pull request "package" starts a run that packages.
+env:
+  NEXTTOONZ_PACKAGE: ${{ github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'package') }}
+
 jobs:
   Ubuntu:
+    # A label other than "package" changes nothing to build.
+    if: github.event.action != 'labeled' || github.event.label.name == 'package'
     # Build on the oldest supported LTS: glibc/libstdc++ symbol versioning is
     # backward compatible only, so an AppImage built on 24.04 requires
     # GLIBC_2.38 / GLIBCXX_3.4.32 and will not start on 22.04 (see #7001).
@@ -139,11 +149,20 @@ jobs:
         path: ${{ runner.temp }}/results
         if-no-files-found: ignore
 
-    - name: Create Artifact
+    - name: Install
+      # The installed tree is what the smoke test below runs.
       run: |
         cd toonz/build
         sudo ninja install
 
+    - name: Packaging skipped
+      if: env.NEXTTOONZ_PACKAGE != 'true'
+      run: echo "No AppImage on this run (only master, manual runs and PRs labelled package)."
+
+    - name: Create Artifact
+      if: env.NEXTTOONZ_PACKAGE == 'true'
+      run: |
+        cd toonz/build
         mkdir -p appdir/usr
         cp -r /opt/opentoonz/* appdir/usr
         cp appdir/usr/share/applications/*.desktop appdir
@@ -221,6 +240,7 @@ jobs:
         grep -q '^TOONZPROFILES=/keep/me$' "$HOME/$CONF/SystemVar.ini"
 
     - uses: actions/upload-artifact@v6
+      if: env.NEXTTOONZ_PACKAGE == 'true'
       with:
         name: Opentoonz-${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}
         path: toonz/build/Opentoonz-${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}.tar.gz
@@ -230,6 +250,8 @@ jobs:
   # Built without Skia (WITH_SKIA is off by default), so it also keeps the
   # OpenGL-only configuration compiling; it runs no golden tests.
   Fedora:
+    # A label other than "package" changes nothing to build.
+    if: github.event.action != 'labeled' || github.event.label.name == 'package'
     runs-on: ubuntu-latest
     container:
       image: fedora:latest
