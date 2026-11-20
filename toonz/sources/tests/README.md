@@ -468,6 +468,44 @@ It reports nothing; any report is a new race (known issue 33 lists the ones
 it found and that were fixed). The checksums of the vector tests are the
 same in this Debug build.
 
+The build with Qt has a ThreadSanitizer variant too, for the threading of
+step 9 (doc/nexttoonz_core_noqt.md, 8.18): the core and toonzlib tests, and
+tcomposer rendering scenes in several threads. It lives in the checkout's
+`build/tsan-qt` (doc/nexttoonz_layout.md, 4.8). Configure it with the
+options of the ordinary build plus the sanitizer:
+
+```
+cmake -S toonz/sources -B build/tsan-qt -G Ninja \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_CXX_FLAGS="-DGL_SILENCE_DEPRECATION -fsanitize=thread -g" \
+    -DCMAKE_C_FLAGS="-fsanitize=thread -g" \
+    -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread \
+    -DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=thread \
+    -DCMAKE_MODULE_LINKER_FLAGS=-fsanitize=thread \
+    <the -D options of the ordinary build: Qt, OpenCV, Boost, Skia>
+ninja -C build/tsan-qt tcomposer nexttoonz_core_tests nexttoonz_toonzlib_tests
+TSAN_OPTIONS=halt_on_error=1 ./build/tsan-qt/tests/nexttoonz_core_tests
+(cd build/tsan-qt/tests/toonzlib && TSAN_OPTIONS=halt_on_error=1 ./nexttoonz_toonzlib_tests)
+```
+
+Both test binaries report nothing. tcomposer is not in an application bundle
+here and loads its libraries from beside itself (`@executable_path`): copy it
+and the build's `*.dylib` into one folder first. On macOS a sanitizer report
+ends in `abort()` by default, which leaves a crash report each time; pass
+`abort_on_error=0` when rendering, and `log_path=<dir>/tsan` to keep the
+reports:
+
+```
+TSAN_OPTIONS="halt_on_error=0 abort_on_error=0 log_path=/tmp/tsan" \
+    <folder>/tcomposer <scene>.tnz -o <out>.png -nthreads 8 -TOONZROOT <stuff>
+```
+
+Renders still report old races in the render code (known issues 38 to 44);
+anything else is new. None of the reports is inside Qt, so there is no
+suppressions file; if Qt's uninstrumented code ever reports, put the
+suppressions in `tests/tsan_qt.supp` beside `lsan.supp`, with a comment for
+each.
+
 ## Checksum tables of the vector tests
 
 `core/test_vector_noqt.cpp` compares what it computes, writes and draws

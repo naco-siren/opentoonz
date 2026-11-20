@@ -8,6 +8,7 @@
 //! the main thread:
 //  MyMessage().send();
 
+#include <functional>
 #include <mutex>
 
 #undef DVAPI
@@ -22,9 +23,41 @@
 
 #include "tcommon.h"
 
+//! Runs work on the main thread for the other threads (step 9b of
+//! doc/nexttoonz_core_noqt.md). A program installs one at start-up
+//! (TThread::setMainThreadDispatcher); the build with Qt installs its own in
+//! TThread::init(), which queues the work on the Qt event loop as the queued
+//! signals of TThread::Message did. Without one, work runs at once on the
+//! thread that posts it.
+class DVAPI TMainThreadDispatcher {
+public:
+  virtual ~TMainThreadDispatcher() {}
+
+  //! Runs \p task on the main thread, later: never inside this call when it
+  //! is made on another thread. Tasks posted by one thread run in the order
+  //! they were posted.
+  virtual void post(std::function<void()> task) = 0;
+
+  //! Whether the calling thread is the one posted tasks run on.
+  virtual bool isMainThread() const = 0;
+
+  //! On the main thread: returns once \p done() is true, running posted
+  //! tasks (and, with Qt, every other event) in the meantime, so that a wait
+  //! does not freeze the program. \p done() is checked again after each of
+  //! them; something must wake the wait when it becomes true (a posted
+  //! task does).
+  virtual void waitUntil(const std::function<bool()> &done) = 0;
+};
+
 namespace TThread {
 
 bool DVAPI isMainThread();
+
+//! The dispatcher TThread::Message and the core post through; nullptr
+//! puts back the default (run at once on the posting thread). Installed once,
+//! at start-up, on the main thread.
+void DVAPI setMainThreadDispatcher(TMainThreadDispatcher *dispatcher);
+DVAPI TMainThreadDispatcher *mainThreadDispatcher();
 
 // This class is used for communication between different threads. Calling the
 // 'send' method in a thread, the user defined method 'onDeliver' is executed in
@@ -35,6 +68,8 @@ bool DVAPI isMainThread();
 // executable without main loop! (such as composer, cleanupper, etc.)
 // NOTE: if the 'send' is called in the main thread, then onDeliver is executed
 // immediately.
+// Both go through the main thread dispatcher (above); without one installed
+// onDeliver runs at once on the sending thread.
 
 class DVAPI Message {
 public:

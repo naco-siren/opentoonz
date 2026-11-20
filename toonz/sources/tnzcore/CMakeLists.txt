@@ -129,6 +129,7 @@ set(SOURCES
     ../common/tcore/tdebugmessage.cpp
     ../common/tcore/texception.cpp
     ../common/tcore/threadmessage.cpp
+    ../common/tcore/threadmessage_qt.cpp
     ../common/tcore/tmathutil.cpp
     ../common/tproperty.cpp
     ../common/tproperty_qt.cpp
@@ -290,11 +291,13 @@ endif()
 # 8b the seams to OpenGL, tglentries.cpp, with nothing installed in them;
 # step 8d the vector images, the styles and what they need (rasters, images
 # and their I/O, the image cache, the raster operations), once 8d-0 had
-# taken the Qt out of the last of them. The others never needed Qt.
+# taken the Qt out of the last of them; step 9b the main thread dispatcher
+# and TThread::Message (threadmessage.cpp). The others never needed Qt.
 set(TNZCORE_NOQT_SOURCES
     ../common/tcore/tdata.cpp
     ../common/tcore/tdebugmessage.cpp
     ../common/tcore/texception.cpp
+    ../common/tcore/threadmessage.cpp
     ../common/tcore/tmathutil.cpp
     ../common/tcore/trandom.cpp
     ../common/tcore/tsmartpointer.cpp

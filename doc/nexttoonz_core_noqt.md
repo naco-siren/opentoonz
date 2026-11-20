@@ -1053,6 +1053,63 @@ tnzcore 里三处线程相关的小地方换成标准库，线程行为不变。
 
 **结果（Linux 虚拟机）。** 全部目标编译通过；504 个测试里 503 个通过，失败的仍是只在虚拟机里失败的 `golden_fx_sweep_font_a`；GL 画布 32 个、无 Qt 构建 167 个通过。
 
+### 8.18 第 9b 步实际做成的样子（2026-11-20）
+
+**派发器。** `tthreadmessage.h`（本来就不带 Qt）里加了接口 `TMainThreadDispatcher`，有三个方法：
+- `post(task)`：以后在主线程上执行，同一个线程投递的按顺序执行；
+- `isMainThread()`；
+- `waitUntil(done)`：在主线程上等到 `done()` 成立，等的时候照样执行投递来的工作，Qt 的实现里还处理所有事件。
+
+`TThread::setMainThreadDispatcher` 安装，`TThread::mainThreadDispatcher()` 取。没有安装时用内置的那个：工作在投递的线程上立刻执行；它的 `waitUntil` 在每次执行完投递的工作后醒来，另外每 5 毫秒再看一次。
+
+**`TThread::Message` 经派发器投递。** 行为不变：
+- 在主线程上 `send()` 和 `sendBlocking()` 立刻执行 `onDeliver()`；
+- 别的线程上 `send()` 投递一个副本，在主线程上执行完删掉；
+- `sendBlocking()` 投递以后等到执行完才返回（`onDeliver()` 抛异常时也放发送方走，异常照旧在主线程上抛出）。
+
+`threadmessage.cpp` 不再带 Qt，进了无 Qt 构建（tnzcore 不用 Qt 的源文件 78 个），它的测试也在 iPad 模拟器里跑。
+
+**Qt 的派发器**（Q9-A，`threadmessage_qt.cpp`，只在 Qt 构建里编，第 20 步搬出 tnzcore）：
+- 还是 `tthreadp.h` 里的 `TThreadMessageDispatcher` 那个 QObject，现在实现上面的接口。`TThread::init()` 照旧在主线程上建它，并装为派发器。
+- `post` 是 `QMetaObject::invokeMethod(this, task, Qt::QueuedConnection)`，在主线程的事件队列里放一个 `QMetaCallEvent`，与原来的排队信号是同一种事件，排在已有事件之后。
+- `sendBlocking` 等投递完，等价于原来的 `Qt::BlockingQueuedConnection`。
+- `waitUntil` 照 `TRenderer` 今天的写法：`processEvents(AllEvents | WaitForMoreEvents)`，直到条件成立。条件变真时必须有事件把它叫醒，投递一个空任务就行。`TRenderer` 改用它在第 10 步。
+
+**与原来不同的一处。** 不调 `TThread::init()` 的程序（tconverter、tcleanup、单测）原来根本没有派发器：在别的线程上 `send()` 会碰到空指针。现在落到内置的那个，在发送的线程上立刻执行。
+
+**新测试。**
+- `test_tthreaddispatcher.cpp`，两种构建和 iPad 都跑，6 个：
+  - 没有派发器时在投递的线程上立刻执行；
+  - 主线程上立刻送达，不经派发器；
+  - 8 个线程各发 200 条，在主线程上按各自的顺序送达，每个副本都删掉了；
+  - `sendBlocking` 在主线程送达之前不返回；
+  - 内置派发器的 `waitUntil` 被投递的工作叫醒。
+- `test_tthreaddispatcher_qt.cpp`，Qt 构建，4 个：
+  - 用真的 Qt 派发器，自己建 `QCoreApplication`，用完删掉，`TSystemNoQCoreApplication` 仍然看不到它；
+  - 事件循环跑之前没有送达，跑之后按各发送方的顺序送达；
+  - 投递的工作排在已有事件之后；
+  - `sendBlocking` 加上 `waitUntil`；
+  - `TThread::init()` 装上的是 Qt 派发器。
+
+**ThreadSanitizer（Q9-D）。** 本地的 Qt 加 TSan 构建在检出根下的 `build/tsan-qt/`（RelWithDebInfo，`-fsanitize=thread`；`tests/README.md` 的 Sanitizers 一节写了怎么建、怎么跑）。
+- Qt 构建的核心测试 240 个、toonzlib 测试 147 个在 TSan 下全过，没有报告。
+- tcomposer 用 `-nthreads 8` 渲 28 个场景，报告全在我们自己的老代码里。没有一个落在派发器或 `TThread::Message` 上，也没有一个在 Qt 内部，所以不需要 Qt 的 suppressions 文件。
+- 37 对冲突的位置，照所有者的原则处理：
+  - **修了**（只加锁或改 `std::atomic`，单线程行为逐字节不变，单独一个提交）：
+    - `MovieRenderer::Imp::saveFrame` 在放开互斥锁以后读 `m_toBeAppliedGamma[frame]`，别的线程同时在锁里往这张表里插（已知问题第 36 条）；
+    - stdfx 的 `ino::log_enable_sw` 的两个静态开关（第 37 条）。
+  - **只影响剖析的**：`TStopWatch::global` 的计时器，几个渲染线程同时 start、stop。标志和时间字段都在竞争，不是一行 atomic 能修的，记为第 38 条，不加抑制。
+  - **要改结构或语义不确定的**，记为已知问题，列进第 10 步，第 9 步不动：
+    - `TStageObject` 的位置缓存：`getPlacement`、`computeLocalPlacement`、`invalidate`，以及其中 `TAffine` 的复制，次数最多，第 39 条；
+    - fx 缓存：`ResourceBuilder::build`、`TPredictiveCacheManager`、`TCacheResource`，第 40 条；
+    - 动画调色板的当前帧：`TPalette::getFrame`/`setFrame` 和 `TLevelColumnFx::applyTzpFxs`，第 41 条；
+    - stdfx 的 bokeh 线程和 `ParticlesManager::data`，第 42 条；
+    - Plastic 的 SuperLU 求解（`dpanel_bmod`、`dcolumn_dfs`），第 43 条。
+  - **线程池自己的**：`ExecutorImp::refreshAssignments` 对 `Worker::takeTask`，第 44 条。由 9c 处理，它重写的正是这段，characterization 测试先钉住。
+- `toonz_raster_basic` 在 TSan 下 40 分钟没渲完，超时，不是报错。
+
+**结果（x86_64 macOS）。** 全部测试 541 个通过（新加 10 个）；28 个场景 × `-nthreads` 1 和 8，554 帧与改动前（`37fdccdcc`）逐字节相同；无 Qt 构建三道检查通过，173 个测试，iPad 模拟器里 84 个。
+
 ## 9. 引擎 API 的第一版
 
 D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用返回值，不暴露 Qt 类型和 `TRasterPT<T>` 之类的模板实例；C ABI 等第一个非 C++ 消费者出现时从它机械派生。本稿只定第一版覆盖什么、什么时候出现。

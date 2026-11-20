@@ -68,6 +68,7 @@ set(NEXTTOONZ_CORE_NOQT_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tsound_io.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tstring.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tsystem.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tthreaddispatcher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tthreadmutex.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_ttranslatabletext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_timagecache.cpp
