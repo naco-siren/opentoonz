@@ -26,7 +26,10 @@
 #define DVAPI
 #define DVVAR
 #else
-#ifdef TVRENDER_EXPORTS
+// Defined in tnzglview since step 8c of doc/nexttoonz_core_noqt.md, so
+// exported by it: with TVRENDER_EXPORTS, which tnzcore's own classes also
+// use, MSVC would take those for tnzglview's too.
+#ifdef TNZGLVIEW_EXPORTS
 #define DVAPI DV_EXPORT_API
 #define DVVAR DV_EXPORT_VAR
 #else

@@ -47,12 +47,21 @@ struct TextureInfoForGL {
   const void *pixels;
 };
 
+// prepareTexture and drawStrokeCenterline are defined in tnzglview since
+// step 8c of doc/nexttoonz_core_noqt.md, the rest in tnzcore.
+#undef DVAPI_GLVIEW
+#ifdef TNZGLVIEW_EXPORTS
+#define DVAPI_GLVIEW DV_EXPORT_API
+#else
+#define DVAPI_GLVIEW DV_IMPORT_API
+#endif
+
 //=============================================================================
 
 /**
  *
  */
-DVAPI TRasterP prepareTexture(const TRasterP &ras, TextureInfoForGL &texinfo);
+DVAPI_GLVIEW TRasterP prepareTexture(const TRasterP &ras, TextureInfoForGL &texinfo);
 
 /**
  *
@@ -62,8 +71,8 @@ DVAPI double computeStep(const TStroke &s, double pixelSize);
 /**
  *  Draw stroke centerline between parameters from and to.
  */
-DVAPI void drawStrokeCenterline(const TStroke &stroke, double pixelSize,
-                                double from = 0.0, double to = 1.0);
+DVAPI_GLVIEW void drawStrokeCenterline(const TStroke &stroke, double pixelSize,
+                                       double from = 0.0, double to = 1.0);
 
 DVAPI void stroke2polyline(std::vector<TPointD> &pnts, const TStroke &stroke,
                            double pixelSize, double w0 = 0.0, double w1 = 1.0,

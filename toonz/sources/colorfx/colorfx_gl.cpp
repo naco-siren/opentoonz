@@ -41,8 +41,10 @@ void drawThroughGl(Draw draw) {
 struct TColorFxGLAccess {
   static void sketchStroke(const TColorStyle &s, const TColorFunction *cf,
                            const TStroke *stroke) {
-    const TSketchStrokeStyle &style =
-        static_cast<const TSketchStrokeStyle &>(s);
+    // through the virtual function of tnzcore's base class: colorfx does
+    // not export its style classes, so on Windows tnzglview cannot call
+    // their members by name
+    const TSimpleStrokeStyle &style = static_cast<const TSimpleStrokeStyle &>(s);
     {
       TLegacyGlCanvas gl;
       style.drawStrokeOnCanvas(gl.canvas(), cf, stroke,
@@ -54,8 +56,8 @@ struct TColorFxGLAccess {
 
   static void flowLineStroke(const TColorStyle &s, const TColorFunction *cf,
                              const TStroke *stroke) {
-    const FlowLineStrokeStyle &style =
-        static_cast<const FlowLineStrokeStyle &>(s);
+    // (virtually, as above)
+    const TSimpleStrokeStyle &style = static_cast<const TSimpleStrokeStyle &>(s);
     {
       TLegacyGlCanvas gl;
       style.drawStrokeOnCanvas(gl.canvas(), cf, stroke,

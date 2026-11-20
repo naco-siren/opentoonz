@@ -998,6 +998,17 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 这三处修好之后，Windows 才会往下编到 tnzcore 以后的库，那里可能还有同类问题，要再跑一次才知道。
 
+第二次手动触发（run 44660826672，在 `459d0bac8` 上）证实了这一点：tnzcore 编过了，停在两处链接错误：
+- `tnzglview.dll` 缺 7 个符号。这就是 8c 记下的风险：导出宏没有按 Windows 的需要分开。tnzglview 为了导出搬进来的 GL 函数，定义了 `TVRENDER_EXPORTS` 和 `TVECTORIMAGE_EXPORTS`。可是 `tstroke.h`、`tpalette.h`、`tsimplecolorstyles.h` 里 tnzcore 自己的类也用这两个宏，MSVC 于是把它们当成 tnzglview 自己的：函数还能经导入库找到，静态数据（`TStroke::m_classCode`、`TPalette::m_declaration`、两个图案笔刷的 `m_rootDir`）找不到。修法：
+  - tnzglview 只定义 `TNZGLVIEW_EXPORTS` 和 `TGL_EXPORTS`（`tgl.h` 那几个头声明的东西只有 tnzglview 定义）；
+  - 整个搬进来的 `tofflinegl.h`、`tvectorgl.h`、`tglcanvasbridge.h` 改用 `TNZGLVIEW_EXPORTS`；
+  - `drawutil.h` 里搬进来的 `prepareTexture` 和 `drawStrokeCenterline` 用一个新宏 `DVAPI_GLVIEW`，其余仍归 tnzcore。
+  - 依据是 macOS 上 `libtnzglview.dylib` 导出的全部符号：每个都对到它的头，tnzcore 和 colorfx 里没有一个是这些头声明的。
+- 同一个库里还缺两个 colorfx 的成员（`TSketchStrokeStyle`、`FlowLineStrokeStyle` 的 `drawStrokeOnCanvas`）：colorfx 不导出它的样式类，`colorfx_gl.cpp` 却按具体类直接调用。改成经 tnzcore 的基类 `TSimpleStrokeStyle` 的虚函数调用，不需要导出。
+- `nexttoonz_appinfo_probe.exe`（6c 的测试程序）缺 `TSystemQtSemantics::applicationFilePath` 和 `applicationDirPath`：这个内部头的函数 tnzcore 从来没有导出。现在按 `TSYSTEM_EXPORTS` 导出（新宏 `DVAPI_QTSEMANTICS`），头仍然只在核心和测试里用。
+
+在 macOS 和 Linux 上这些宏都是空的，所以这一轮只能证明那两个平台上没有变化；Windows 链不链得过，要等下一次运行。
+
 **macOS arm64（run 44652941765）。** toonzlib 测试里 `VectorWithoutQt` 的四个测试失败：矢量测试的 macOS 校验和表是 x86_64 上生成的。日志里有每一项的实际值，项名都对得上：
 - 不同的有 70 项：68 个画面项（Linux 与 x86_64 本来就不同的那些，一个不少），加上 `regions/computed`、`regions/filled` 两个数据项；
 - 其余 48 个数据项与 x86_64 相同，包括每个 pli 的读取、写出的文件和调色板。

@@ -14,47 +14,58 @@
 
 #include <string>
 
+#include "tcommon.h"
+
+// Exported by tnzcore all the same: the core tests call some of them from
+// outside it (appinfo_probe.cpp), which on Windows needs the export.
+#undef DVAPI_QTSEMANTICS
+#ifdef TSYSTEM_EXPORTS
+#define DVAPI_QTSEMANTICS DV_EXPORT_API
+#else
+#define DVAPI_QTSEMANTICS DV_IMPORT_API
+#endif
+
 namespace TSystemQtSemantics {
 
 //! QFile::encodeName / QFile::decodeName (NFD and NFC on Apple)
-std::string encodeName(const std::wstring &path);
-std::wstring decodeName(const std::string &bytes);
+DVAPI_QTSEMANTICS std::string encodeName(const std::wstring &path);
+DVAPI_QTSEMANTICS std::wstring decodeName(const std::string &bytes);
 
 //! QDir::cleanPath
-std::wstring cleanPath(const std::wstring &path);
+DVAPI_QTSEMANTICS std::wstring cleanPath(const std::wstring &path);
 //! QFileInfo(path).absoluteFilePath(), absolutePath(), canonicalFilePath()
-std::wstring absoluteFilePath(const std::wstring &path);
-std::wstring absolutePath(const std::wstring &path);
-std::wstring canonicalFilePath(const std::wstring &path);
+DVAPI_QTSEMANTICS std::wstring absoluteFilePath(const std::wstring &path);
+DVAPI_QTSEMANTICS std::wstring absolutePath(const std::wstring &path);
+DVAPI_QTSEMANTICS std::wstring canonicalFilePath(const std::wstring &path);
 
 //! QDir::currentPath, QDir::homePath, QDir::tempPath
-std::wstring currentPath();
-std::wstring homePath();
-std::wstring tempPath();
+DVAPI_QTSEMANTICS std::wstring currentPath();
+DVAPI_QTSEMANTICS std::wstring homePath();
+DVAPI_QTSEMANTICS std::wstring tempPath();
 
 //! QCoreApplication::applicationFilePath and applicationDirPath, also when
 //! there is no QCoreApplication (they were empty then; step 6c's decision)
-std::wstring applicationFilePath();
-std::wstring applicationDirPath();
+DVAPI_QTSEMANTICS std::wstring applicationFilePath();
+DVAPI_QTSEMANTICS std::wstring applicationDirPath();
 
 //! QString::toLatin1
 std::string toLatin1(const std::wstring &s);
 
 //! QString::fromLocal8Bit(qgetenv(name)): empty when it is not set
-std::wstring environmentVariable(const char *name);
+DVAPI_QTSEMANTICS std::wstring environmentVariable(const char *name);
 
 //! QDir().mkpath, QDir().rename, QDir(path).removeRecursively()
-bool mkpath(const std::wstring &path);
-bool rename(const std::wstring &oldName, const std::wstring &newName);
-bool removeRecursively(const std::wstring &path);
+DVAPI_QTSEMANTICS bool mkpath(const std::wstring &path);
+DVAPI_QTSEMANTICS bool rename(const std::wstring &oldName, const std::wstring &newName);
+DVAPI_QTSEMANTICS bool removeRecursively(const std::wstring &path);
 
 //! QFile::copy
-bool copyFileAsQt(const std::wstring &src, const std::wstring &dst);
+DVAPI_QTSEMANTICS bool copyFileAsQt(const std::wstring &src, const std::wstring &dst);
 
 //! tenv's first-run copy of a folder (copyDirOrFail): QDir().mkpath(dst),
 //! then every entry of src, hidden and system ones too, by name ignoring
 //! case; folders that are not links recursively, the rest with QFile::copy
-bool copyDirTree(const std::wstring &dst, const std::wstring &src);
+DVAPI_QTSEMANTICS bool copyDirTree(const std::wstring &dst, const std::wstring &src);
 
 }  // namespace TSystemQtSemantics
 

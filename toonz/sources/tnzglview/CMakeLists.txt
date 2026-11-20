@@ -35,12 +35,15 @@ set(SOURCES
 
 add_library(tnzglview SHARED ${HEADERS} ${SOURCES})
 
-# The headers keep the export macros of the libraries the code came from.
+# What tnzglview defines is exported under TNZGLVIEW_EXPORTS (tglview.h,
+# tofflinegl.h, tvectorgl.h, tglcanvasbridge.h, two functions of
+# drawutil.h) and TGL_EXPORTS (tgl.h, tstencilcontrol.h,
+# tgldisplaylistsmanager.h: only tnzglview defines those). Not
+# TVRENDER_EXPORTS or TVECTORIMAGE_EXPORTS: they also mark tnzcore's
+# classes, whose static data MSVC then looks for here.
 target_compile_definitions(tnzglview PRIVATE
     TNZGLVIEW_EXPORTS
     TGL_EXPORTS
-    TVRENDER_EXPORTS
-    TVECTORIMAGE_EXPORTS
 )
 
 if(BUILD_ENV_APPLE)
