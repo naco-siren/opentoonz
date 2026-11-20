@@ -1020,6 +1020,13 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 照所有者的时间盒，这是 Windows 的最后一轮。下一次运行如果仍然是红的，剩下的问题记在这里和计划的待定事项里，不再追：Windows 不是产品目标，它的 CI 不阻塞。
 
+第五次（run 44670363369，在 `78ed1ce07` 上）：**所有的库和程序都编过并链过了**，剩下的全在测试里，三类：
+- `nexttoonz_core_tests.exe` 链接缺 `renumberFidsWithQt` 和 `renumberFidsWithoutQt`：`test_tlevel_io_qt.cpp` 比较它们的测试体没有按 `_WIN32` 排除，它们自己在 Windows 上却不编；
+- toonzlib 测试的 `test_d0_io.cpp` 里还有一处 `QStringList` 的 `==`，又碰到 `qlist.h` 的 `stdext`；
+- `test_style_canvas.cpp:175`：局部变量叫 `small`，Windows 的 `rpcndr.h` 有 `#define small char`，那一行就成了 `std::vector<std::string> char = …`；后面 `count` 的报错都是它引起的。
+
+**决定（2026-11-20，所有者委托主会话拍板）：Windows 的 CI 不编测试。** 照时间盒不再逐个追。Windows 的 CI 回到它在计划里的角色，只回答"产品能不能在 Windows 上构建"：`workflow_windows.yml` 配置时传 `-DWITH_TESTS=OFF`（`WITH_TESTS` 是我们自己的选项，关掉以后不加 `tests` 目录；树里别的地方不依赖它）。不再改测试源码。上面三类剩余项记在计划的待定事项"Windows 上的测试可移植性"里；改完这三类，后面可能还有没编到的测试。Windows 不是产品目标，它的 CI 不阻塞。
+
 **macOS arm64（run 44652941765）。** toonzlib 测试里 `VectorWithoutQt` 的四个测试失败：矢量测试的 macOS 校验和表是 x86_64 上生成的。日志里有每一项的实际值，项名都对得上：
 - 不同的有 70 项：68 个画面项（Linux 与 x86_64 本来就不同的那些，一个不少），加上 `regions/computed`、`regions/filled` 两个数据项；
 - 其余 48 个数据项与 x86_64 相同，包括每个 pli 的读取、写出的文件和调色板。

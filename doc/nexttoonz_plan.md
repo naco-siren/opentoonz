@@ -502,6 +502,7 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 |---|---|---|
 | x64 Linux 作为产品目标 | 不论是否作为产品，Linux x64 都是最便宜的无头 golden 测试平台，建议至少保留为 CI 测试床 | 所有者决定 |
 | x64 Windows 作为产品目标 | 继承的 workflow 继续跑，不阻塞 | 所有者决定 |
+| Windows 上的测试可移植性 | 库和程序在 Windows 上已全部能编译链接（2026-11-20，`78ed1ce07`）；只有测试没移植到 MSVC，Windows 的 CI 因此不编测试（`-DWITH_TESTS=OFF`），只回答"产品能不能在 Windows 上构建"。剩下三类：(1) `test_tlevel_io_qt.cpp` 的测试体没按 `_WIN32` 排除，它比较的 `renumberFidsWithQt`/`WithoutQt` 在 Windows 上不编，链接缺这两个符号；(2) Qt 5.15.2 的 `qlist.h` 在 VS 18 下用已去掉的 `stdext::make_checked_array_iterator`，`test_d0_io.cpp` 还有一处 `QStringList` 的 `==`；(3) `test_style_canvas.cpp:175` 的局部变量叫 `small`，Windows 的 `rpcndr.h` 有 `#define small char`。改完这三类，后面可能还有没编到的测试 | Windows 成为产品目标时，或有人在 Windows 上开发时 |
 | Skia 的获取方式 | 优先 vcpkg 的 skia port（metal、vulkan、graphite 特性），不可行时转 D6 的触发条件 1 | Phase 1 开工时试 |
 | Qt6 最低版本 | 6.7 是 QRhiWidget 的下限，倾向 6.8 LTS 或更高 | 合并 #6919 时确认其目标版本 |
 | 脚本引擎 | 已定（2026-11-18，Q3）：QtScript 绑定在 Phase 2 移出 toonzlib 成单独的可选库，不换引擎；长期通过 C ABI 绑定 QuickJS、Lua 或 Python | Phase 3 合并 Qt6 时 |
