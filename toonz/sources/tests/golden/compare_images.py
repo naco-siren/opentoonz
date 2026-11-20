@@ -28,6 +28,7 @@ Exit status is 0 on pass, 1 on fail, 2 on usage or I/O error.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 
@@ -53,6 +54,21 @@ def load_rgba(path: Path) -> np.ndarray:
     alpha = rgba[..., 3:4]
     premultiplied = np.concatenate([rgba[..., :3] * alpha / 255.0, alpha], axis=2)
     return np.rint(premultiplied).astype(np.int16)
+
+
+def pixel_hash(pixels: np.ndarray) -> str:
+    """Identity of what was rendered, independent of the PNG encoding.
+
+    sha256 over the ASCII header ``RGBA8p <width> <height>\n`` followed by
+    the premultiplied pixels of load_rgba() as 8-bit RGBA, row by row. Two
+    files with the same pixels and different PNG bytes (compression level,
+    chunks) get the same hash. doc/nexttoonz_cli.md defines it; every tool
+    that writes a "pixels" field computes it here.
+    """
+    height, width = pixels.shape[:2]
+    digest = hashlib.sha256(f"RGBA8p {width} {height}\n".encode("ascii"))
+    digest.update(np.ascontiguousarray(pixels, dtype=np.uint8).tobytes())
+    return "sha256:" + digest.hexdigest()
 
 
 def compare(
