@@ -139,7 +139,9 @@ jobs:
       # the golden renders, which run tcomposer under xvfb-run; vectors are
       # rasterised by Skia, the rest of the GL users by Mesa's software
       # rasteriser.
-      run: ctest --no-tests=error --output-on-failure --timeout 900
+      run: |
+        mkdir -p "$RUNNER_TEMP/results/junit"
+        ctest --no-tests=error --output-on-failure --timeout 900 --output-junit "$RUNNER_TEMP/results/junit/ctest.xml"
 
     - name: Upload golden renders on failure
       if: failure()
@@ -156,4 +158,18 @@ jobs:
       with:
         name: sanitizer-logs-${{ github.sha }}
         path: toonz/build-asan/Testing/Temporary/
+        if-no-files-found: ignore
+
+    - name: Collect results
+      # The machine-readable results (JUnit, golden JSON), uploaded on every
+      # run: doc/nexttoonz_cli_ci.md, section 4.3.
+      if: always()
+      run: tools/ci/collect_results.sh toonz/build-asan "$RUNNER_TEMP/results"
+
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: results-asan-${{ github.sha }}
+        path: ${{ runner.temp }}/results
         if-no-files-found: ignore

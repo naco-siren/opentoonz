@@ -77,11 +77,24 @@ def compare(
     max_channel_diff: int = DEFAULT_MAX_CHANNEL_DIFF,
     max_diff_fraction: float = DEFAULT_MAX_DIFF_FRACTION,
     diff_out: Path | None = None,
+    metrics: dict | None = None,
 ) -> tuple[bool, str]:
-    """Return (passed, human readable summary)."""
+    """Return (passed, human readable summary).
+
+    When `metrics` is a dict it receives the numbers behind the summary:
+    the pixel hashes of both frames, the fraction of pixels over the
+    tolerance, the peak channel difference and the non-blank pixel counts
+    (run_golden.py writes them to its JSON result).
+    """
     e = load_rgba(expected)
     a = load_rgba(actual)
+    if metrics is not None:
+        metrics["expected_pixels"] = pixel_hash(e)
+        metrics["pixels"] = pixel_hash(a)
+        metrics["identical"] = metrics["expected_pixels"] == metrics["pixels"]
     if e.shape != a.shape:
+        if metrics is not None:
+            metrics["same_size"] = False
         return False, f"size mismatch: expected {e.shape[1]}x{e.shape[0]}, actual {a.shape[1]}x{a.shape[0]}"
 
     per_pixel = np.abs(e - a).max(axis=2)
@@ -108,11 +121,21 @@ def compare(
         f"peak channel diff {peak}, {fraction * 100:.4f}% of pixels over "
         f"tolerance {max_channel_diff} (limit {max_diff_fraction * 100:.4f}%)"
     )
+    # A pixel is blank when every channel is (near) zero: transparent black.
+    blank_e = int((e.max(axis=2) <= max_channel_diff).sum())
+    blank_a = int((a.max(axis=2) <= max_channel_diff).sum())
+    total = e.shape[0] * e.shape[1]
+    if metrics is not None:
+        metrics.update({
+            "same_size": True,
+            "pixels_differing": int((per_pixel > 0).sum()),
+            "pixels_over_tolerance": int(over.sum()),
+            "fraction_over_tolerance": round(fraction, 6),
+            "peak": peak,
+            "nonblank_expected": total - blank_e,
+            "nonblank": total - blank_a,
+        })
     if not passed:
-        # A pixel is blank when every channel is (near) zero: transparent black.
-        blank_e = int((e.max(axis=2) <= max_channel_diff).sum())
-        blank_a = int((a.max(axis=2) <= max_channel_diff).sum())
-        total = e.shape[0] * e.shape[1]
         summary += f"; non-blank pixels expected {total - blank_e}, actual {total - blank_a}"
         if blank_a == total:
             summary += " (actual frame is entirely blank)"

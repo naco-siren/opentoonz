@@ -111,8 +111,9 @@ jobs:
 
     - name: Test
       run: |
+        mkdir -p "$RUNNER_TEMP/results/junit"
         cd toonz/build
-        ctest --output-on-failure --timeout 900
+        ctest --output-on-failure --timeout 900 --output-junit "$RUNNER_TEMP/results/junit/ctest.xml"
 
     - name: Upload golden renders on failure
       if: failure()
@@ -122,6 +123,20 @@ jobs:
         path: |
           toonz/build/golden/*/out/*.png
           toonz/build/golden/*/diff/*.png
+        if-no-files-found: ignore
+
+    - name: Collect results
+      # The machine-readable results (JUnit, golden JSON), uploaded on every
+      # run: doc/nexttoonz_cli_ci.md, section 4.3.
+      if: always()
+      run: tools/ci/collect_results.sh toonz/build "$RUNNER_TEMP/results"
+
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: results-linux-${{ matrix.compiler }}-${{ github.sha }}
+        path: ${{ runner.temp }}/results
         if-no-files-found: ignore
 
     - name: Create Artifact

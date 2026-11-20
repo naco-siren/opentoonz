@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nexttoonz.golden-scene/1",
+  "title": "Outcome of one golden-render test (run_golden.py --json)",
+  "type": "object",
+  "required": ["schema", "scene", "status", "exit_code", "frames", "tolerance"],
+  "properties": {
+    "schema": {"const": "nexttoonz.golden-scene/1"},
+    "scene": {"type": "string"},
+    "host": {"type": "object"},
+    "env": {"type": "object", "description": "the environment variables that change the render path"},
+    "tolerance": {
+      "type": "object",
+      "required": ["max_channel_diff", "max_diff_fraction"],
+      "properties": {"max_channel_diff": {"type": "integer"}, "max_diff_fraction": {"type": "number"}}
+    },
+    "expected_dir": {"type": "string"},
+    "work_dir": {"type": "string"},
+    "status": {"enum": ["pass", "fail", "error", "updated"]},
+    "exit_code": {"type": "integer"},
+    "error": {"type": "string"},
+    "tcomposer_rc": {"type": "integer"},
+    "log_tail": {"type": "array", "items": {"type": "string"}},
+    "seconds": {"type": "number"},
+    "frame_set_matches": {"type": "boolean"},
+    "missing_frames": {"type": "array", "items": {"type": "string"}},
+    "failures": {"type": "integer"},
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["frame", "file"],
+        "properties": {
+          "frame": {"type": "integer"},
+          "file": {"type": "string", "description": "relative to work_dir"},
+          "png": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "pixels": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$",
+                     "description": "hash of the decoded premultiplied pixels (doc/nexttoonz_cli.md)"},
+          "expected_pixels": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "identical": {"type": "boolean"},
+          "passed": {"type": "boolean"},
+          "reason": {"type": "string"},
+          "same_size": {"type": "boolean"},
+          "pixels_differing": {"type": "integer"},
+          "pixels_over_tolerance": {"type": "integer"},
+          "fraction_over_tolerance": {"type": "number"},
+          "peak": {"type": "integer"},
+          "nonblank": {"type": "integer"},
+          "nonblank_expected": {"type": "integer"},
+          "diff": {"type": "string", "description": "diff image, relative to work_dir"}
+        }
+      }
+    }
+  }
+}

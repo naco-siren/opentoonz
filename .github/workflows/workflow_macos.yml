@@ -87,12 +87,29 @@ jobs:
         run: git clone --quiet --depth 1 --branch v1.17.0 https://github.com/google/googletest.git "$RUNNER_TEMP/googletest"
 
       - name: Build and test without Qt
+        env:
+          NEXTTOONZ_CTEST_JUNIT: ${{ runner.temp }}/results/junit/ctest.xml
         run: |
+          mkdir -p "$RUNNER_TEMP/results/junit"
           export PKG_CONFIG_PATH="$(brew --prefix jpeg-turbo)/lib/pkgconfig:$PKG_CONFIG_PATH"
           ci-scripts/noqt/noqt_test.sh toonz/build-noqt "$RUNNER_TEMP/googletest" "$IOS_SKIA_PACK_DIR" \
             -DCMAKE_PREFIX_PATH="$(brew --prefix googletest)" \
             -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4 \
             -DWITH_SKIA=ON -DNEXTTOONZ_SKIA_PACK_DIR="$SKIA_PACK_DIR"
+
+      - name: Collect results
+        # The machine-readable results (JUnit, golden JSON), uploaded on every
+        # run: doc/nexttoonz_cli_ci.md, section 4.3.
+        if: always()
+        run: tools/ci/collect_results.sh toonz/build-noqt "$RUNNER_TEMP/results"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: results-macos-noqt-${{ github.sha }}
+          path: ${{ runner.temp }}/results
+          if-no-files-found: ignore
 
   macOS:
     timeout-minutes: 180 # Stop job if it exceeds expected build time
@@ -222,8 +239,9 @@ jobs:
           NEXTTOONZ_HASHES_FILE: ${{ runner.temp }}/vector_hashes.inc
         run: |
           python3 -m pip install --quiet --break-system-packages numpy pillow || python3 -m pip install --quiet numpy pillow
+          mkdir -p "$RUNNER_TEMP/results/junit"
           cd toonz/build
-          ctest --output-on-failure --timeout 600
+          ctest --output-on-failure --timeout 600 --output-junit "$RUNNER_TEMP/results/junit/ctest.xml"
       - name: Upload vector checksums on failure
         if: failure()
         uses: actions/upload-artifact@v6
@@ -239,6 +257,19 @@ jobs:
           path: |
             toonz/build/golden/*/out/*.png
             toonz/build/golden/*/diff/*.png
+          if-no-files-found: ignore
+      - name: Collect results
+        # The machine-readable results (JUnit, golden JSON), uploaded on every
+        # run: doc/nexttoonz_cli_ci.md, section 4.3.
+        if: always()
+        run: tools/ci/collect_results.sh toonz/build "$RUNNER_TEMP/results"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: results-macos-${{ matrix.arch }}-${{ github.sha }}
+          path: ${{ runner.temp }}/results
           if-no-files-found: ignore
       - name: Introduce Libraries and Stuff
         run: |
