@@ -398,7 +398,7 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 - 第一条在 Linux 上达到：没有 X 服务器、加载不到任何 GL 厂商库时，tcomposer 渲完参考工程的全部场景，除三个 GLSL 场景外与有 GL 时逐字节相同。macOS 上拿不掉 GL，没有验证。
 - 第二条只做了一部分。toonzlib 去掉了 GLUT 和 Qt5::OpenGL，tnzext 去掉了 Qt5::OpenGL，GLU 细分器等死代码删了。四个库仍然链接 GL，剩下的是交互 viewer 那一侧的代码（绘制器、贴图、工具反馈、网格显示）和样式的 GL 入口层；按所有者对 Q3、Q4 的决定，它们留到 Phase 3。离线渲染保留了一条 OpenGL 退路（`NEXTTOONZ_VECTOR_RASTERIZER=gl`）。
 - 第三条：有矢量的场景的基线换成 Skia 渲染，在 x86_64 macOS 上生成，Linux 在容差内一致（比较改为按预乘值）；`vector_styles` 两个平台之间仍差 2.8%，还只在 Linux 上比较。字体、`rand()` 和 GLSL 场景本来就依赖平台，仍只在 Linux 上比较。arm64 没有验证。CI 的构建还没有编进 Skia，推送之前要先解决。
-- 第四条：所有者看了对照图（主检出的 `samples/review/`，不进版本库），2026-11-16 认可了矢量外观的变化和说明 `doc/nexttoonz_phase1_release_note.md`；对外发布等推送之后。
+- 第四条：所有者看了对照图（当时在主检出的 `samples/review/`，2026-11-19 起在 [`doc/review/canvas/`](review/canvas/README.md)），2026-11-16 认可了矢量外观的变化和说明 `doc/nexttoonz_phase1_release_note.md`；对外发布等推送之后。
 
 ### Phase 2 核心去 Qt 与抽出
 

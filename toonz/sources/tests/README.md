@@ -80,11 +80,11 @@ step adds what it moved off Qt to those lists.
 
 ## Sample files (not in the repository)
 
-Files for looking at the application by hand, and pictures made for a
-review, live in `samples/` at the root of the main checkout. The directory
-is not part of the repository: it is ignored through `.git/info/exclude`,
-which every worktree shares, and its own `README.md` lists what is there.
-Each machine needs that one line once:
+The scratch copy of the reference project, for looking at the application by
+hand, lives in `samples/reference_project` at the root of the main checkout.
+The directory is not part of the repository: it is ignored through
+`.git/info/exclude`, which every worktree shares. Each machine needs that one
+line once:
 
 ```
 echo /samples/ >> "$(git rev-parse --git-common-dir)/info/exclude"
@@ -94,6 +94,11 @@ Do not open `tests/fixtures/reference_project` in the application: it writes
 backups and scene icons into the project, and the tests read that project.
 Work on a copy, `samples/reference_project`; "Protected fixtures" below says
 how to refresh it.
+
+Pictures made for a review are in the repository, under `doc/review/`
+(its README has the rules: finished pictures only, 300 KB each, a budget per
+topic). Raw outputs of comparisons go to the machine-local `local/runs/`
+(`doc/nexttoonz_layout.md` 4.8).
 
 ## Protected fixtures
 
