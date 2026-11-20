@@ -985,6 +985,30 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 ---
 
+### 8.16 第 1 到 8 步合入之后的第一轮 CI（2026-11-19）
+
+第 1 到 8 步整理成 32 个提交，与工具方案的分支一起合进 `nexttoonz/phase0`（合并提交 `c2dc224d6`）并推送。Linux 的三个作业、Sanitizers、macOS x86_64、macOS-noqt（iPad 模拟器里 78 个测试）都通过。没通过的三处：
+
+**Fixture Guard（run 44652941799）。** 它对这次推送里的 `69e16bef7`（8d 的代码提交）报错：这个提交改了 `test_vector_noqt_hashes_linux.inc` 和 `test_vector_noqt_hashes_macos.inc`，提交信息里没有 `Fixtures-Update:`。这个提交早于夹具保护的规则（规则和它在同一次合并里进来），所以只此一次，不改写历史。手动触发的整树检查（run 44653075161）通过。以后改这些表的提交都带 `Fixtures-Update:` 尾注，本地由 `tools/setup-hooks.sh` 装的钩子先查。
+
+**Windows（run 44652960368，手动触发，Phase 1 之后第一次跑）。** 停在三处，都是本机编不到的：
+- `tnzglcanvas.dll` 缺 12 个 GLU 符号：MSVC 构建只设了 `GL_LIB`（`opengl32.lib`），没有 `GLU_LIB`，Phase 1 的这个库在 Windows 上没链 GLU。照 tnzglview 的做法按名字链 `glu32.lib`。
+- `tstring.cpp`：8a 不带 Qt 的 `toDouble` 用了 `newlocale`、`LC_ALL_MASK`、`strtod_l`，Windows 的 C 库叫 `_create_locale(LC_ALL, "C")` 和 `_strtod_l`。接受哪些文本由前面的检查决定，不变。
+- `uncpath.cpp`（只在 Windows 上编）：`QString` 原来经 `tfilepath.h` 拿到完整定义，第 4 步以后那里只有声明，改成自己包含 `<QString>`。
+
+这三处修好之后，Windows 才会往下编到 tnzcore 以后的库，那里可能还有同类问题，要再跑一次才知道。
+
+**macOS arm64（run 44652941765）。** toonzlib 测试里 `VectorWithoutQt` 的四个测试失败：矢量测试的 macOS 校验和表是 x86_64 上生成的。日志里有每一项的实际值，项名都对得上：
+- 不同的有 70 项：68 个画面项（Linux 与 x86_64 本来就不同的那些，一个不少），加上 `regions/computed`、`regions/filled` 两个数据项；
+- 其余 48 个数据项与 x86_64 相同，包括每个 pli 的读取、写出的文件和调色板。
+
+那两项哈希的是测试自己生成的三个圈（`cx + r*cos(a)`）求出的区域、再填色以后的笔画控制点和区域，取的是 double 的原始位。arm64 的 clang 默认把乘加合成一条 FMA，结果的末位会不同。本机在测试的生成函数里用 `std::fma` 模拟，哈希变了，但没有变成 arm64 的值，可见库内部的浮点运算也有同样的差别。本机没有 arm64，证明不了区域的结构相同，所以照下面的决定拆开：
+- 结构项 `regions/computed/structure`、`regions/filled/structure`：只含整数，即笔画数、每条笔画的样式和点数、区域数，以及每个区域（含子区域）的样式和围成它的边（哪条笔画、哪个方向、什么样式）。放在所有平台共用的新表 `test_vector_noqt_hashes_common.inc` 里，三个平台必须相同。本机用 `std::fma` 扰动坐标时它们不变，`exact` 两项则变了。
+- 原来的两项改名为 `regions/computed/exact`、`regions/filled/exact`，按平台，值不变。Linux 和 macOS x86_64 的这两项本来就相同，差别只在处理器。
+- 新表 `test_vector_noqt_hashes_macos_arm64.inc`：那 70 项取 CI 日志里的实际值，其余与 x86_64 相同；结构项按定义用 x86_64 本机的值。下一轮 CI 里，如果 arm64 的结构项不同，测试会失败并打出实际值，那就是真 bug。
+- 测试多了一个开关 `NEXTTOONZ_HASHES_FILE=<文件>`：每个测试把它的校验和按表的格式追加进这个文件。macOS 的 workflow 在测试失败时把它作为产物上传，以后新平台的表可以直接从 CI 拿。说明在 `tests/README.md` 里。
+- iPad 模拟器在 Apple 芯片的 Mac 上（arm64）会用到 arm64 的表，但那里用的是 iOS 的 Skia 包，没有验证过。CI 的 iPad 作业在 Intel 运行器上，用 x86_64 的表。
+
 ## 9. 引擎 API 的第一版
 
 D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用返回值，不暴露 Qt 类型和 `TRasterPT<T>` 之类的模板实例；C ABI 等第一个非 C++ 消费者出现时从它机械派生。本稿只定第一版覆盖什么、什么时候出现。
@@ -1162,6 +1186,10 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 1. tcleanup 在 macOS 上单独运行时找不到 `SystemVar.ini` 而中止：记为已知问题第 34 条（原有问题，注明崩溃报告的来源），不修。人工验收第 11 条改在应用里做清理。
 2. Windows 的 workflow 加 `workflow_dispatch` 触发，只加这个，不加推送触发。推送后手动跑一次，验证 Windows 上的盲改，不必开 PR。
 3. arm64 的矢量校验和表要不要再拆一张：等 CI 的结果出来再定，先不动。
+
+**第一轮 CI 之后的决定（2026-11-20，所有者委托主会话拍板）：arm64 的校验和。** arm64 上除了画面，`regions/computed` 和 `regions/filled` 两个数据项也不同（8.16 节）。取 (B)：这两项各拆成两项。结构项只含整数（笔画数、区域数、样式、每个区域由哪些边围成），三个平台必须相同，不进分平台的表；几何项是 double 的原始位，按平台。另一个选项 (A) 是把这两项也当作随平台变，一轮 CI 就能填满，但 arm64 上区域的结构真错了也会被盖住，所以不取。为了少走一轮 CI，arm64 的表现在就填满：画面项和那两个几何项的值取自日志，结构项按定义用 x86_64 的值。arm64 的结构项若真的不同，下一轮会失败并打出实际值。`NEXTTOONZ_PRINT_HASHES` 的输出文件和 macOS workflow 失败时上传它，照样加上。三张表的提交都带 `Fixtures-Update:`。
+
+做的时候有一处与上面的字面不同：几何项就是原来的整项，整数和坐标的位都在里面，改名为 `…/exact`。这样它在 arm64 上的值日志里已经有了。如果只哈希坐标的位，那是新的值，日志里没有，又要多走一轮 CI。结构项相同的平台上，整项不同就等于坐标不同，两种做法查出的东西一样。
 
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
