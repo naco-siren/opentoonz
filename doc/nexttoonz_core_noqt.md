@@ -269,17 +269,17 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 | 7（已完成，8.9 节） | 样式描述与翻译：`tcolorstyles.h` 的 `getDescription`、参数名、枚举项改成核心产生 `TTranslatableText`、界面翻译（Q2）；`TPalette` 第一页名字经窄的数据翻译服务；`tvectorimage.h` 的 `QSet` | `ttranslatabletext.cpp`；矢量图和样式的 16 个源文件从此编译时碰不到 Qt 的头，但链接要等第 8 步 | 每个注册样式的描述、参数名、枚举项在 11 种语言下经 Qt 翻译后与改动前逐字相同（导出对照）；lupdate 前后产出的 .ts 相同 |
 | 8（已完成，8.10 到 8.15 节） | 开头先清矢量图和样式里不带 GL 的 Qt（第 7 步之后剩下的）：`tpalette.cpp` 的帧号区间解析与 `QString::number(…, 'g', 17)`、`toDouble`，`tsimplecolorstyles.cpp` 的 `QDir::match`、`sourceFilters`、`QMutexLocker`，`tl2lautocloser.cpp`、`tsegmentadjuster.cpp` 的 `qDebug`；然后 tnzcore 与 colorfx 的桌面 GL 移出核心（Q1）：`tgl.cpp`、`tstencilcontrol`、`tgldisplaylistsmanager`、`tofflinegl`/`qtofflinegl`、`tglcanvasbridge`、`tglregions` 的 GL 画法、`drawutil` 的 `drawStrokeCenterline`、样式的 GL 入口层，放进界面一侧的新库 `tnzglview`（toonzlib、tnzext、tnzstdfx、toonzqt、tnztools、toonz 和要画 GL 的几个程序链接它，也由它链接 `tnzglcanvas`；8c 的做成的样子有列表）；离线的 GL 退路改成 `tnzglview` 注册的栅格化后端 | tnzcore 的矢量与样式部分；colorfx 全部；tnzcore 不再链接 GL；核心单测加进 iPad 模拟器（`run_ios_noqt.sh`）；矢量图和样式（第 7 步留下的 16 个源文件和 `tpalette`、`tsimplecolorstyles`） | 默认 Skia 路径逐字节相同；GL 退路单线程逐字节相同（tcomposer 链接 `tnzglview`）；viewer 的绘制只能人工验收；`.tpl` 里的数字与 Qt 逐字节相同（大量随机 double 和边界值的差分测试），帧号区间解析与旧代码差分对照，`QDir::match` 的通配规则照 Qt 5.15 对照 |
 | 9 | 线程：`TThread::Executor`/`Runnable` 换成线程池，`TThread::Message` 换成派发器，`QThreadStorage`、`QReadWriteLock`、`QWaitCondition` 换成 std（8d-0 已做一部分：`timagecache.cpp` 的 `QThreadStorage` 和互斥锁）；toonzqt 加 Runnable 的 Qt 适配和 Qt 派发器 | `tthread.cpp`、`threadmessage.cpp`、`timagecache.cpp`… | golden 用 `-nthreads 1` 和 `-nthreads 8` 各渲一遍，与改动前逐字节相同；线程池的单测在 ThreadSanitizer 下跑；应用里人工验收（预览、渲染进度、取消） |
-| 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`tundo.h` 的 `TUndoManager` 去 QObject；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
+| 10 | tnzbase：`TRenderer` 去掉自旋与 `qGuiApp`，`TRenderSettings` 的离屏表面改成不透明句柄；`tundo.h` 的 `TUndoManager` 去 QObject；`TFontParam`；`tfxattributes`；`TCacheResource` 的 QRegion；`tcacheresourcepool` 的 QSettings、QDir；stdfx 的线程原语（第 9 步的决定 Q9-B）：`particlesmanager`、`iwa_particlesmanager` 的 `QThreadStorage`，`iwa_bokehfx`、`iwa_bokehreffx`、`iwa_bokeh_advancedfx`、`iwa_bokeh_util`、`iwa_glarefx` 的 `QReadWriteLock`，`iwa_flowblurfx`、`iwa_tangentflowfx` 的 `QtConcurrent` | tnzbase 全部（扫描仪除外）；stdfx 的大部分（按模拟 162 个） | 同第 9 步的多线程 golden；预测缓存与被动缓存的单测（新写）；`.tnz` 里字体参数的读写不变 |
 | 11 | 引擎 API 第一版（第 9 节），tcomposer 改用它 | | tcomposer 的全部 golden 与改动前逐字节相同 |
 | 12 | tnzext：`plasticskeleton` 的骨骼名、`ttexturesstorage` 的 QCache 与 QString 键、`meshtexturizer` 的 QReadWriteLock；它们的 GL 部分移到 `tnzglview`（Q1） | tnzext 全部 | `plastic_basic` 的 golden；plastic 场景的读写 round-trip |
 | 13 | 外部进程：LZO 直接链接（8d-0 已做一部分：LZO 经注入的服务，桌面默认仍是外部进程，这一步接上链接库的实现；image 库的 pli 读写器在 8d 本体里已进无 Qt 构建）；ffmpeg 换成编解码服务接口（桌面实现仍是外部进程）；删除 `t32bitsrv`、mov/3gp 代理、QuickTime、`tipc`；`TMsgCore` 移到应用一侧；`tsound_qt` 换成声音输出服务 | sound 全部；image 的格式框架 | tlv、tzl 写出的字节与改动前相同（新写的 round-trip 测试）；含 tlv 的 golden；D10 第 2 条在核心里满足 |
 | 14 | image 的其余：sprite 的 QImage、psd 的 QTextCodec、`Preferences` 的 3 处 | image 全部 | 各格式的读写测试（`test_level_formats.cpp` 加 psd、sprite） |
 | 15 | `Preferences` 换成注入的键值存储（Q4），桌面实现放进 toonzqt、文件格式不变 | `preferences.cpp` 移出或变薄 | 用改动前的构建写一份 preferences.ini，新构建读进再写出，逐字节相同 |
 | 16 | Handle 的信号换成观察者回调，toonzqt 配 Qt 适配器 | 9 个 Handle、`PaletteController` | toonzlib 的单测加 Handle 通知的测试；应用里人工验收（切换场景、帧、列、调色板） |
-| 17 | 其余 QObject 模型类去 QObject；`QMessageBox`、光标改成回调；`orientation.cpp` 移到 toonzqt；toonzlib 的 viewer 一侧 GL（`Stage::RasterPainter` 的 GL 分支、`OpenGlPainter`、`ImagePainter`、第二个 `renderFrame`）移到 `tnzglview`（Q1） | toonzlib 的大部分 | 同第 16 步 |
+| 17 | 其余 QObject 模型类去 QObject；`QMessageBox`、光标改成回调；`orientation.cpp` 移到 toonzqt；toonzlib 的 viewer 一侧 GL（`Stage::RasterPainter` 的 GL 分支、`OpenGlPainter`、`ImagePainter`、第二个 `renderFrame`）移到 `tnzglview`（Q1）；toonzlib 的线程原语（第 9 步的决定 Q9-B）：`stage.cpp`、`stagevisitor.cpp` 的 `QThreadStorage`，`imagemanager` 的 `QReadWriteLock`（`scriptengine` 的 `QWaitCondition` 随第 19 步的脚本库） | toonzlib 的大部分 | 同第 16 步 |
 | 18 | 文字与字体：`tfont_qt`、toonzlib 里写字的 QPainter、stdfx 的文字特效改成注入的文字服务（Q5），桌面实现仍用 Qt | 剩下的 toonzlib、stdfx 的文字特效 | 字体场景（`fx_sweep_font_*`，只在 Linux 上比较）和片头板在新旧构建下逐字节相同 |
 | 19 | QtScript 绑定移出成单独的可选库（Q7 之外的 Q3） | toonzlib 全部 | 脚本控制台的测试（新写：跑一段脚本加载场景、栅格化） |
-| 20 | 收口：核心库的默认目标不链接 Qt；`<库>_NOQT_SOURCES` 删掉；无 Qt 的 CI job 改为阻塞，核心库不链接桌面 GL，全部核心单测在 iPad 模拟器里通过（Q1） | 全部 | Phase 2 的完成判据（第 4 节） |
+| 20 | 收口：核心库的默认目标不链接 Qt；`<库>_NOQT_SOURCES` 删掉；无 Qt 的 CI job 改为阻塞，核心库不链接桌面 GL，全部核心单测在 iPad 模拟器里通过（Q1）；Qt 的派发器和 `TThread::QtRunnable`（第 9 步放在 tnzcore 的 `*_qt.cpp` 里，Q9-A）搬出 tnzcore，放进界面一侧的适配库 | 全部 | Phase 2 的完成判据（第 4 节） |
 | 21 | 界面里的编辑命令搬进库、配 characterization 测试；插件宿主的渲染适配器搬到核心。按 Q7 只做 iPad MVP 需要的命令（cell、column、level 的基本编辑），其余放到 Phase 3 | | 命令的单测；应用里人工验收 |
 
 几点说明：
@@ -1220,6 +1220,19 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 
 做的时候有一处与上面的字面不同：几何项就是原来的整项，整数和坐标的位都在里面，改名为 `…/exact`。这样它在 arm64 上的值日志里已经有了。如果只哈希坐标的位，那是新的值，日志里没有，又要多走一轮 CI。结构项相同的平台上，整项不同就等于坐标不同，两种做法查出的东西一样。
 
+**第 9 步开工时的决定（2026-11-20，所有者委托主会话拍板）。** 第 9 步拆成 9a 到 9d：
+- 9a：tnzcore 里换成标准库的小地方，不改线程行为。`isMainThread` 改用 `std::thread::id`；`TSystem::sleep` 改用 `std::this_thread::sleep_for`，顺带修掉已知问题第 35 条（经空指针调用）；`getProcessorCount` 改用 `hardware_concurrency`；`tmetaimage.h` 的读写锁改用 `std::shared_mutex`。
+- 9b：主线程派发器 `TMainThreadDispatcher`（`post`、`isMainThread`、`waitUntil`），`TThread::Message` 经它投递。
+- 9c：`Executor` 的内部去掉 Qt：工作线程改用 `std::thread` 和条件变量；`Runnable` 仍是 QObject，信号不变。动手之前，先单独提交 `Executor` 的 characterization 测试，并在旧代码上跑通。覆盖：按优先级和插入顺序调度、`maxActiveTasks` 与 `maxActiveLoad`、`removeTask`/`cancelAll` 的 canceled 信号、专用线程、`shutdown` 的 terminated 信号、信号的先后和投递线程、任务抛异常时 exception 与 finished 的先后、`shutdown` 时还没开始的任务的 canceled 投递。
+- 9d：`Runnable` 去掉 QObject。核心的 `Runnable` 改为通知钩子，在今天发信号的同一位置调用；`TThread::QtRunnable`（QObject，信号和槽与今天相同）给 Qt 一侧用，19 个子类机械地换基类。之后 `tthread.cpp` 和 `threadmessage.cpp` 进无 Qt 构建和 iPad。
+- 验证：每个子步都跑 golden，加 28 个场景 × `-nthreads` 1 和 8，与改动前逐字节相同；改变线程行为的子步（9b 到 9d）的单测和渲染都在 ThreadSanitizer 下跑。9d 的人工验收（预览、渲染进度与取消、图标、文件浏览器的帧数、矢量化样例、批处理）到里程碑时与 8.6 节的清单合并。
+
+四个问题都取了倾向：
+- Q9-A (a)：Qt 的派发器和 `TThread::QtRunnable` 照 Q2 放在 tnzcore 的 `*_qt.cpp` 里，Qt 构建内置。各程序的 `main` 不用改，tnzbase 和 toonzlib 的子类也能用。第 20 步搬出 tnzcore，已写进迁移表。
+- Q9-B (ii)：toonzlib 和 stdfx 的线程原语留给各自的步。迁移表里已加明确条目：stdfx 的在第 10 步，toonzlib 的在第 17 步。tnzbase 的在第 10 步、tnzext 的在第 12 步，本来就在表里。第 9 步只做 tnzcore 和 Qt 适配。
+- Q9-C (a)：线程优先级照 `QThread::setPriority` 在 macOS 和 Linux 上的实际映射做，不改调度行为。映射表写进代码注释和"做成的样子"；风险里记一条"iPad 上线程优先级尚未按 QoS 调整"。
+- Q9-D：可以有一个本地的 Qt 加 ThreadSanitizer 构建，照 `doc/nexttoonz_layout.md` 4.8 节放在检出根下的 `build/tsan-qt/`。Qt 本身没有插桩，Qt 内部的报告用一份 suppressions 文件压掉，与 `lsan.supp` 并列入库、带注释；`tests/README.md` 的 Sanitizers 一节补上 TSan 的跑法。
+
 下面保留原文，作为决定的依据。原文里的步号已经按加了第 8 步之后的编号改过。
 
 下面每个问题都写了选项和本稿的倾向。
@@ -1270,6 +1283,7 @@ D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用�
 - **定义在别的库里的成员函数**（第 6 节的补充）。`tfilepath_qt.cpp` 现在在 tnzcore 里，到第 20 步核心不链接 Qt 时，它要搬进界面一侧的库。在 macOS 和 Linux 上，一个类的成员定义在另一个动态库里没有问题；在 Windows 上 `TFilePath` 整个类是 `__declspec(dllimport)` 的，成员必须从 tnzcore 的 DLL 导出，搬走就链接不上。那时要么给这几个成员单独去掉导入标记，要么在 Windows 上把它们留在一个链接 Qt 的小库里。Windows 的地位待定，记下，不在现在处理。
 - **无 Qt 构建里内容历史的日期**（8d-0）：Qt 构建照旧用系统语言环境的月份名；无 Qt 构建用英文月份名，只在英文语言环境下与桌面相同，存进关卡和场景的历史记录会不同。iPad 壳要不要按语言环境写，到 iPad 时再定。
 - **`qWarning` 换成了 `fprintf(stderr, ...)`**（第 4 步，`tfilepath.cpp` 的四处警告）。在默认的 Qt 消息处理下两者都写到标准错误；Qt 在 macOS 上没有控制台时会改写系统日志，这几条警告在应用里因此可能换了去处。只是警告，不是行为。
+- **iPad 上线程优先级尚未按 QoS 调整**（第 9 步，Q9-C）。线程池的优先级照 `QThread::setPriority` 在 macOS 和 Linux 上的映射做，桌面的调度行为不变；iPadOS 上照样走 pthread 的调度参数，没有按 Apple 建议的 QoS 类设定。要不要改、改成什么，iPad 壳的性能调优时再定。
 - **工作量。** 计划给 Phase 2 估的是 6 到 9 人月；第 7 节的 21 步里，第 9、10、16、17、21 步各自可能就是几周。Q7 的选择对总量影响最大。
 
 ---
