@@ -2,16 +2,23 @@
 
 #include "tthreadmessage.h"
 #include "tthreadp.h"
-#include <QThread>
 
-QThread *MainThread = QThread::currentThread();
+#include <thread>
+
+namespace {
+// The thread that runs the static initializers: the main thread, as
+// QThread::currentThread() taken here was.
+const std::thread::id mainThreadId = std::this_thread::get_id();
+}  // namespace
 
 TThreadMessageDispatcher
     *Dispatcher;  // MUST BE CREATED  in the main thread!!!!!!
 
 //------------------------------------------------------------------------------
 
-bool TThread::isMainThread() { return MainThread == QThread::currentThread(); }
+bool TThread::isMainThread() {
+  return std::this_thread::get_id() == mainThreadId;
+}
 
 //------------------------------------------------------------------------------
 

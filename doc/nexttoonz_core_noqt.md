@@ -1038,6 +1038,21 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 - 测试多了一个开关 `NEXTTOONZ_HASHES_FILE=<文件>`：每个测试把它的校验和按表的格式追加进这个文件。macOS 的 workflow 在测试失败时把它作为产物上传，以后新平台的表可以直接从 CI 拿。说明在 `tests/README.md` 里。
 - iPad 模拟器在 Apple 芯片的 Mac 上（arm64）会用到 arm64 的表，但那里用的是 iOS 的 Skia 包，没有验证过。CI 的 iPad 作业在 Intel 运行器上，用 x86_64 的表。
 
+### 8.17 第 9a 步实际做成的样子（2026-11-20）
+
+tnzcore 里三处线程相关的小地方换成标准库，线程行为不变。
+
+- **`TThread::isMainThread()`**（`threadmessage.cpp`）：以前比较 `QThread::currentThread()` 和静态初始化时记下的那一个，现在比较 `std::this_thread::get_id()` 和静态初始化时记下的 id。主线程照旧是运行静态初始化的那个线程。原来那个导出的全局变量 `MainThread` 树里没有别人用，去掉了。
+- **`TSystem::sleep`**（Windows）：macOS 和 Linux 从第 6a 步起已经用 `std::this_thread::sleep_for`（`tsystem.cpp`）。Windows 上它还在 `tsystem_qt.cpp` 里，经一个永远是空指针的 `dynamic_cast` 调用 `QThread::msleep`（已知问题第 35 条），现在也改用 `sleep_for`。盘点时以为三个平台都是这样，实际只有 Windows。`getProcessorCount` 在 macOS 和 Linux 上也早就不用 Qt 了；Windows 上照旧是 `QThread::idealThreadCount()`，这一步不动它。
+- **`TMetaImage` 的读写锁**（`tmetaimage.h`，公共头）：`QReadWriteLock` 换成 `std::shared_mutex`。`Reader` 和 `Writer` 原来是 `QReadLocker` 和 `QWriteLocker` 的子类，现在各自持有一个 `std::shared_lock` 和 `std::unique_lock`，构造时上锁、析构时解锁。锁是第一个成员，所以照旧先上锁、再复制对象列表。树里没有人调它们继承来的 `unlock()`、`relock()`，接口上的差别不影响调用者。两者都不可重入，与 `QReadWriteLock` 的默认模式相同。
+  - 有一个差别：有写者在等时，新来的读者等不等。Qt 和 macOS 的 libc++ 都让新读者等，写者不会饿死；Linux 上 libstdc++ 的 `shared_mutex` 用 pthread 的读写锁，默认读者优先。这只在争用下影响谁先拿到锁，不影响结果。用它的是助手工具和 tzm 读写器，争用很少。
+
+**新测试**（`tests/core/test_tthreadmain.cpp`，Qt 构建的核心测试）：主线程判断（主线程是、`std::thread` 里不是）；`TMetaImage` 两个读者可以同时持有；读者持有时写者等待；写者持有时读者等待。
+
+**结果（x86_64 macOS）。** 全部测试 531 个通过（新加 4 个）；28 个场景各用 `-nthreads 1` 和 `8` 渲染，554 帧与改动前（`37fdccdcc` 的应用包）逐字节相同；无 Qt 构建三道检查通过，167 个测试，iPad 模拟器里 78 个。
+
+**结果（Linux 虚拟机）。** 全部目标编译通过；504 个测试里 503 个通过，失败的仍是只在虚拟机里失败的 `golden_fx_sweep_font_a`；GL 画布 32 个、无 Qt 构建 167 个通过。
+
 ## 9. 引擎 API 的第一版
 
 D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用返回值，不暴露 Qt 类型和 `TRasterPT<T>` 之类的模板实例；C ABI 等第一个非 C++ 消费者出现时从它机械派生。本稿只定第一版覆盖什么、什么时候出现。
