@@ -444,8 +444,16 @@ double toDoubleAsQString(const std::string &s, bool *ok) {
     if (expDigits == 0) return 0;
   }
   if (i != t.size()) return 0;
+  // read in the C locale whatever the process's is: the Windows C library
+  // has its own names for the same functions (made once, never freed, as
+  // below)
+#ifdef _WIN32
+  static _locale_t c = _create_locale(LC_ALL, "C");
+  double v = _strtod_l(t.c_str(), nullptr, c);
+#else
   static locale_t c = newlocale(LC_ALL_MASK, "C", (locale_t)0);
   double v = strtod_l(t.c_str(), nullptr, c);
+#endif
   if (std::isinf(v)) return v;  // overflow: not ok
   if (v == 0 && nonZero) return 0;  // underflow: not ok
   if (ok) *ok = true;

@@ -33,3 +33,8 @@ target_link_libraries(tnzglcanvas
     PRIVATE
         ${GL_LIB} ${GLU_LIB}
 )
+# The MSVC build sets GL_LIB only (opengl32.lib, in ../CMakeLists.txt) and no
+# GLU_LIB: GLU comes by name, as for tnzglview.
+if(BUILD_ENV_MSVC)
+    target_link_libraries(tnzglcanvas PRIVATE glu32.lib)
+endif()

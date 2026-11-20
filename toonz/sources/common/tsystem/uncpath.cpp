@@ -9,6 +9,11 @@
 #endif
 #include <windows.h>
 #include <lm.h>
+
+// QString::startsWith and TSystem::getHostName() below: tfilepath.h, which
+// used to bring QString in, only declares it since step 4 of
+// doc/nexttoonz_core_noqt.md (this file is in the build with Qt only)
+#include <QString>
 #endif
 
 //-----------------------------------------------------------------------------
