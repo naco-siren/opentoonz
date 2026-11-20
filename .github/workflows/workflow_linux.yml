@@ -331,7 +331,8 @@ jobs:
 
     - name: Compiler cache statistics
       if: always()
-      run: CCACHE_DIR="$GITHUB_WORKSPACE/.ccache" ccache -s
+      # the same settings as the build, or -s reports the default 5 GiB limit
+      run: CCACHE_DIR="$GITHUB_WORKSPACE/.ccache" CCACHE_MAXSIZE=500M ccache -s
 
     - name: Save compiler cache
       if: always()
