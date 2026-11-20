@@ -162,8 +162,8 @@ jobs:
         if-no-files-found: ignore
 
     - name: Collect results
-      # The machine-readable results (JUnit, golden JSON), uploaded on every
-      # run: doc/nexttoonz_cli_ci.md, section 4.3.
+      # Uploaded on every run: JUnit, golden JSON, the renders and contact
+      # sheets, ccache statistics (doc/nexttoonz_cli_ci.md, 4.3 and Q3).
       if: always()
       run: tools/ci/collect_results.sh toonz/build-asan "$RUNNER_TEMP/results"
 
