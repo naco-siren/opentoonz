@@ -1,0 +1,205 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.diff-images/1",
+ "title": "nexttoonz diff images",
+ "type": "object",
+ "required": [
+  "schema",
+  "tool",
+  "host",
+  "ok",
+  "result",
+  "warnings"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.diff-images/1"
+  },
+  "tool": {
+   "type": "object",
+   "required": [
+    "name",
+    "version"
+   ],
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "version": {
+     "type": "string"
+    },
+    "git": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "build": {
+     "type": "object",
+     "properties": {
+      "program": {
+       "type": "string"
+      },
+      "program_sha256": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "skia": {
+       "type": [
+        "boolean",
+        "null"
+       ]
+      },
+      "default_rasterizer": {
+       "enum": [
+        "skia",
+        "gl"
+       ]
+      }
+     }
+    }
+   }
+  },
+  "host": {
+   "type": "object",
+   "required": [
+    "os",
+    "arch"
+   ],
+   "properties": {
+    "os": {
+     "type": "string"
+    },
+    "arch": {
+     "type": "string"
+    }
+   }
+  },
+  "ok": {
+   "type": "boolean"
+  },
+  "result": {
+   "type": "object",
+   "required": [
+    "a",
+    "b",
+    "a_pixels",
+    "b_pixels",
+    "profile",
+    "passed",
+    "metrics"
+   ],
+   "properties": {
+    "a": {
+     "type": "string"
+    },
+    "b": {
+     "type": "string"
+    },
+    "a_pixels": {
+     "type": "string",
+     "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "b_pixels": {
+     "type": "string",
+     "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "profile": {
+     "enum": [
+      "exact",
+      "golden",
+      "edge"
+     ]
+    },
+    "limits": {
+     "type": "object"
+    },
+    "passed": {
+     "type": "boolean"
+    },
+    "metrics": {
+     "type": "object",
+     "required": [
+      "same_size"
+     ],
+     "properties": {
+      "same_size": {
+       "type": "boolean"
+      },
+      "pixels_differing": {
+       "type": "integer"
+      },
+      "fraction_differing": {
+       "type": "number"
+      },
+      "max_channel_diff": {
+       "type": "integer"
+      },
+      "pixels_over_tolerance": {
+       "type": "integer"
+      },
+      "fraction_over_tolerance": {
+       "type": "number"
+      },
+      "peak": {
+       "type": "integer"
+      },
+      "bbox": {
+       "type": "array",
+       "items": {
+        "type": "integer"
+       },
+       "minItems": 4,
+       "maxItems": 4
+      },
+      "grid": {
+       "type": "object",
+       "properties": {
+        "size": {
+         "type": "integer"
+        },
+        "origin": {
+         "const": "top-left"
+        },
+        "of": {
+         "enum": [
+          "over-tolerance",
+          "differing"
+         ]
+        },
+        "top": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "required": [
+           "cell",
+           "fraction"
+          ]
+         }
+        }
+       }
+      }
+     }
+    },
+    "heatmap": {
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   }
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "timing_ms": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "integer"
+   }
+  }
+ }
+}

@@ -1,0 +1,119 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.sheet/1",
+ "title": "nexttoonz sheet",
+ "type": "object",
+ "required": [
+  "schema",
+  "tool",
+  "host",
+  "ok",
+  "result",
+  "warnings"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.sheet/1"
+  },
+  "tool": {
+   "type": "object",
+   "required": [
+    "name",
+    "version"
+   ],
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "version": {
+     "type": "string"
+    },
+    "git": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "build": {
+     "type": "object",
+     "properties": {
+      "program": {
+       "type": "string"
+      },
+      "program_sha256": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "skia": {
+       "type": [
+        "boolean",
+        "null"
+       ]
+      },
+      "default_rasterizer": {
+       "enum": [
+        "skia",
+        "gl"
+       ]
+      }
+     }
+    }
+   }
+  },
+  "host": {
+   "type": "object",
+   "required": [
+    "os",
+    "arch"
+   ],
+   "properties": {
+    "os": {
+     "type": "string"
+    },
+    "arch": {
+     "type": "string"
+    }
+   }
+  },
+  "ok": {
+   "type": "boolean"
+  },
+  "result": {
+   "type": "object",
+   "required": [
+    "file",
+    "rows",
+    "frames"
+   ],
+   "properties": {
+    "file": {
+     "type": "string"
+    },
+    "rows": {
+     "type": "integer"
+    },
+    "frames": {
+     "type": "integer"
+    },
+    "width": {
+     "type": "integer"
+    },
+    "height": {
+     "type": "integer"
+    }
+   }
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "timing_ms": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "integer"
+   }
+  }
+ }
+}

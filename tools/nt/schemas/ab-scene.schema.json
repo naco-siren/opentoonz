@@ -1,0 +1,162 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.ab-scene/1",
+ "title": "One scene at one thread count of an A/B comparison (ab/<threads>/<scene>.json)",
+ "type": "object",
+ "required": [
+  "schema",
+  "scene",
+  "threads",
+  "determinism",
+  "status",
+  "frames",
+  "counts"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.ab-scene/1"
+  },
+  "scene": {
+   "type": "string"
+  },
+  "threads": {
+   "type": "integer"
+  },
+  "determinism": {
+   "enum": [
+    "exact",
+    "tolerant",
+    "pinned",
+    "unstable"
+   ]
+  },
+  "status": {
+   "enum": [
+    "identical",
+    "different",
+    "render-failed",
+    "both-failed",
+    "skipped"
+   ]
+  },
+  "a": {
+   "type": "object"
+  },
+  "b": {
+   "type": "object"
+  },
+  "frames": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "frame",
+     "status"
+    ],
+    "properties": {
+     "frame": {
+      "type": "integer"
+     },
+     "status": {
+      "enum": [
+       "identical",
+       "different",
+       "missing-in-b",
+       "only-in-b"
+      ]
+     },
+     "a": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+     },
+     "b": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+     },
+     "a_file": {
+      "type": "string"
+     },
+     "b_file": {
+      "type": "string"
+     },
+     "diff": {
+      "type": "object",
+      "required": [
+       "same_size"
+      ],
+      "properties": {
+       "same_size": {
+        "type": "boolean"
+       },
+       "pixels_differing": {
+        "type": "integer"
+       },
+       "fraction_differing": {
+        "type": "number"
+       },
+       "max_channel_diff": {
+        "type": "integer"
+       },
+       "pixels_over_tolerance": {
+        "type": "integer"
+       },
+       "fraction_over_tolerance": {
+        "type": "number"
+       },
+       "peak": {
+        "type": "integer"
+       },
+       "bbox": {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        },
+        "minItems": 4,
+        "maxItems": 4
+       },
+       "grid": {
+        "type": "object",
+        "properties": {
+         "size": {
+          "type": "integer"
+         },
+         "origin": {
+          "const": "top-left"
+         },
+         "of": {
+          "enum": [
+           "over-tolerance",
+           "differing"
+          ]
+         },
+         "top": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "required": [
+            "cell",
+            "fraction"
+           ]
+          }
+         }
+        }
+       }
+      }
+     },
+     "heatmap": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "counts": {
+   "type": "object",
+   "required": [
+    "identical",
+    "different",
+    "missing_in_b",
+    "only_in_b"
+   ]
+  }
+ }
+}

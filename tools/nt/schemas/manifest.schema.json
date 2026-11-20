@@ -1,0 +1,69 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "nexttoonz.manifest/1",
+ "title": "What a results bundle tested against what (manifest.json)",
+ "type": "object",
+ "required": [
+  "schema",
+  "suite",
+  "started",
+  "tool",
+  "host",
+  "test",
+  "stages"
+ ],
+ "properties": {
+  "schema": {
+   "const": "nexttoonz.manifest/1"
+  },
+  "label": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "suite": {
+   "type": "string"
+  },
+  "started": {
+   "type": "string"
+  },
+  "ended": {
+   "type": "string"
+  },
+  "tool": {
+   "type": "object"
+  },
+  "host": {
+   "type": "object"
+  },
+  "test": {
+   "type": "object",
+   "required": [
+    "build"
+   ]
+  },
+  "base": {
+   "type": [
+    "object",
+    "null"
+   ]
+  },
+  "ab": {
+   "type": "object"
+  },
+  "overview": {
+   "type": "object"
+  },
+  "stages": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "name",
+     "status"
+    ]
+   }
+  }
+ }
+}

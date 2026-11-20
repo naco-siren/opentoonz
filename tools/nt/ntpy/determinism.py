@@ -20,6 +20,9 @@ TOLERANT = re.compile(r"^vector_styles$")
 
 LEVELS = ("exact", "tolerant", "pinned", "unstable")
 
+# Scenes whose goldens are compared on Linux only (tests/golden/CMakeLists.txt).
+GOLDEN_LINUX_ONLY = re.compile(r"^(fx_sweep_font_|fx_sweep_rand_|fx_sweep_gpu_|fx_sweep_gpuin_|vector_styles$)")
+
 
 def level(scene: str, rasterizer: str | None = None, threads: int = 1) -> str:
     if rasterizer == "gl" and threads > 1:

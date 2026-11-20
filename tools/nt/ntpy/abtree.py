@@ -19,6 +19,7 @@ listing their PNG files.
 
 from __future__ import annotations
 
+import datetime
 import json
 import sys
 from pathlib import Path
@@ -44,6 +45,7 @@ def render_tree(program: Path, out: Path, threads: list[int], *, rasterizer: str
         if not p.is_dir():
             raise jsonout.NtError(jsonout.ENVIRONMENT if what == "stuff" else jsonout.INPUT, f"no {what} at {p}")
     timer = jsonout.Timer()
+    rendered = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     build = tcomposer.build_info(Path(program))
     effective = tcomposer.effective_rasterizer(rasterizer, build)
     all_scenes = tcomposer.list_scenes(project)
@@ -74,6 +76,7 @@ def render_tree(program: Path, out: Path, threads: list[int], *, rasterizer: str
     failed = [f"{r['threads']} {r['scene']}" for r in records if not r["ok"]]
     result = {
         "label": label,
+        "rendered": rendered,
         "project": str(project),
         "threads": threads,
         "rasterizer": {"requested": rasterizer, "effective": effective},
