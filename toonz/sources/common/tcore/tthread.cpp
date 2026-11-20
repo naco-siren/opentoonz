@@ -13,8 +13,12 @@
 #include "tthreadp.h"
 
 // STL includes
+#include <algorithm>
+#include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <condition_variable>
+#include <cstdio>
 #include <deque>
 #include <map>
 #include <mutex>
@@ -200,6 +204,7 @@ public:
   TSmartPointerT<ExecutorId> m_master;
 
   bool m_exit;
+  ExecutorId *m_sleepingIn;  // whose m_sleepings holds it, while it sleeps
   std::condition_variable m_waitCondition;  // waited on with the transition
                                             // mutex
 
@@ -278,6 +283,8 @@ public:
 
   int m_activeLoad;
   int m_maxLoad;
+
+  int m_liveWorkers;  // started and not yet deleted (under the mutex)
 
   std::mutex m_transitionMutex;  // Workers' transition mutex
 
@@ -402,6 +409,7 @@ void setCurrentThreadPriority(QThread::Priority priority) {
 
 ExecutorImp::ExecutorImp()
     : m_activeLoad(0)
+    , m_liveWorkers(0)
     , m_maxLoad(TSystem::getProcessorCount() * 100)
     , m_transitionMutex()  // NOTE: We'll wait on this mutex - so it can't be
                            // recursive
@@ -671,7 +679,8 @@ void ExecutorId::refreshDedicatedList() {
 
     unsigned int i, size = m_sleepings.size();
     for (i = 0; i < size; ++i) {
-      m_sleepings[i]->m_exit = true;
+      m_sleepings[i]->m_exit       = true;
+      m_sleepings[i]->m_sleepingIn = 0;
       m_sleepings[i]->m_waitCondition.notify_one();
     }
 
@@ -685,7 +694,7 @@ void ExecutorId::refreshDedicatedList() {
 //      Worker methods
 //---------------------------
 
-Worker::Worker() : m_task(0), m_master(0), m_exit(true) {}
+Worker::Worker() : m_task(0), m_master(0), m_exit(true), m_sleepingIn(0) {}
 
 //---------------------------------------------------------------------
 
@@ -698,7 +707,12 @@ Worker::~Worker() {}
 // returned: known issue 45 was one it did not) and is deleted outside the
 // mutex, since that may release the last references to a task and to an
 // ExecutorId, whose destructor locks the mutex.
+//
+// The worker counts itself out (m_liveWorkers) only once it is deleted, so
+// that when shutdown() sees no live worker, none of them touches anything
+// any more.
 void Worker::start() {
+  ++globalImp->m_liveWorkers;
   std::thread([this] {
     run();
     {
@@ -706,6 +720,8 @@ void Worker::start() {
       globalImp->m_workers.erase(this);
     }
     delete this;
+    std::lock_guard<std::mutex> lock(globalImp->m_transitionMutex);
+    --globalImp->m_liveWorkers;
   }).detach();
 }
 
@@ -781,6 +797,7 @@ inline void Worker::onFinish() {
       m_master->m_persistentThreads) {
     m_exit = false;
     m_master->m_sleepings.push_back(this);
+    m_sleepingIn = m_master.getPointer();
 
     // Unlock the mutex - since eventually invoked ~ExecutorId will relock it...
     globalImp->m_transitionMutex.unlock();
@@ -886,6 +903,20 @@ void Executor::shutdown() {
       RunnableP task = (*it)->m_task;
       if (task) Q_EMIT task->terminated(task);
     }
+
+    // Release the dedicated workers that sleep for their executor (they
+    // would sleep until it is destroyed): out of its list, and woken.
+    for (it = globalImp->m_workers.begin(); it != globalImp->m_workers.end();
+         ++it) {
+      Worker *worker = *it;
+      if (worker->m_task || !worker->m_sleepingIn) continue;
+      std::deque<Worker *> &sleepings = worker->m_sleepingIn->m_sleepings;
+      sleepings.erase(std::remove(sleepings.begin(), sleepings.end(), worker),
+                      sleepings.end());
+      worker->m_sleepingIn = 0;
+      worker->m_exit       = true;
+      worker->m_waitCondition.notify_one();
+    }
   }
 
   // Just placing a convenience processEvents() to make sure that queued slots
@@ -893,6 +924,44 @@ void Executor::shutdown() {
   // signals above are effectively invoked in this method - without having to
   // return to an event loop.
   QCoreApplication::processEvents();
+
+  // Wait for every worker thread to end (decision of 2026-11-20, step 9 of
+  // doc/nexttoonz_core_noqt.md): the running tasks were told to stop, and
+  // the program is about to exit. The wait goes through the main thread
+  // dispatcher, so that events (queued signals, sendBlocking() messages
+  // from the workers) are still processed meanwhile; a helper thread wakes
+  // it every 50 milliseconds. After 5 seconds it returns anyway, as it
+  // always did, with a line on standard error.
+  using Clock                     = std::chrono::steady_clock;
+  const Clock::time_point timeout = Clock::now() + std::chrono::seconds(5);
+  TMainThreadDispatcher *dispatcher = TThread::mainThreadDispatcher();
+  std::atomic<bool> waiting(true);
+  std::thread waker([&] {
+    while (waiting) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      if (waiting) dispatcher->post([] {});
+    }
+  });
+  dispatcher->waitUntil([&] {
+    return liveWorkerCount() == 0 || Clock::now() >= timeout;
+  });
+  waiting = false;
+  waker.join();
+  if (int left = liveWorkerCount())
+    std::fprintf(stderr,
+                 "NextToonz: TThread::shutdown() returns after 5 seconds with "
+                 "%d worker thread%s still running\n",
+                 left, left == 1 ? "" : "s");
+}
+
+//---------------------------------------------------------------------
+
+//! The worker threads that have been started and have not ended yet, sleeping
+//! ones included.
+int Executor::liveWorkerCount() {
+  if (!globalImp) return 0;
+  std::lock_guard<std::mutex> transitionLocker(globalImp->m_transitionMutex);
+  return globalImp->m_liveWorkers;
 }
 
 //---------------------------------------------------------------------
@@ -1074,6 +1143,7 @@ inline void ExecutorId::newWorker(RunnableP &task) {
   if (m_sleepings.size()) {
     worker = m_sleepings.front();
     m_sleepings.pop_front();
+    worker->m_sleepingIn = 0;
     worker->m_task = task;
     worker->updateCountsOnTake();
     worker->m_waitCondition.notify_one();

@@ -25,6 +25,7 @@
 #include <QCoreApplication>
 #include <QEventLoop>
 #include <QThread>
+#include <QTimer>
 
 #include <pthread.h>
 
@@ -496,9 +497,18 @@ TEST_F(ExecutorTest, RunningPriorityGivesTheWorkerWhatQThreadSetPriorityGives) {
   }
 }
 
-// Last: Executor::shutdown() is for the whole process.
-TEST_F(ExecutorTest, ZzShutdownCancelsEveryTaskAndTerminatesTheRunningOnes) {
-  TThread::Executor ex;
+// Last: Executor::shutdown() is for the whole process. Since the decision of
+// 2026-11-20 (step 9 of doc/nexttoonz_core_noqt.md) it also waits, processing
+// events, until every worker thread has ended (5 seconds at most): here the
+// running task is let go by a timer while shutdown() waits, and a dedicated
+// executor's sleeping thread is released by it.
+TEST_F(ExecutorTest, ZzShutdownCancelsEveryTaskAndWaitsForTheWorkersToEnd) {
+  TThread::Executor ex, dedicated;
+  dedicated.setDedicatedThreads(true, true);
+  TThread::RunnableP d0(watched(20));
+  dedicated.addTask(d0);
+  ASSERT_TRUE(runEventsUntil([] { return g_log.count("finished", 20) == 1; }));
+
   Gate gate;
   Probe *running  = watched(0);
   running->m_body = [&] { gate.wait(); };
@@ -507,8 +517,17 @@ TEST_F(ExecutorTest, ZzShutdownCancelsEveryTaskAndTerminatesTheRunningOnes) {
   ASSERT_TRUE(runEventsUntil([] { return g_log.count("run", 0) == 1; }));
   ex.addTask(q1);
   ex.addTask(q2);
+  EXPECT_GE(TThread::Executor::liveWorkerCount(), 2);
 
+  // let the running task go a little after shutdown() starts waiting (an
+  // event, which the wait processes)
+  QTimer::singleShot(100, [&] { gate.release(); });
+  const Clock::time_point start = Clock::now();
   TThread::Executor::shutdown();
+  const auto waited = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          Clock::now() - start)
+                          .count();
+
   // the running one, then the queued ones (of equal priority, the latest
   // first), then terminated() for the running one; all in the calling thread
   EXPECT_EQ(g_log.order("canceled"), (std::vector<int>{0, 2, 1}));
@@ -517,11 +536,13 @@ TEST_F(ExecutorTest, ZzShutdownCancelsEveryTaskAndTerminatesTheRunningOnes) {
   for (int n : {0, 1, 2}) EXPECT_TRUE(g_log.first("canceled", n).onMain);
   EXPECT_TRUE(g_log.first("terminated", 0).onMain);
 
-  // the running task is not stopped: it ends, and still says finished()
-  gate.release();
-  ASSERT_TRUE(runEventsUntil([] { return g_log.count("finished", 0) == 1; }));
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  QCoreApplication::processEvents();
+  // the running task was not stopped: it ended, and said finished(), before
+  // shutdown() returned; every worker thread had ended, the sleeping
+  // dedicated one too, well before the 5 seconds
+  EXPECT_EQ(g_log.count("finished", 0), 1);
+  EXPECT_EQ(TThread::Executor::liveWorkerCount(), 0);
+  EXPECT_GE(waited, 90);
+  EXPECT_LT(waited, 4000);
   EXPECT_EQ(g_log.count("run", 1) + g_log.count("run", 2), 0)
       << "a task queued at the shutdown ran";
 }

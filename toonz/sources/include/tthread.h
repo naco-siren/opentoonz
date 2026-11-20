@@ -218,7 +218,11 @@ public:
   ~Executor();
 
   static void init();
+  //! Cancels every task and waits (processing events) until every worker
+  //! thread has ended, for 5 seconds at most.
   static void shutdown();
+  //! Worker threads started and not ended yet, sleeping ones included.
+  static int liveWorkerCount();
 
   void addTask(RunnableP task);
   void removeTask(RunnableP task);
