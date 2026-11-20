@@ -314,6 +314,8 @@ Rust UI 成熟度门槛（四条全部达标时重新评估换壳）：
 - golden 的 `-nthreads 1` 以保证确定性。
 - 必须接受的事实：Phase 1 换成 Skia CPU 光栅后，矢量外观会有小幅变化（GL_LINE_SMOOTH 这类实现相关的反走样被解析式反走样取代）。届时人工审图后更新 golden，并对用户群提前说明。
 
+补充（2026-11-19，`doc/nexttoonz_cli_ci.md`）：Skia 之后渲染分四级确定性（exact、tolerant、pinned、unstable）。同机 A/B 一律逐字节；对基线，有该平台哈希清单的逐字节，其余保留容差。基线可以由所有者的主机产生，但要写明出处、经托管 runner 交叉验证；依赖字体、`rand()`、GLSL 的场景仍由 Linux 作业产生。
+
 ### D8 Qt6 不作为前置条件
 
 决策：不单独做 Qt6 移植阶段。Phase 1 和 Phase 3 顺手消掉 QGL*，Phase 2 消掉 `QMutex::Recursive` 和 `TThread::Mutex`。剩余的 Qt6 阻塞项（QtScript、Multimedia、QDesktopWidget、`setMargin`、QRegExp、QTextCodec、`enterEvent` 签名、字符串式信号连接）全在 UI 侧，交给上游 #6919，在 Phase 3 开始时合并上游的 Qt6 通道。QtScript 绑定在 Phase 2 变为可选编译。
@@ -445,6 +447,48 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 
 复用 C ABI，JNI 绑定，Compose UI，Vulkan 或 GLES 的网格级后端。仅在 Phase 4 完成且有需求时启动。
 
+### 横向工作：仓库与构建布局
+
+设计稿：`doc/nexttoonz_layout.md`（2026-11-19）。目标是让目录说明它是什么：源码按层分成 `core/`、`ui/`、`apps/`，测试、工具、运行时资源、第三方库在顶层，机器本地的东西在一个忽略的根下，不再有按阶段命名的目录。实测表明目录搬家本身不增加上游合并的冲突（一年的上游提交合进搬过家的树，内容冲突为 0），代价在 CMake 路径行，所以搬家的时机按库边界何时定型、上游 Qt6 通道何时合完来定。
+
+工作项（编号对应设计稿第 5 节）：
+
+- 现在：本机整理（第 0 步，不碰版本库）；`.gitignore` 收窄并加 `/build/`、`/local/`（第 1 步）；开发者工具入库到 `tools/`（第 2 步）；审阅图片入库（第 3 步）。
+- Phase 2 第 1 到 8 步合并之后、在 Phase 2 的两步之间：CMake 去掉对源码与构建目录位置的假设（第 4 步）；按用途的预设，CI 改用预设（第 5 步，与 `doc/nexttoonz_cli_ci.md` 一起定）；仓库根的 CMake 入口（第 6 步）；测试上移到顶层 `tests/`（第 7 步）。
+- Phase 2 收口（D9 分叉）时：清理遗留目录（第 8 步）；核心库搬进 `core/`，公共头分到各库（第 9 步）。
+- Phase 3 里程碑一之后：UI 库与程序搬进 `ui/`、`apps/`（第 10 步）。
+
+完成判据：
+
+- 仓库根 `cmake --preset <名字>` 可以配置每一种构建，构建目录是 `build/<名字>`；本机路径只在忽略的 `CMakeUserPresets.json` 里。
+- 主检出里不进版本库的东西只在 `build/`、`local/`、`.claude/` 下；没有工作树嵌在可删的目录里。
+- 版本库文档引用的工具和图片都在版本库里，文档链接检查通过。
+- Phase 2 的完成判据加一条：核心库在 `core/` 下，核心库的包含路径里没有 `ui/`、`apps/` 的目录。
+- Phase 3 的完成判据加一条：`toonz/sources/` 不再存在。
+
+每一步单独合并，纯搬的步骤以编译命令逐字相同验收（见设计稿 5.2 节）；之后合并上游一律用 `tools/upstream/merge.sh`（改名阈值 25%）。
+
+### 横向工作：命令行与 CI 验收
+
+设计稿：`doc/nexttoonz_cli_ci.md`（2026-11-19）。目标：每个检查点、最好每个 PR 的验收都是"一条命令 → 托管 runner 和所有者的主机计算 → AI 验收写报告 → 人读一页简报"，人工清单只留界面手感那一部分。
+
+工作项：
+
+- 命令行入口 `nexttoonz`（子命令 `probe`、`render`、`convert`、`cleanup`、`inspect`、`diff`、`thumbs`/`sheet`、`run`、`test`），JSON 输出与统一的退出码，建在引擎 API 上；契约先定，先用包着现有程序的 Python 前端。tcomposer、tconverter、tcleanupper 保留为兼容外壳，与它共用代码。
+- 渲染结果带像素哈希与确定性级别；基线按平台存哈希清单，能逐字节的平台逐字节比较。
+- 流水线：托管 runner 跑构建、单测、golden、对基准提交的 A/B、清洁剂、无 Qt 与 iPad 模拟器；所有者的主机由手动启动的脚本参与（不是自托管 runner），跑 GL 退路、GUI 自动化截图、性能、Linux 虚拟机，并发 commit status 与 PR 评论。
+- AI 验收读结果包，输出带证据的结论和待看清单；机器关卡决定通过与否，AI 不能翻案；已知差异登记表、盲比、金丝雀防止它随手盖章。
+- OpenToonz 里一个薄的 GUI 自动化钩子，只覆盖命令行覆盖不了的显示部分。
+- 已落地的第一件：测试夹具与基线的保护（`.githooks/`、CI 检查，`toonz/sources/tests/README.md` "Protected fixtures"）。
+
+完成判据：
+
+- Phase 2 的检查点由简报加不超过 15 分钟的人工清单验收（今天 45 到 60 分钟）。
+- 推送到托管 CI 全绿不超过 40 分钟。
+- `nexttoonz render` 的结果与 tcomposer 的 golden 逐字节相同；Phase 2 结束时它也在无 Qt 构建和 iPad 模拟器里跑。
+
+依赖：Phase 2 第 11 步（引擎 API 第一版）之前只做不依赖引擎 API 的快速项（设计稿 6.1 节）；`inspect` 的 xsheet 部分等第 16、17 步，场景脚本的编辑操作等第 21 步，iPad 线等第 20 步。
+
 ---
 
 ## 5. 待定事项
@@ -462,6 +506,11 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 | 扫描仪 twain、Canon SDK、stopmotion 的去留 | 暂不处理 | Phase 2 |
 | 本文档的英文版 | 未定 | 有外部贡献者时 |
 | “CI 阻塞合并”的落实方式 | 给 `nexttoonz/*` 分支加保护并改走 PR；单人项目下也可以维持现状，靠推送前看 CI | 所有者决定 |
+| 仓库布局的目标与时机 | 按层分 `core/`、`ui/`、`apps/`；核心在 Phase 2 收口时搬，UI 在 Phase 3 里程碑一之后搬 | 所有者决定，见 `doc/nexttoonz_layout.md` 第 8 节 |
+| 主机参与 CI 的方式 | 手动启动的本地脚本，发 commit status 与 PR 评论；不用自托管 runner（D5 不变） | 所有者决定 |
+| 改走 PR 进 `nexttoonz/phase0` | 倾向改：缓存只能跨到目标分支，每 PR 的 A/B 与 clang-format 也靠 PR；与"CI 阻塞合并的落实方式"一起定 | 所有者决定 |
+| AI 验收在哪里跑、能否挡合并 | 默认在主机上的 Claude 会话；只能提出问题，不能让红灯通过；托管 runner 上的版本可选 | 所有者决定 |
+| GUI 自动化钩子是否进发布版 | 只在开发构建里编（2026-11-19 主会话按所有者委托定） | 已定 |
 
 ---
 
@@ -474,7 +523,7 @@ MVP 范围：画、播、xsheet 基本编辑、导入导出。不追求与桌面
 - **单人项目的阶段跨度。** Phase 2 与 Phase 3 并列最长，各 6 到 9 人月，且 Phase 2 全程用户不可见。缓解：每个子项（线程、路径、模型、命令搬迁）独立合并，每次合并后 golden 必须通过。
 - **x86-64 与 arm64 对未定义行为的不同结果。** 代码里大量 `(int)double` 转换在越界或 NaN 时是未定义行为，两种架构给出不同结果；Phase 0 已遇到一例让 arm64 macOS 的每一帧渲染变成空白（已知问题第 14 条）。缓解：清洁剂 CI 用 UBSan 跑全部 golden 场景并阻塞，macOS arm64 与 x86_64 的 golden 都阻塞合并。
 - **GPU 相关 golden 在 CI 上不可验证。** 托管 runner 的 Metal 可用性未验证。缓解：golden 只走 CPU 路径，GPU 后端用本地截图人工审查。
-- **基线只能来自 CI。** 开发机的真实显卡与 CI 的软件渲染结果不同，本机既不能生成基线，也有个别场景过不了比较。新场景的基线要先把分支推上去、从 Linux job 的产物里取，一轮半小时以上。缓解：Phase 1 的 CPU 光栅化完成后本机渲染即可作基线。
+- **基线只能来自 CI。** 开发机的真实显卡与 CI 的软件渲染结果不同，本机既不能生成基线，也有个别场景过不了比较。新场景的基线要先把分支推上去、从 Linux job 的产物里取，一轮半小时以上。缓解：Phase 1 的 CPU 光栅化完成后本机渲染即可作基线。（2026-11-19）缓解的具体做法见 `doc/nexttoonz_cli_ci.md` 5.4 节：主机出基线、托管 runner 交叉验证。
 
 ---
 
