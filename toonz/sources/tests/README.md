@@ -468,6 +468,27 @@ It reports nothing; any report is a new race (known issue 33 lists the ones
 it found and that were fixed). The checksums of the vector tests are the
 same in this Debug build.
 
+## Checksum tables of the vector tests
+
+`core/test_vector_noqt.cpp` compares what it computes, writes and draws
+with checksums in `core/test_vector_noqt_hashes_<table>.inc`:
+
+| table | holds |
+|---|---|
+| `common` | the structure of the vector data (integers only), the same everywhere |
+| `macos` | macOS x86_64 and the iPad simulator on an Intel Mac |
+| `macos_arm64` | macOS arm64 |
+| `linux` | Linux with the Skia of vcpkg |
+
+The pictures depend on the platform's Skia and the exact coordinates on the
+processor, so they are per table; a platform without a table skips the
+test. `NEXTTOONZ_PRINT_HASHES=1` prints every checksum in the tables' format
+to standard output (the build with Qt prints them all); with
+`NEXTTOONZ_HASHES_FILE=<file>` each test also adds its checksums to that
+file, which the macOS workflow keeps as an artifact when a test fails, so a
+new platform's table can come from CI. The tables are protected fixtures:
+a commit that changes them needs `Fixtures-Update:` (see above).
+
 ## Regenerating the reference project
 
 ```

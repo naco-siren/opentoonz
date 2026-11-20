@@ -216,10 +216,21 @@ jobs:
           path: /Users/runner/.ccache
           key: ${{ runner.os }}-${{ matrix.arch }}-${{ github.sha }}
       - name: Test
+        env:
+          # every checksum of test_vector_noqt.cpp, kept below when a test
+          # fails: the table for a new platform comes from there
+          NEXTTOONZ_HASHES_FILE: ${{ runner.temp }}/vector_hashes.inc
         run: |
           python3 -m pip install --quiet --break-system-packages numpy pillow || python3 -m pip install --quiet numpy pillow
           cd toonz/build
           ctest --output-on-failure --timeout 600
+      - name: Upload vector checksums on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: vector-hashes-${{ matrix.arch }}-${{ github.sha }}
+          path: ${{ runner.temp }}/vector_hashes.inc
+          if-no-files-found: ignore
       - name: Upload golden renders on failure
         if: failure()
         uses: actions/upload-artifact@v6

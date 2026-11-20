@@ -103,6 +103,39 @@ void hashImage(Hash &h, const TVectorImageP &vi) {
   }
 }
 
+// What hashImage() covers that is made of integers only: the strokes'
+// styles and point counts, and the regions, their styles and the edges
+// around them (which stroke, which way, which style), subregions included.
+// It must be the same on every platform; the coordinates, which may differ
+// in the last bits from one processor to another (arm64 fuses multiply and
+// add), are not in it.
+void hashRegionStructure(Hash &h, const TRegion *region) {
+  h.integer(region->getStyle());
+  h.integer(region->getEdgeCount());
+  for (UINT e = 0; e < region->getEdgeCount(); ++e) {
+    const TEdge *edge = region->getEdge(e);
+    h.integer(edge->m_index);
+    h.integer(edge->m_styleId);
+    h.integer(edge->m_w0 < edge->m_w1);
+  }
+  h.integer(region->getSubregionCount());
+  for (UINT s = 0; s < region->getSubregionCount(); ++s)
+    hashRegionStructure(h, region->getSubregion(s));
+}
+
+void hashStructure(Hash &h, const TVectorImageP &vi) {
+  h.integer(vi->getStrokeCount());
+  for (UINT s = 0; s < vi->getStrokeCount(); ++s) {
+    const TStroke *stroke = vi->getStroke(s);
+    h.integer(stroke->getStyle());
+    h.integer(stroke->isSelfLoop());
+    h.integer(stroke->getControlPointCount());
+  }
+  h.integer(vi->getRegionCount());
+  for (UINT r = 0; r < vi->getRegionCount(); ++r)
+    hashRegionStructure(h, vi->getRegion(r));
+}
+
 void hashPalette(Hash &h, TPalette *palette) {
   h.integer(palette ? palette->getStyleCount() : -1);
   if (!palette) return;
@@ -148,13 +181,20 @@ TRaster32P draw(const TVectorImageP &vi, TPalette *palette, int lx = 256,
 
 // What every build of this platform must give, filled from its build with
 // Qt. The pictures depend on the Skia of the platform (the skia-pack on
-// macOS and iPadOS, vcpkg's on Linux); the vector data and the files do not.
+// macOS and iPadOS, vcpkg's on Linux) and the exact coordinates on the
+// processor (x86_64 or arm64); the files do not.
 const std::map<std::string, unsigned long long> kExpected = {
 #if defined(LINUX)
 #include "test_vector_noqt_hashes_linux.inc"
+#elif defined(MACOSX) && (defined(__aarch64__) || defined(__arm64__))
+#include "test_vector_noqt_hashes_macos_arm64.inc"
 #elif defined(MACOSX)
 #include "test_vector_noqt_hashes_macos.inc"
 #endif
+};
+// What every platform must give, whatever its Skia and processor.
+const std::map<std::string, unsigned long long> kEveryPlatform = {
+#include "test_vector_noqt_hashes_common.inc"
 };
 
 std::map<std::string, unsigned long long> &seen() {
@@ -166,8 +206,16 @@ void expectHash(const std::string &name, unsigned long long actual) {
   seen()[name] = actual;
   if (std::getenv("NEXTTOONZ_PRINT_HASHES"))
     std::printf("    {\"%s\", 0x%016llxULL},\n", name.c_str(), actual);
-  auto it = kExpected.find(name);
-  if (it == kExpected.end()) {
+  // every checksum, in the tables' format, added to a file: what CI keeps
+  // when this test fails (each test runs in a process of its own there)
+  if (const char *file = std::getenv("NEXTTOONZ_HASHES_FILE"))
+    if (FILE *f = std::fopen(file, "a")) {
+      std::fprintf(f, "    {\"%s\", 0x%016llxULL},\n", name.c_str(), actual);
+      std::fclose(f);
+    }
+  const auto &table = kEveryPlatform.count(name) ? kEveryPlatform : kExpected;
+  auto it = table.find(name);
+  if (it == table.end()) {
     ADD_FAILURE() << "no checksum for " << name << ": 0x" << std::hex
                   << actual;
     return;
@@ -271,8 +319,9 @@ TEST_F(VectorWithoutQt, RegionsAndStylesAreComputedAndDrawnTheSame) {
     vi->addStroke(s);
   }
   vi->findRegions();
-  Hash regions;
+  Hash regions, regionsStructure;
   hashImage(regions, vi);
+  hashStructure(regionsStructure, vi);
   for (UINT r = 0; r < vi->getRegionCount(); ++r) {
     TRegion *region = vi->getRegion(r);
     TPointD inside = region->getBBox().getP00() * 0.5 + region->getBBox().getP11() * 0.5;
@@ -283,10 +332,15 @@ TEST_F(VectorWithoutQt, RegionsAndStylesAreComputedAndDrawnTheSame) {
     s->setStyle(inks[i]);
     vi->addStroke(s);
   }
-  Hash filled;
+  Hash filled, filledStructure;
   hashImage(filled, vi);
-  expectHash("regions/computed", regions.h);
-  expectHash("regions/filled", filled.h);
+  hashStructure(filledStructure, vi);
+  // the structure (integers only) on every platform; everything, the
+  // coordinates' bits too, per platform
+  expectHash("regions/computed/structure", regionsStructure.h);
+  expectHash("regions/filled/structure", filledStructure.h);
+  expectHash("regions/computed/exact", regions.h);
+  expectHash("regions/filled/exact", filled.h);
   expectHash("regions/drawn", rasterHash(draw(vi, palette.getPointer())));
   expectHash("regions/drawn_half", rasterHash(draw(vi, palette.getPointer(), 200, 150, 0.5)));
 }
@@ -462,10 +516,11 @@ TEST_F(VectorWithoutQt, ZzEveryChecksumWasChecked) {
   if (!::testing::GTEST_FLAG(filter).empty() &&
       ::testing::GTEST_FLAG(filter) != "*")
     return;
-  for (const auto &e : kExpected) {
+  for (const auto *table : {&kExpected, &kEveryPlatform})
+    for (const auto &e : *table) {
 #ifndef QT_CORE_LIB
-    if (e.first.find("vec_styles.pli") != std::string::npos) continue;
+      if (e.first.find("vec_styles.pli") != std::string::npos) continue;
 #endif
-    EXPECT_TRUE(seen().count(e.first)) << "not checked: " << e.first;
-  }
+      EXPECT_TRUE(seen().count(e.first)) << "not checked: " << e.first;
+    }
 }
