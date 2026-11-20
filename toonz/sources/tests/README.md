@@ -490,15 +490,27 @@ TSAN_OPTIONS=halt_on_error=1 ./build/tsan-qt/tests/nexttoonz_core_tests
 
 Both test binaries report nothing. tcomposer is not in an application bundle
 here and loads its libraries from beside itself (`@executable_path`): copy it
-and the build's `*.dylib` into one folder first. On macOS a sanitizer report
-ends in `abort()` by default, which leaves a crash report each time; pass
-`abort_on_error=0` when rendering, and `log_path=<dir>/tsan` to keep the
-reports:
+and the build's `*.dylib` into one folder first (run from the build folder
+it cannot find them, and dyld aborts).
+
+On macOS, ThreadSanitizer ends a run that reported anything with `abort()`
+(`abort_on_error=1` is its default there, unlike Linux), and every abort
+leaves a crash report in `~/Library/Logs/DiagnosticReports` and may put up
+the crash dialog: one pass over the reference scenes left 28 of them. So
+always pass `abort_on_error=0` (and `exitcode=0` if a script should not
+treat the reports as failures), with `log_path=<dir>/tsan` to keep each
+process's reports in a file instead of on standard error:
 
 ```
-TSAN_OPTIONS="halt_on_error=0 abort_on_error=0 log_path=/tmp/tsan" \
+TSAN_OPTIONS="halt_on_error=0 abort_on_error=0 exitcode=0 log_path=/tmp/tsan" \
     <folder>/tcomposer <scene>.tnz -o <out>.png -nthreads 8 -TOONZROOT <stuff>
 ```
+
+ThreadSanitizer does not see the locking of Qt, which is not instrumented:
+data under a `QMutex` or handed over through `QWaitCondition` or `QThread`
+shows up as races that are probably not (section 8.19 of
+doc/nexttoonz_core_noqt.md). Data under `TThread::Mutex` or a C++ library
+lock is seen correctly.
 
 Renders still report old races in the render code (known issues 38 to 44);
 anything else is new. None of the reports is inside Qt, so there is no
