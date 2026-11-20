@@ -11,4 +11,6 @@
 
 ## 图
 
+![step8_camstand.png](step8_camstand.png)
+
 ![step8_camstand_zoom.png](step8_camstand_zoom.png)
