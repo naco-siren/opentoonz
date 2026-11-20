@@ -68,6 +68,7 @@ set(NEXTTOONZ_CORE_NOQT_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tsound_io.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tstring.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tsystem.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/test_executor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tthreaddispatcher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_tthreadmutex.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/test_ttranslatabletext.cpp
@@ -156,7 +157,7 @@ if(WITH_QT AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toonzlib/CMakeLists.txt)
 endif()
 
 #-----------------------------------------------------------------------------
-# The thread pool (TThread::Executor), on the Qt implementation for now
+# The Qt side of the thread pool (TThread::QtRunnable)
 
 if(WITH_QT)
     add_subdirectory(thread)

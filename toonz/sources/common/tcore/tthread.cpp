@@ -10,7 +10,6 @@
 #include "tatomicvar.h"
 
 #include "tthread.h"
-#include "tthreadp.h"
 
 // STL includes
 #include <algorithm>
@@ -19,6 +18,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
+#include <cstring>  // memset (it came with Qt's headers on Linux)
 #include <deque>
 #include <map>
 #include <mutex>
@@ -35,9 +35,6 @@
 // tcg includes
 #include "tcg/tcg_pool.h"
 
-// Qt includes (Runnable is still a QObject: its signals, and their delivery)
-#include <QMetaType>
-#include <QCoreApplication>
 
 //==============================================================================
 
@@ -173,9 +170,16 @@ DEFINE_CLASS_CODE(TThread::Runnable, 21)
 //    Global init() initializer function
 //------------------------------------------
 
+#ifdef QT_CORE_LIB
+// tthread_qt.cpp: the Qt dispatcher, and RunnableP for queued signals
+void initThreadQt();
+#endif
+
 void TThread::init() {
   Executor::init();
-  TThreadMessageDispatcher::init();
+#ifdef QT_CORE_LIB
+  initThreadQt();
+#endif
 }
 
 //---------------------------------------------------------------------
@@ -329,30 +333,30 @@ bool shutdownVar       = false;
 //! THREAD_PRIORITY_IDLE, _LOWEST, _BELOW_NORMAL, _NORMAL, _ABOVE_NORMAL,
 //! _HIGHEST and _TIME_CRITICAL. InheritPriority changes nothing, as
 //! setPriority() refuses it.
-void setCurrentThreadPriority(QThread::Priority priority) {
-  if (priority == QThread::InheritPriority) return;
+void setCurrentThreadPriority(Priority priority) {
+  if (priority == InheritPriority) return;
 #ifdef _WIN32
   int prio;
   switch (priority) {
-  case QThread::IdlePriority:
+  case IdlePriority:
     prio = THREAD_PRIORITY_IDLE;
     break;
-  case QThread::LowestPriority:
+  case LowestPriority:
     prio = THREAD_PRIORITY_LOWEST;
     break;
-  case QThread::LowPriority:
+  case LowPriority:
     prio = THREAD_PRIORITY_BELOW_NORMAL;
     break;
-  case QThread::NormalPriority:
+  case NormalPriority:
     prio = THREAD_PRIORITY_NORMAL;
     break;
-  case QThread::HighPriority:
+  case HighPriority:
     prio = THREAD_PRIORITY_ABOVE_NORMAL;
     break;
-  case QThread::HighestPriority:
+  case HighestPriority:
     prio = THREAD_PRIORITY_HIGHEST;
     break;
-  case QThread::TimeCriticalPriority:
+  case TimeCriticalPriority:
     prio = THREAD_PRIORITY_TIME_CRITICAL;
     break;
   default:
@@ -366,18 +370,18 @@ void setCurrentThreadPriority(QThread::Priority priority) {
   if (pthread_getschedparam(self, &policy, &param) != 0) return;
   int prio;
 #ifdef SCHED_IDLE
-  if (priority == QThread::IdlePriority) {
+  if (priority == IdlePriority) {
     policy = SCHED_IDLE;
     prio   = 0;
   } else
 #endif
   {
 #ifdef SCHED_IDLE
-    const int lowest = QThread::LowestPriority;
+    const int lowest = LowestPriority;
 #else
-    const int lowest = QThread::IdlePriority;
+    const int lowest = IdlePriority;
 #endif
-    const int highest = QThread::TimeCriticalPriority;
+    const int highest = TimeCriticalPriority;
     const int prioMin = sched_get_priority_min(policy);
     const int prioMax = sched_get_priority_max(policy);
     if (prioMin == -1 || prioMax == -1) return;
@@ -522,11 +526,9 @@ int Runnable::schedulingPriority() { return 5; }
 
 //---------------------------------------------------------------------
 
-//! Returns the QThread::Priority used by worker threads when they adopt
-//! the task. The default value returned is QThread::Normal.
-QThread::Priority Runnable::runningPriority() {
-  return QThread::NormalPriority;
-}
+//! Returns the Priority used by worker threads when they adopt the task. The
+//! default value returned is NormalPriority.
+Priority Runnable::runningPriority() { return NormalPriority; }
 
 //---------------------------------------------------------------------
 
@@ -608,30 +610,7 @@ inline bool Runnable::customConditions() {
   \sa \b Executor::shutdown static method and \b Runnable::canceled signal.
 */
 
-//! Convenience slot for the started() signal - so it's not necessary to declare
-//! the task in a header file for moc'ing each time. You must both reimplement
-//! \b and connect it to the started() signal to make it work.
-void Runnable::onStarted(RunnableP) {}
-
-//---------------------------------------------------------------------
-
-//! The analogous of onStarted() for the finished() signal.
-void Runnable::onFinished(RunnableP) {}
-
-//---------------------------------------------------------------------
-
-//! The analogous of onStarted() for the exception() signal.
-void Runnable::onException(RunnableP) {}
-
-//---------------------------------------------------------------------
-
-//! The analogous of onStarted() for the canceled() signal.
-void Runnable::onCanceled(RunnableP) {}
-
-//---------------------------------------------------------------------
-
-//! The analogous of onStarted() for the terminated() signal.
-void Runnable::onTerminated(RunnableP) {}
+// (The on*() convenience slots are QtRunnable's, tthread_qt.cpp.)
 
 //=====================================================================
 
@@ -738,16 +717,16 @@ void Worker::run() {
     setCurrentThreadPriority(m_task->runningPriority());
 
     try {
-      Q_EMIT m_task->started(m_task);
+      m_task->notifyStarted();
       sl.unlock();
 
       m_task->run();
 
       sl.lock();
-      Q_EMIT m_task->finished(m_task);
+      m_task->notifyFinished();
     } catch (...) {
       if (!sl.owns_lock()) sl.lock();  // throw must be in the run() block
-      Q_EMIT m_task->exception(m_task);
+      m_task->notifyException();
     }
 
     updateCountsOnRelease();
@@ -841,8 +820,6 @@ void Executor::init() {
   // need the QCoreApplication since step 9c; the tasks' signals, delivered
   // to the main thread, still do.)
   if (!globalImp) globalImp = new ExecutorImp;
-
-  qRegisterMetaType<TThread::RunnableP>("TThread::RunnableP");
 }
 
 //---------------------------------------------------------------------
@@ -886,14 +863,14 @@ void Executor::shutdown() {
     for (it = globalImp->m_workers.begin(); it != globalImp->m_workers.end();
          ++it) {
       RunnableP task = (*it)->m_task;
-      if (task) Q_EMIT task->canceled(task);
+      if (task) task->notifyCanceled();
     }
 
     // Finally, deal with the global queue tasks
     auto &tasks = globalImp->m_tasks;
     for (auto jt = tasks.begin(); jt != tasks.end();) {
       RunnableP task = jt->second;
-      Q_EMIT task->canceled(task);
+      task->notifyCanceled();
       jt = tasks.erase(jt);
     }
 
@@ -901,7 +878,7 @@ void Executor::shutdown() {
     for (it = globalImp->m_workers.begin(); it != globalImp->m_workers.end();
          ++it) {
       RunnableP task = (*it)->m_task;
-      if (task) Q_EMIT task->terminated(task);
+      if (task) task->notifyTerminated();
     }
 
     // Release the dedicated workers that sleep for their executor (they
@@ -919,11 +896,6 @@ void Executor::shutdown() {
     }
   }
 
-  // Just placing a convenience processEvents() to make sure that queued slots
-  // invoked by the
-  // signals above are effectively invoked in this method - without having to
-  // return to an event loop.
-  QCoreApplication::processEvents();
 
   // Wait for every worker thread to end (decision of 2026-11-20, step 9 of
   // doc/nexttoonz_core_noqt.md): the running tasks were told to stop, and
@@ -942,8 +914,13 @@ void Executor::shutdown() {
       if (waiting) dispatcher->post([] {});
     }
   });
+  // The queued slots of the signals above run here too, without a return to
+  // an event loop (it was a QCoreApplication::processEvents()): a marker
+  // posted now runs after them, and the wait lasts at least until then.
+  std::atomic<bool> drained(false);
+  dispatcher->post([&drained] { drained = true; });
   dispatcher->waitUntil([&] {
-    return liveWorkerCount() == 0 || Clock::now() >= timeout;
+    return drained && (liveWorkerCount() == 0 || Clock::now() >= timeout);
   });
   waiting = false;
   waker.join();
@@ -1042,7 +1019,7 @@ void Executor::removeTask(RunnableP task) {
   // Then, look in the global queue - if it is found, emiminate the task and
   // send the canceled signal.
   if (globalImp->removeTask(task->m_schedulingPriority, task)) {
-    Q_EMIT task->canceled(task);
+    task->notifyCanceled();
     return;
   }
 
@@ -1050,7 +1027,7 @@ void Executor::removeTask(RunnableP task) {
   std::set<Worker *> &workers = globalImp->m_workers;
   std::set<Worker *>::iterator it;
   for (it = workers.begin(); it != workers.end(); ++it)
-    if (task && (*it)->m_task == task) Q_EMIT task->canceled(task);
+    if (task && (*it)->m_task == task) task->notifyCanceled();
 
   // No need to refresh - tasks were eventually decremented...
 }
@@ -1071,7 +1048,7 @@ void Executor::cancelAll() {
   for (it = globalImp->m_workers.begin(); it != globalImp->m_workers.end();
        ++it) {
     RunnableP task = (*it)->m_task;
-    if (task && task->m_id == m_id) Q_EMIT task->canceled(task);
+    if (task && task->m_id == m_id) task->notifyCanceled();
   }
 
   // Finally, clear the global tasks list from all tasks inserted by this
@@ -1081,7 +1058,7 @@ void Executor::cancelAll() {
   for (auto jt = tasks.begin(); jt != tasks.end();) {
     if (jt->second->m_id == m_id) {
       RunnableP task = jt->second;
-      Q_EMIT task->canceled(task);
+      task->notifyCanceled();
       jt = tasks.erase(jt);
     } else
       ++jt;

@@ -7,6 +7,7 @@
 #include "timage.h"
 #include "tiio.h"
 #include "tthread.h"
+#include "tthread_qt.h"
 #include "toonz/toonzscene.h"
 
 //#define WRITE_LOG_FILE
@@ -46,7 +47,7 @@ public:
 //=============================================================================
 // ImageProcessing
 
-class ImageProcessing : public TThread::Runnable {
+class ImageProcessing : public TThread::QtRunnable {
   Q_OBJECT
   unsigned char *m_ptr;
   int m_camWidth;

@@ -1187,6 +1187,52 @@ tnzcore 里三处线程相关的小地方换成标准库，线程行为不变。
 
 **结果。** 线程池的测试整个程序连跑 30 次全过，TSan 下也全过，0 次报告；全部测试 553 个通过；28 个场景 × `-nthreads` 1 和 8，554 帧与改动前逐字节相同；无 Qt 构建 173 个、iPad 模拟器里 84 个。Linux 虚拟机（ASan、UBSan、LSan）：526 个里 525 个通过（照旧只有 `golden_fx_sweep_font_a`），线程池的测试都过；GL 画布 32 个、无 Qt 构建 173 个通过。
 
+### 8.22 第 9d 步实际做成的样子（2026-11-20）
+
+`TThread::Runnable` 不再是 QObject，`tthread.h` 不再包含 Qt，线程池（`tthread.cpp`）进了无 Qt 构建和 iPad。
+
+**核心的 `Runnable`。**
+- 原来的五个信号换成五个私有虚函数 `notifyStarted()`、`notifyFinished()`、`notifyException()`、`notifyCanceled()`、`notifyTerminated()`，默认什么都不做。线程池在原来发信号的同一位置、同一线程、同一把锁里调用它们：started 和 finished 在工作线程上紧挨着 `run()` 前后，`run()` 抛异常时用 exception 代替 finished；canceled 和 terminated 在取消或关闭的那个线程上。
+- `runningPriority()` 返回自己的枚举 `TThread::Priority`。各值与 `QThread::Priority` 相同，`tthread_qt.cpp` 里用 `static_assert` 钉住。
+- 原来的 `on*()` 槽只在 Qt 一侧有意义，搬到了 `QtRunnable`。
+- `TThread::init()`：核心部分只建线程池。Qt 构建里（`QT_CORE_LIB`，同 Q2 的做法）它还调 `tthread_qt.cpp` 的 `initThreadQt()`：装 Qt 派发器，并登记 `RunnableP`，让它能作排队信号的参数。
+- `shutdown()` 里原来的那次 `QCoreApplication::processEvents()`（让排队的槽在 shutdown 里执行）换成：往派发器投递一个记号，等待至少持续到记号执行。Qt 派发器上记号排在已有事件之后，效果相同；没有派发器时立刻执行。
+
+**`TThread::QtRunnable`**（`include/tthread_qt.h`、`common/tcore/tthread_qt.cpp`，Q9-A：放在 tnzcore 的 Qt 一侧，第 20 步搬出去）：
+- 一个 QObject 加 `Runnable`，信号和槽与原来的 `Runnable` 完全相同。它实现那五个钩子，在钩子里发对应的信号，信号参数照旧是持有任务本身的 `RunnableP`。
+- 连到住在主线程的对象上的信号，照旧排队过去。
+- `TThread::toPriority()` 把 `QThread::Priority` 换成新的枚举。
+
+**换了基类的子类。** 用到信号、槽或 `Q_OBJECT` 的 8 个换成 `QtRunnable`，此外只多一行 include：
+- tnzbase 的 `RenderTask`、toonzlib 的样式管理器任务；
+- toonzqt 的 `IconRenderer`、`SwatchViewer::ContentRender`；
+- 应用里的 `FrameCountTask`、`VectorizationSwatchTask`、`MyLocalControllerController`，以及 `tnzcamera.h` 的 `ImageProcessing`。
+
+其余 8 个（农场的 6 个、批处理的 `TaskRunner`、两个声音录制任务）什么信号都不用，留在核心的 `Runnable` 上，一行没改。`FrameCountTask::runningPriority()` 改用 `TThread::LowPriority`。
+
+**测试拆成两部分。**
+- 线程池本身：`tests/core/test_executor.cpp`，11 条，不带 Qt。两种构建的核心测试和 iPad 模拟器里都跑。任务经钩子记录事件，测试只调 `Executor::init()`，没有派发器（主线程的工作立刻执行）。shutdown 那条排在这个文件的最后；核心测试里别的测试都不用线程池。
+- Qt 一侧：`tests/thread/test_qtrunnable.cpp`，6 条，只在 Qt 构建里。程序自己建 `QCoreApplication` 并调 `TThread::init()`。测的是：
+  - 信号在工作线程上发、经排队到主线程上的槽；
+  - 抛异常时发 exception、不发 finished；
+  - 按名字连到重写的 `on*()` 槽，照旧能用；
+  - canceled 排队给另一个对象，如 IconRenderer 之于 IconGenerator；
+  - 工作线程的调度参数与 `QThread::setPriority()` 设的相同；
+  - 经 Qt 派发器的 shutdown：排队的槽在它里面执行，它也等工作线程退出。
+
+**人工验收（到里程碑时并进 8.6 节的清单）**，都在应用里：
+- 预览：Ctrl+R 和 flipbook，进度条走到头；预览中途取消；
+- 渲染：渲染输出的进度和取消；批处理里加任务、跑、停；
+- 图标：调色板和关卡条的图标都能生成；滚动时取消的图标后来照样补上；
+- 文件浏览器：一个装满关卡的文件夹，帧数一个个出来，中途离开该文件夹不卡；
+- 矢量化：矢量化对话框的样例预览；
+- 样本查看器（已知问题第 45 条）：开、关样本查看器面板几次以后，再取消图标、取消渲染，不崩；
+- 退出（8.21 节）：后台在渲染或生成图标时退出，最多等 5 秒，不崩；没有后台任务时立刻退出。
+
+**结果（x86_64 macOS）。** 全部测试 558 个通过；核心测试和 Qt 一侧的线程测试各连跑 20 次全过；28 个场景 × `-nthreads` 1 和 8，554 帧与改动前（`37fdccdcc`）逐字节相同；无 Qt 构建三道检查通过（tnzcore 不用 Qt 的源文件 79 个），184 个测试，iPad 模拟器里 95 个（线程池的 11 条在内）；TSan 下 Qt 构建的核心测试 251 个、Qt 一侧的线程测试 6 个、无 Qt 构建的核心测试都是 0 次报告。
+
+**结果（Linux 虚拟机，ASan、UBSan、LSan）。** 第一次编不过：`tthread.cpp` 用的 `memset`，原来经 Qt 的头带进 `<cstring>`，去掉 Qt 以后要自己包含，与第 4 步以来的同类问题一样。补上以后全部目标编译通过；531 个测试里 530 个通过（照旧只有 `golden_fx_sweep_font_a`），两部分线程测试都过；GL 画布 32 个、无 Qt 构建 184 个通过。
+
 ## 9. 引擎 API 的第一版
 
 D3 定了形状：无模板、`noexcept`、具体类型的 C++ 头，错误用返回值，不暴露 Qt 类型和 `TRasterPT<T>` 之类的模板实例；C ABI 等第一个非 C++ 消费者出现时从它机械派生。本稿只定第一版覆盖什么、什么时候出现。

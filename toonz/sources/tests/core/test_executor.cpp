@@ -1,33 +1,29 @@
 // Characterization tests of TThread::Executor and TThread::Runnable
-// (tthread.h), written before step 9c of doc/nexttoonz_core_noqt.md moves
-// the workers from QThread to std::thread, and run on the Qt implementation
-// first: what the program relies on, as the pool does it today.
+// (tthread.h): what the thread pool does, pinned down on its Qt
+// implementation before step 9c of doc/nexttoonz_core_noqt.md moved the
+// workers to std::thread, and since step 9d without Qt at all, in both builds
+// and in the iPad simulator. The tasks log what the pool tells them through
+// Runnable's notify*() hooks, called where QtRunnable emits its signals (the
+// Qt side, and the delivery of those signals, is tested in
+// tests/thread/test_qtrunnable.cpp).
 //
 // - tasks of one executor run by scheduling priority, then in the order they
 //   were added; an executor runs one task at a time unless told otherwise;
 // - setMaxActiveTasks() and setMaxActiveLoad() bound what runs at once;
-// - removeTask() and cancelAll() emit canceled() at once, in the calling
+// - removeTask() and cancelAll() notify canceled at once, in the calling
 //   thread, take queued tasks out and leave running ones running;
-// - dedicated persistent threads keep serving their executor only;
-// - started(), finished() and exception() are emitted in the worker thread,
-//   around run(), and delivered to the task's own slots in the main thread;
-//   an exception emits exception() and not finished();
-// - a task's runningPriority() gives its worker the scheduling parameters
-//   QThread::setPriority() gives a thread (decision Q9-C);
+// - dedicated persistent threads keep serving their executor only, and a
+//   gone dedicated executor leaves no worker behind (known issue 45);
+// - started and finished come from the worker around run(); an exception
+//   notifies exception and not finished;
 // - shutdown() cancels every task, the queued ones without running them,
-//   and then emits terminated() for the running ones.
+//   notifies terminated for the running ones, and waits for every worker
+//   thread to end (5 seconds at most).
 
 #include <gtest/gtest.h>
 
 #include "tthread.h"
 #include "tthreadmessage.h"
-
-#include <QCoreApplication>
-#include <QEventLoop>
-#include <QThread>
-#include <QTimer>
-
-#include <pthread.h>
 
 #include <algorithm>
 #include <atomic>
@@ -102,13 +98,11 @@ public:
 
 Log g_log;
 
-// Processes the main thread's events until done() holds; false after ten
-// seconds.
+// Waits until done() holds; false after ten seconds.
 bool runEventsUntil(const std::function<bool()> &done) {
   const Clock::time_point end = Clock::now() + std::chrono::seconds(10);
   while (!done()) {
     if (Clock::now() > end) return false;
-    QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   return true;
@@ -132,12 +126,12 @@ public:
   }
 };
 
+// A task that logs what the pool tells it, in the thread it is told in.
 class Probe final : public TThread::Runnable {
 public:
   int m_n;
   int m_priority = 5;  // the default of Runnable::schedulingPriority()
   int m_load     = 0;
-  QThread::Priority m_running = QThread::NormalPriority;
   std::function<void()> m_body;
 
   explicit Probe(int n) : m_n(n) {}
@@ -147,39 +141,24 @@ public:
   }
   int schedulingPriority() override { return m_priority; }
   int taskLoad() override { return m_load; }
-  QThread::Priority runningPriority() override { return m_running; }
+
+private:
+  void notifyStarted() override { g_log.add("started", m_n); }
+  void notifyFinished() override { g_log.add("finished", m_n); }
+  void notifyException() override { g_log.add("exception", m_n); }
+  void notifyCanceled() override { g_log.add("canceled", m_n); }
+  void notifyTerminated() override { g_log.add("terminated", m_n); }
 };
 
-// A task whose signals are all logged: where they are emitted (direct
-// connections), and finished() and exception() also where the task's own
-// slots receive them (connections with the task as context, which live in
-// the main thread, as the subclasses connect them).
-Probe *watched(int n) {
-  Probe *p = new Probe(n);
-  QObject::connect(p, &TThread::Runnable::started,
-                   [n](TThread::RunnableP) { g_log.add("started", n); });
-  QObject::connect(p, &TThread::Runnable::finished,
-                   [n](TThread::RunnableP) { g_log.add("finished", n); });
-  QObject::connect(p, &TThread::Runnable::exception,
-                   [n](TThread::RunnableP) { g_log.add("exception", n); });
-  QObject::connect(p, &TThread::Runnable::canceled,
-                   [n](TThread::RunnableP) { g_log.add("canceled", n); });
-  QObject::connect(p, &TThread::Runnable::terminated,
-                   [n](TThread::RunnableP) { g_log.add("terminated", n); });
-  QObject::connect(p, &TThread::Runnable::finished, p,
-                   [n](TThread::RunnableP) { g_log.add("finished-slot", n); });
-  QObject::connect(p, &TThread::Runnable::exception, p,
-                   [n](TThread::RunnableP) { g_log.add("exception-slot", n); });
-  return p;
-}
+Probe *watched(int n) { return new Probe(n); }
 
 class ExecutorTest : public ::testing::Test {
 protected:
+  // the pool needs no more (TThread::init() also installs the Qt dispatcher
+  // in the build with Qt; here, as in the build without Qt, there is none:
+  // the main thread's work runs at once)
+  static void SetUpTestSuite() { TThread::Executor::init(); }
   void SetUp() override { g_log.clear(); }
-  void TearDown() override {
-    // let the workers of this test finish and the queued signals arrive
-    QCoreApplication::processEvents();
-  }
 };
 
 // Concurrency seen by tasks that stay a little while in run().
@@ -356,7 +335,6 @@ TEST_F(ExecutorTest, DedicatedPersistentThreadsServeTheirExecutorOnly) {
     EXPECT_NE(g_log.first("run", 2).thread, dedicatedThread);
   }
   // (the executors are gone: the sleeping thread is released)
-  QCoreApplication::processEvents();
 }
 
 // Known issue 45: the sleeping thread of a dedicated executor stayed in the
@@ -372,10 +350,8 @@ TEST_F(ExecutorTest, AGoneDedicatedExecutorLeavesNoWorkerBehind) {
       ASSERT_TRUE(runEventsUntil(
           [round] { return g_log.count("finished", 100 + round) == 1; }));
     }
-    // the released thread ends and is deleted (a queued slot)
-    const Clock::time_point until = Clock::now() + std::chrono::milliseconds(100);
-    while (Clock::now() < until)
-      QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+    // the released thread ends and deletes itself
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     TThread::Executor other;
     Gate gate;
@@ -392,116 +368,44 @@ TEST_F(ExecutorTest, AGoneDedicatedExecutorLeavesNoWorkerBehind) {
   }
 }
 
-TEST_F(ExecutorTest, SignalsComeFromTheWorkerAroundRunAndReachTheSlotsInTheMainThread) {
+TEST_F(ExecutorTest, StartedAndFinishedComeFromTheWorkerAroundRun) {
   TThread::Executor ex;
   TThread::RunnableP t(watched(0));
   ex.addTask(t);
-  ASSERT_TRUE(runEventsUntil([] { return g_log.count("finished-slot", 0) == 1; }));
+  ASSERT_TRUE(runEventsUntil([] { return g_log.count("finished", 0) == 1; }));
   int started = g_log.index("started", 0), run = g_log.index("run", 0),
-      finished = g_log.index("finished", 0),
-      slot     = g_log.index("finished-slot", 0);
+      finished = g_log.index("finished", 0);
   EXPECT_LT(started, run);
   EXPECT_LT(run, finished);
-  EXPECT_LT(finished, slot);
-  Event s = g_log.first("started", 0), r = g_log.first("run", 0),
-        f = g_log.first("finished", 0), fs = g_log.first("finished-slot", 0);
-  EXPECT_FALSE(s.onMain);
-  EXPECT_EQ(s.thread, r.thread);
+  Event st = g_log.first("started", 0), r = g_log.first("run", 0),
+        f = g_log.first("finished", 0);
+  EXPECT_FALSE(st.onMain);
+  EXPECT_EQ(st.thread, r.thread);
   EXPECT_EQ(f.thread, r.thread);
-  EXPECT_TRUE(fs.onMain);
   EXPECT_EQ(g_log.count("exception"), 0);
 }
 
-TEST_F(ExecutorTest, AnExceptionEmitsExceptionAndNotFinishedAndTheExecutorGoesOn) {
+TEST_F(ExecutorTest, AnExceptionNotifiesExceptionAndNotFinishedAndTheExecutorGoesOn) {
   TThread::Executor ex;
   Probe *thrower  = watched(0);
   thrower->m_body = [] { throw std::runtime_error("in run()"); };
   TThread::RunnableP t0(thrower), t1(watched(1));
   ex.addTask(t0);
   ex.addTask(t1);
-  ASSERT_TRUE(runEventsUntil([] {
-    return g_log.count("exception-slot", 0) == 1 &&
-           g_log.count("finished-slot", 1) == 1;
-  }));
+  ASSERT_TRUE(runEventsUntil([] { return g_log.count("finished", 1) == 1; }));
   EXPECT_EQ(g_log.count("finished", 0), 0);
   EXPECT_EQ(g_log.count("exception", 0), 1);
   EXPECT_FALSE(g_log.first("exception", 0).onMain);
   EXPECT_EQ(g_log.first("exception", 0).thread, g_log.first("run", 0).thread);
-  EXPECT_TRUE(g_log.first("exception-slot", 0).onMain);
   EXPECT_LT(g_log.index("started", 0), g_log.index("exception", 0));
   EXPECT_LT(g_log.index("exception", 0), g_log.index("run", 1));
 }
 
-namespace {
-
-struct SchedParams {
-  int policy   = -1;
-  int priority = -1;
-  bool operator==(const SchedParams &o) const {
-    return policy == o.policy && priority == o.priority;
-  }
-};
-
-SchedParams currentSchedParams() {
-  SchedParams p;
-  sched_param param;
-  if (pthread_getschedparam(pthread_self(), &p.policy, &param) == 0)
-    p.priority = param.sched_priority;
-  return p;
-}
-
-// What QThread::setPriority() gives a thread, called in the thread itself,
-// as the workers did before step 9c.
-class ReferenceThread final : public QThread {
-public:
-  QThread::Priority m_priority;
-  SchedParams m_params;
-  explicit ReferenceThread(QThread::Priority p) : m_priority(p) {}
-  void run() override {
-    setPriority(m_priority);
-    m_params = currentSchedParams();
-  }
-};
-
-}  // namespace
-
-TEST_F(ExecutorTest, RunningPriorityGivesTheWorkerWhatQThreadSetPriorityGives) {
-  const QThread::Priority priorities[] = {
-      QThread::IdlePriority,    QThread::LowestPriority,
-      QThread::LowPriority,     QThread::NormalPriority,
-      QThread::HighPriority,    QThread::HighestPriority,
-      QThread::TimeCriticalPriority};
-  for (QThread::Priority priority : priorities) {
-    ReferenceThread reference(priority);
-    reference.start();
-    reference.wait();
-
-    TThread::Executor ex;
-    std::mutex mutex;
-    SchedParams seen;
-    std::atomic<bool> done(false);
-    Probe *p     = new Probe(0);
-    p->m_running = priority;
-    p->m_body    = [&] {
-      std::lock_guard<std::mutex> lock(mutex);
-      seen = currentSchedParams();
-      done = true;
-    };
-    TThread::RunnableP t(p);
-    ex.addTask(t);
-    ASSERT_TRUE(runEventsUntil([&] { return done.load(); }));
-    std::lock_guard<std::mutex> lock(mutex);
-    EXPECT_EQ(seen.policy, reference.m_params.policy) << "priority " << priority;
-    EXPECT_EQ(seen.priority, reference.m_params.priority)
-        << "priority " << priority;
-  }
-}
-
-// Last: Executor::shutdown() is for the whole process. Since the decision of
-// 2026-11-20 (step 9 of doc/nexttoonz_core_noqt.md) it also waits, processing
-// events, until every worker thread has ended (5 seconds at most): here the
-// running task is let go by a timer while shutdown() waits, and a dedicated
-// executor's sleeping thread is released by it.
+// Last: Executor::shutdown() is for the whole process (no other core test
+// uses the pool). Since the decision of 2026-11-20 (step 9 of
+// doc/nexttoonz_core_noqt.md) it also waits until every worker thread has
+// ended (5 seconds at most): here the running task is let go while shutdown()
+// waits, and a dedicated executor's sleeping thread is released by it.
 TEST_F(ExecutorTest, ZzShutdownCancelsEveryTaskAndWaitsForTheWorkersToEnd) {
   TThread::Executor ex, dedicated;
   dedicated.setDedicatedThreads(true, true);
@@ -519,24 +423,27 @@ TEST_F(ExecutorTest, ZzShutdownCancelsEveryTaskAndWaitsForTheWorkersToEnd) {
   ex.addTask(q2);
   EXPECT_GE(TThread::Executor::liveWorkerCount(), 2);
 
-  // let the running task go a little after shutdown() starts waiting (an
-  // event, which the wait processes)
-  QTimer::singleShot(100, [&] { gate.release(); });
+  // let the running task go a little after shutdown() starts waiting
+  std::thread releaser([&] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    gate.release();
+  });
   const Clock::time_point start = Clock::now();
   TThread::Executor::shutdown();
+  releaser.join();
   const auto waited = std::chrono::duration_cast<std::chrono::milliseconds>(
                           Clock::now() - start)
                           .count();
 
   // the running one, then the queued ones (of equal priority, the latest
-  // first), then terminated() for the running one; all in the calling thread
+  // first), then terminated for the running one; all in the calling thread
   EXPECT_EQ(g_log.order("canceled"), (std::vector<int>{0, 2, 1}));
   EXPECT_EQ(g_log.order("terminated"), (std::vector<int>{0}));
   EXPECT_LT(g_log.index("canceled", 1), g_log.index("terminated", 0));
   for (int n : {0, 1, 2}) EXPECT_TRUE(g_log.first("canceled", n).onMain);
   EXPECT_TRUE(g_log.first("terminated", 0).onMain);
 
-  // the running task was not stopped: it ended, and said finished(), before
+  // the running task was not stopped: it ended, and notified finished, before
   // shutdown() returned; every worker thread had ended, the sleeping
   // dedicated one too, well before the 5 seconds
   EXPECT_EQ(g_log.count("finished", 0), 1);

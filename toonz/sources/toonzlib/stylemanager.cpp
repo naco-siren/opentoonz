@@ -1,6 +1,7 @@
 
 
 // Toonz includes
+#include "tthread_qt.h"
 #include "tvectorimage.h"
 #include "trasterimage.h"
 #include "tlevel_io.h"
@@ -241,7 +242,7 @@ void BaseStyleManager::setRootPath(const TFilePath &rootPath) {
 //    StyleLoaderTask definition
 //********************************************************************************
 
-class CustomStyleManager::StyleLoaderTask final : public TThread::Runnable {
+class CustomStyleManager::StyleLoaderTask final : public TThread::QtRunnable {
   CustomStyleManager *m_manager;
   TFilePath m_fp;
   ChipData m_data;

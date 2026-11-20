@@ -1,13 +1,15 @@
-# Characterization tests of TThread::Executor and Runnable (step 9c of
-# doc/nexttoonz_core_noqt.md): what the thread pool does, pinned down on the
-# Qt implementation before its workers move to std::thread. A binary of its
-# own: main() makes the QCoreApplication and calls TThread::init(), and
-# Executor::shutdown(), which the last test calls, is for the whole process.
+# Tests of TThread::QtRunnable, the Qt side of the thread pool (step 9d of
+# doc/nexttoonz_core_noqt.md); the pool itself is tested without Qt in
+# core/test_executor.cpp. A binary of its own: main() makes the
+# QCoreApplication and calls TThread::init(), and Executor::shutdown(), which
+# the last test calls, is for the whole process.
 
 add_executable(nexttoonz_thread_tests
     thread_test_main.cpp
-    test_executor.cpp
+    test_qtrunnable.cpp
 )
+# test_qtrunnable.cpp declares a Q_OBJECT class and includes its moc output
+set_target_properties(nexttoonz_thread_tests PROPERTIES AUTOMOC ON)
 target_link_libraries(nexttoonz_thread_tests
     PRIVATE
         tnzcore

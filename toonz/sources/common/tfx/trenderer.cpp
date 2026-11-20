@@ -7,6 +7,7 @@
 #include "tsystem.h"
 #include "tthreadmessage.h"
 #include "tthread.h"
+#include "tthread_qt.h"
 #include "tconvert.h"
 #include "tstream.h"
 #include "trasterimage.h"
@@ -380,7 +381,7 @@ unsigned long TRendererImp::m_renderIdCounter   = 0;
 //    RenderTask
 //-------------------
 
-class RenderTask final : public TThread::Runnable {
+class RenderTask final : public TThread::QtRunnable {
   std::vector<double> m_frames;
 
   unsigned long m_taskId;
