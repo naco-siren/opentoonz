@@ -533,10 +533,12 @@ if(BUILD_ENV_MSVC)
             set(EXTRA_LIBS ${EXTRA_LIBS} ${CANON_LIB})
         endif()
     endif()
+    # glu32.lib: sceneviewer.cpp projects with GLU; it came through tnzcore
+    # until step 8c of doc/nexttoonz_core_noqt.md
     target_link_libraries(OpenToonz
         Qt5::WinMain Qt5::Core Qt5::Gui Qt5::Network Qt5::OpenGL Qt5::Svg Qt5::Xml
         Qt5::Script Qt5::Widgets Qt5::PrintSupport Qt5::Multimedia Qt5::UiTools
-        ${GL_LIB} ${GLUT_LIB}
+        ${GL_LIB} ${GLUT_LIB} glu32.lib
         ${EXTRA_LIBS} strmiids
         tnzcore tnzbase toonzlib colorfx tnzglview tnzext image sound toonzqt tnztools tnzstdfx tfarm
     )

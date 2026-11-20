@@ -85,10 +85,18 @@ list(REMOVE_ITEM NEXTTOONZ_CORE_TEST_SOURCES ${NEXTTOONZ_VECTOR_NOQT_TEST})
 if(WITH_QT)
     # legacy/: the code of tnzcore before a migration step, kept for the
     # differential tests (test_*_qt.cpp) that compare it with the new code.
-    add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_TEST_SOURCES}
+    # legacy_tsystem.cpp serves test_tsystem_qt.cpp only, which is compiled
+    # on macOS and Linux only (#ifndef _WIN32): its Windows branch never
+    # matched the UNICODE build (doc/nexttoonz_core_noqt.md, 8.16).
+    set(NEXTTOONZ_LEGACY_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/core/legacy/legacy_tfilepath.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/core/legacy/legacy_tsystem.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/core/legacy/legacy_tcontenthistory.cpp)
+    if(NOT WIN32)
+        list(APPEND NEXTTOONZ_LEGACY_SOURCES
+            ${CMAKE_CURRENT_SOURCE_DIR}/core/legacy/legacy_tsystem.cpp)
+    endif()
+    add_executable(nexttoonz_core_tests ${NEXTTOONZ_CORE_TEST_SOURCES}
+        ${NEXTTOONZ_LEGACY_SOURCES})
     target_include_directories(nexttoonz_core_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/core)
     target_link_libraries(nexttoonz_core_tests

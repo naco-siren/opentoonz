@@ -19,7 +19,13 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <functional>
+#ifdef _WIN32
+#include <io.h>  // dup, dup2, open and close of the Windows C library
+#define NEXTTOONZ_NULL_DEVICE "NUL"
+#else
 #include <unistd.h>
+#define NEXTTOONZ_NULL_DEVICE "/dev/null"
+#endif
 #include <random>
 #include <sstream>
 #include <string>
@@ -227,7 +233,7 @@ struct QuietStderr {
   QuietStderr() {
     fflush(stderr);
     saved    = dup(2);
-    int null = open("/dev/null", O_WRONLY);
+    int null = open(NEXTTOONZ_NULL_DEVICE, O_WRONLY);
     dup2(null, 2);
     close(null);
   }

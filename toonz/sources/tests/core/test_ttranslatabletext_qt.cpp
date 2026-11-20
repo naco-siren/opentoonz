@@ -44,7 +44,9 @@ TEST(TTranslatableTextQt, StylesSayWhatToTranslate) {
   // the base's other getParamRange overloads)
   static_cast<const TColorStyle &>(pattern).getParamRange(TrailStyles::cycleParam,
                                                           items);
-  EXPECT_EQ(items, QStringList({"Off", "Forward", "Backward", "Repeat"}));
+  // compared as text: QList's operator== uses stdext::make_checked_array_iterator
+  // in Qt 5.15.2 under MSVC, which Visual Studio 2026 no longer has
+  EXPECT_EQ(items.join('|'), QString("Off|Forward|Backward|Repeat"));
 }
 
 TEST(TTranslatableTextQt, NewPalettePageIsNamedByTheDataTranslator) {

@@ -110,9 +110,12 @@ else()
 endif()
 
 if(BUILD_ENV_MSVC)
+    # glu32.lib: meshbuilder.cpp tessellates with GLU. tnzcore brought it to
+    # every library on Windows until step 8c of doc/nexttoonz_core_noqt.md
+    # took OpenGL out of it; tnzext's OpenGL stays until Phase 3.
     target_link_libraries(tnzext
         Qt5::Core Qt5::Gui Qt5::Network
-        ${GLUT_LIB} ${GL_LIB} ${SUPERLU_LIB} ${OPENBLAS_LIB} ${EXTRA_LIBS}
+        ${GLUT_LIB} ${GL_LIB} glu32.lib ${SUPERLU_LIB} ${OPENBLAS_LIB} ${EXTRA_LIBS}
         tnzcore tnzbase
     )
 elseif(BUILD_ENV_APPLE)

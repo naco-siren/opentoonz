@@ -103,7 +103,10 @@ TEST(RenumberFids, WithoutQtLeavesWhatQtLeaves) {
                        table);
     renumberFidsWithoutQt(
         TFilePath((tmp.path() + "/std").toStdWString() + level), table);
-    EXPECT_EQ(listing(tmp.path() + "/std"), listing(tmp.path() + "/qt"));
+    // compared as text: QList's operator== uses stdext::make_checked_array_iterator
+    // in Qt 5.15.2 under MSVC, which Visual Studio 2026 no longer has
+    EXPECT_EQ(listing(tmp.path() + "/std").join('\n'),
+              listing(tmp.path() + "/qt").join('\n'));
   }
 }
 

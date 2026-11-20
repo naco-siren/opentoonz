@@ -69,7 +69,7 @@ TEST(TSmartPointer, CopiesFromManyThreadsKeepTheCount) {
   const int threads = 8, rounds = 20000;
   std::vector<std::thread> workers;
   for (int t = 0; t < threads; ++t)
-    workers.emplace_back([&shared] {
+    workers.emplace_back([&] {  // (MSVC does not capture rounds implicitly)
       for (int i = 0; i < rounds; ++i) {
         CountedP copy = shared;
         CountedP another(copy);

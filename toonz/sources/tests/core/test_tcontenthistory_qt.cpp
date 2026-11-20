@@ -22,6 +22,15 @@
 
 namespace {
 
+#ifdef _WIN32
+// the Windows C library has no setenv and unsetenv (an empty value removes
+// the variable; tzset it has)
+int setenv(const char *name, const char *value, int) {
+  return _putenv_s(name, value);
+}
+int unsetenv(const char *name) { return _putenv_s(name, ""); }
+#endif
+
 const QString kFmt = "dd MMM yy   hh:mm";
 
 void setTimeZone(const char *tz) {

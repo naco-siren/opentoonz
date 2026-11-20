@@ -1009,6 +1009,17 @@ tnzcanvas、tnzskia 本来就不带 Qt，已经在 iPad 模拟器里跑过单测
 
 在 macOS 和 Linux 上这些宏都是空的，所以这一轮只能证明那两个平台上没有变化；Windows 链不链得过，要等下一次运行。
 
+第四次（run 44663830536 的第二次尝试，在 `d4c77eae8` 上；第一次尝试是 Chocolatey 的 504，与代码无关）编到了测试和 tnzext：
+- tnzext.dll 缺 GLU 的 8 个符号（`meshbuilder.cpp` 的细分器）。Windows 上原来是 tnzcore 把 `opengl32.lib` 和 `glu32.lib` 带给所有库的，8c 把 OpenGL 从 tnzcore 拿走以后就没有了。逐个库查了直接调用 GL 和 GLU 的地方：`opengl32` 各库自己都链了；直接用 GLU 的只有 tnzext 和应用（`sceneviewer.cpp`），tnzglview 和 tnzglcanvas 前两轮已经补上。这一轮给 tnzext 和应用都按名字链 `glu32.lib`，应用这一处还没报错，是同一个原因提前补的。
+- Qt 5.15.2 的 `qlist.h:915` 用 `stdext::make_checked_array_iterator`。运行器的 Visual Studio 18（MSVC 14.52）的标准库没有它了，Qt 后来的 5.15 版本才加上 `_MSC_VER < 1938` 的条件。触发它的只有两个测试：`test_tlevel_io_qt.cpp` 和 `test_ttranslatabletext_qt.cpp`，它们用 `==` 比较两个 `QStringList`，树里别的代码没有实例化这个比较。上游用同样的 VS 18，是绿的，原因也在这里。在 CMake 里定义宏没有用，Qt 5.15.2 在 MSVC 下无条件地定义它；也不改 thirdparty 里的 Qt 头。所以两个测试改成比较拼接后的文本。
+- 测试里的 POSIX：
+  - `test_tfilepath_qt.cpp` 屏蔽标准错误时用的 `dup`、`dup2`、`open`、`close`，Windows 上从 `<io.h>` 来，空设备是 `NUL`；
+  - `test_tcontenthistory_qt.cpp` 的 `setenv`、`unsetenv` 在 Windows 上用 `_putenv_s`；
+  - `test_tsmartpointer.cpp` 的 lambda 改为默认捕获（MSVC 不隐式捕获 `rounds`）。
+- `legacy_tsystem.cpp`（旧 tsystem 的副本）的 Windows 分支本来就对不上 UNICODE 构建。它只给 `test_tsystem_qt.cpp` 用，而后者整个在 `#ifndef _WIN32` 里。所以在 Windows 上不编它：**这些与旧 tsystem 比较的差分测试只在 macOS 和 Linux 上编译。**
+
+照所有者的时间盒，这是 Windows 的最后一轮。下一次运行如果仍然是红的，剩下的问题记在这里和计划的待定事项里，不再追：Windows 不是产品目标，它的 CI 不阻塞。
+
 **macOS arm64（run 44652941765）。** toonzlib 测试里 `VectorWithoutQt` 的四个测试失败：矢量测试的 macOS 校验和表是 x86_64 上生成的。日志里有每一项的实际值，项名都对得上：
 - 不同的有 70 项：68 个画面项（Linux 与 x86_64 本来就不同的那些，一个不少），加上 `regions/computed`、`regions/filled` 两个数据项；
 - 其余 48 个数据项与 x86_64 相同，包括每个 pli 的读取、写出的文件和调色板。
