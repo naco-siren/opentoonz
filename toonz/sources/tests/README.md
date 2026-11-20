@@ -24,6 +24,7 @@ ctest --output-on-failure
 | `canvas_skia/` | Pixel tests of the Skia canvas backend (`tnzskia`): what each canvas call puts into the pixels. Built with `WITH_SKIA`. |
 | `canvas_gl/` | Tests of the OpenGL canvas backend (`tnzglcanvas`) and of how far it agrees with the Skia one. Off by default (`WITH_CANVAS_GL_TESTS`): they need an OpenGL context. |
 | `skia_spike/` | Phase 1 spike: one test binary that links Skia and checks pixels. Off by default (`WITH_SKIA_SPIKE`, with `WITH_SKIA`); see its README. |
+| `hooks/` | Test of the git hooks that guard the fixtures (`.githooks/`, see "Protected fixtures"); ctest `hooks.fixture_guard`. |
 | `ios_gtest.sh` | Builds a GoogleTest binary for iPadOS with Xcode's clang and runs it in the iPad simulator; used by the `run_ios.sh` of `canvas/`, `canvas_skia/` and `skia_spike/`, and by `core/run_ios_noqt.sh`. |
 
 ## Unit tests
@@ -91,10 +92,101 @@ echo /samples/ >> "$(git rev-parse --git-common-dir)/info/exclude"
 
 Do not open `tests/fixtures/reference_project` in the application: it writes
 backups and scene icons into the project, and the tests read that project.
-Work on a copy:
+Work on a copy, `samples/reference_project`; "Protected fixtures" below says
+how to refresh it.
+
+## Protected fixtures
+
+The reference project and the expected results are what every refactor is
+checked against, so a change to them that nobody meant would pass for the
+truth. Two things make such changes easy: OpenToonz writes `<file>.bak`
+backups and a `sceneIcons/` folder into a project it opens, and the
+generator rewrites every scene, with lines reordered, each time it runs.
+Hooks and a CI check therefore refuse changes to:
+
+| Path | What |
+|---|---|
+| `fixtures/reference_project/**` | the reference project |
+| `golden/expected/**` | the golden frames |
+| `**/*_hashes*.inc` (under `tests/`) | checksum tables of tests, such as `core/test_vector_noqt_hashes_<platform>.inc` |
+
+unless the commit says that it means them, and refuse outright, whatever the
+commit says, the artifacts of opening the project under the first two:
+`*.bak`, `*.bak<N>`, `sceneIcons/` and `.DS_Store`. The list lives in
+`.githooks/fixture-guard.sh`.
+
+Install the hooks once per clone, from its root (every worktree of the clone
+gets them; running it again changes nothing):
 
 ```
+tools/setup-hooks.sh                # tools/setup-hooks.sh --uninstall removes them
+```
+
+It puts two small shims, `pre-commit` and `commit-msg`, into the clone's
+hooks directory, `$(git rev-parse --git-common-dir)/hooks`; they run
+`.githooks/pre-commit` and `.githooks/commit-msg` of the worktree being
+committed in, and do nothing in a worktree whose branch has no `.githooks/`.
+The setup does not set `core.hooksPath`: git would then stop running the Git
+LFS hooks of that directory, and since the path is resolved in each
+worktree, a worktree on a branch without `.githooks/` would run no hook at
+all. The Git LFS hooks (`pre-push`, `post-checkout`, `post-commit`,
+`post-merge`) are left as they are.
+
+The CI workflow `workflow_fixture_guard.yml` applies the same rules to every
+commit of a pull request and of a push to `nexttoonz/**`, so a commit made
+with `--no-verify`, or in a clone without the hooks, is still caught.
+
+### Updating them on purpose
+
+1. Regenerate the project ("Regenerating the reference project") or the
+   goldens (`run_golden.py --update`, "Golden renders"), and look at the
+   result.
+2. Stage only what you mean to change. The generator is not deterministic,
+   so it rewrites scenes you did not touch; put those back:
+
+   ```
+   git status --short -- toonz/sources/tests/fixtures/reference_project
+   git add -- toonz/sources/tests/fixtures/reference_project/scenes/new_scene.tnz ...
+   git restore -- toonz/sources/tests/fixtures/reference_project   # the rest
+   ```
+
+3. Say why in the message: a line `Fixtures-Update: <reason>` anywhere below
+   the subject, usually with the other trailers at the end:
+
+   ```
+   tests: a scene for mask columns
+
+   Fixtures-Update: new scene mask_basic, its level and its goldens
+   ```
+
+Without that line, `commit-msg` refuses the commit and lists the files (the
+message is kept in `.git/COMMIT_EDITMSG`). The line in a merge commit also
+covers the commits that merge brings in, and on a pull request the label
+`fixtures-update` covers all of its commits. For an older commit that lacks
+the line, reword it (`git commit --amend` for the last one). The hooks only
+see what is staged: an amend is checked for what it adds, not for what the
+commit already changed, and `--no-verify` skips them; CI checks the commits
+as they are.
+
+The test of all this is `hooks/test_fixture_guard.sh` (ctest
+`hooks.fixture_guard`, label `hooks`; also run by the CI workflow): it makes
+a throwaway repository, installs the hooks there and commits into it.
+
+### The scratch copy and a stray change
+
+To refresh the copy for OpenToonz, from the root of the main checkout:
+
+```
+rm -rf samples/reference_project
 cp -R toonz/sources/tests/fixtures/reference_project samples/reference_project
+```
+
+If the fixture itself was opened, or regenerated by mistake, throw the
+changes away:
+
+```
+git restore --staged --worktree -- toonz/sources/tests/fixtures/reference_project
+git clean -n -- toonz/sources/tests/fixtures/reference_project   # then -f
 ```
 
 ## Vector images without OpenGL
@@ -323,7 +415,8 @@ python3 ../sources/tests/golden/run_golden.py \
 ```
 
 Review the new frames before committing updated goldens; they are the
-source of truth for every later refactor.
+source of truth for every later refactor. The commit needs a
+`Fixtures-Update:` line ("Protected fixtures").
 
 ## Sanitizers
 
@@ -386,7 +479,8 @@ ninja nexttoonz_gen_fixtures
 The generator deletes and recreates the project folder. The result is not
 byte for byte the same from one run to the next: the order of the terminal
 fxs and of the cast in some scenes, and the bytes of the mesh, change. When
-adding a scene, add only its own files and leave the others as they were. It works on a scratch copy of `stuff/`; the `TOONZROOT not
+adding a scene, add only its own files and leave the others as they were
+("Updating them on purpose" under "Protected fixtures"). It works on a scratch copy of `stuff/`; the `TOONZROOT not
 set` messages it prints come from `TEnv` looking for an installed
 configuration and are harmless.
 

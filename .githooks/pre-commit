@@ -1,0 +1,4 @@
+#!/bin/sh
+# Versioned pre-commit hook of NextToonz; tools/setup-hooks.sh installs the
+# shim that runs it. See .githooks/fixture-guard.sh.
+exec sh "$(dirname "$0")/fixture-guard.sh" pre-commit

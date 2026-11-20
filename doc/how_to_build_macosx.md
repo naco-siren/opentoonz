@@ -62,6 +62,12 @@ cd ../tiff-4.0.3
 ./configure --disable-lzma && make
 ```
 
+Then install the repository's git hooks, once per clone (every worktree of the clone gets them; running it again changes nothing):
+```sh
+tools/setup-hooks.sh
+```
+They refuse commits that change the test fixtures or baselines by accident, and leave the Git LFS hooks as they are; see "Protected fixtures" in `toonz/sources/tests/README.md`.
+
 The libtiff in `thirdparty/tiff-4.0.3` is patched for OpenToonz and is linked statically from where it was built: do not `make install` it. It can coexist with a libtiff installed by Homebrew (many formulae pull one in); the build picks the bundled headers.
 
 If you downloaded and installed boost from https://boost.org instead of homebrew, move the package under `thirdparty/boost` as follows: 

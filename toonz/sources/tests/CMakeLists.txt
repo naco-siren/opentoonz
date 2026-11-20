@@ -181,3 +181,18 @@ endif()
 if(WITH_QT)
     add_subdirectory(fixtures)
 endif()
+
+#-----------------------------------------------------------------------------
+# The git hooks that guard the fixtures and baselines (.githooks/,
+# tools/setup-hooks.sh): a shell test that commits into a throwaway
+# repository. It needs git and a POSIX sh, so not on Windows.
+
+find_package(Git QUIET)
+find_program(NEXTTOONZ_POSIX_SH sh)
+if(GIT_FOUND AND NEXTTOONZ_POSIX_SH AND NOT WIN32)
+    add_test(NAME hooks.fixture_guard
+        COMMAND ${NEXTTOONZ_POSIX_SH}
+            ${CMAKE_CURRENT_SOURCE_DIR}/hooks/test_fixture_guard.sh
+    )
+    set_tests_properties(hooks.fixture_guard PROPERTIES LABELS hooks)
+endif()
